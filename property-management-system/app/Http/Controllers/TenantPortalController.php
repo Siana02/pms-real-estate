@@ -1,0 +1,482 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Leases as Lease;
+use App\Models\MaintenanceRequest;
+use App\Models\Organization;
+use App\Models\Payment;
+use App\Models\Property;
+use App\Models\Tenant;
+use App\Models\Unit;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Read/write endpoints for the tenant portal.
+ *
+ * Every query is scoped to the tenant record that belongs to the authenticated
+ * user, so a tenant can only ever see their own unit, lease, payments and
+ * maintenance requests.
+ */
+class TenantPortalController extends Controller
+{
+    public function overview(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->activeLease($tenant);
+        $unit = $lease?->unit_id ? Unit::find($lease->unit_id) : null;
+        $property = $lease?->property_id ? Property::find($lease->property_id) : null;
+        $organization = Organization::find($tenant->organization_id);
+
+        return response()->json([
+            'data' => [
+                'tenant' => [
+                    'id' => $tenant->id,
+                    'first_name' => $tenant->first_name,
+                    'last_name' => $tenant->last_name,
+                    'email' => $tenant->email,
+                    'phone' => $tenant->phone,
+                ],
+                'home' => $this->homePayload($property, $unit, $organization),
+                'lease' => $this->leasePayload($lease),
+                'rent' => $this->rentPayload($tenant, $lease),
+            ],
+        ]);
+    }
+
+    public function payments(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->activeLease($tenant);
+        $payments = $this->tenantPayments($tenant);
+
+        return response()->json([
+            'data' => $payments->map(fn (Payment $payment) => $this->paymentPayload($payment))->values(),
+            'summary' => $this->rentPayload($tenant, $lease),
+        ]);
+    }
+
+    public function storePayment(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->activeLease($tenant);
+
+        abort_if(
+            $lease === null,
+            422,
+            'You do not have an active lease to pay rent against.'
+        );
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'payment_method' => 'required|in:mpesa,bank_transfer,card,cash,other',
+            'payment_type' => 'nullable|in:rent,deposit,utility,other',
+            'phone' => 'nullable|string|max:50',
+            'reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $payment = Payment::create([
+            'organization_id' => $lease->organization_id,
+            'lease_id' => $lease->id,
+            'amount' => $validated['amount'],
+            'payment_date' => CarbonImmutable::now()->toDateString(),
+            'payment_method' => $validated['payment_method'],
+            'payment_type' => $validated['payment_type'] ?? 'rent',
+            'reference' => $validated['reference'] ?? null,
+            'notes' => $this->paymentNotes($validated),
+        ]);
+
+        return response()->json([
+            'message' => 'Payment recorded against your lease.',
+            'data' => $this->paymentPayload($payment),
+        ], 201);
+    }
+
+    public function maintenanceRequests(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+
+        $requests = MaintenanceRequest::where('tenant_id', $tenant->id)
+            ->orderByDesc('reported_date')
+            ->orderByDesc('id')
+            ->get();
+
+        return response()->json([
+            'data' => $requests->map(fn (MaintenanceRequest $item) => $this->requestPayload($item))->values(),
+            'summary' => [
+                'open' => $requests->where('status', 'open')->count(),
+                'in_progress' => $requests->where('status', 'in_progress')->count(),
+                'resolved' => $requests->where('status', 'completed')->count(),
+            ],
+        ]);
+    }
+
+    public function storeMaintenanceRequest(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->activeLease($tenant);
+
+        abort_if(
+            $lease === null,
+            422,
+            'You do not have an active lease, so a request cannot be logged against a unit.'
+        );
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string|min:10',
+            'category' => 'nullable|string|max:100',
+            'priority' => 'nullable|in:low,medium,high,urgent',
+            'reported_date' => 'nullable|date',
+        ]);
+
+        $maintenanceRequest = MaintenanceRequest::create([
+            'organization_id' => $lease->organization_id,
+            'property_id' => $lease->property_id,
+            'unit_id' => $lease->unit_id,
+            'tenant_id' => $tenant->id,
+            'title' => $validated['title'],
+            'description' => $this->describeWithCategory($validated),
+            'priority' => $validated['priority'] ?? 'medium',
+            'status' => 'open',
+            'reported_date' => $validated['reported_date'] ?? CarbonImmutable::now()->toDateString(),
+        ]);
+
+        return response()->json([
+            'message' => 'Request submitted. Your property manager has been notified.',
+            'data' => $this->requestPayload($maintenanceRequest),
+        ], 201);
+    }
+
+    /**
+     * Notifications are derived from real records rather than a separate table,
+     * so the tenant sees payment confirmations, maintenance progress and lease
+     * expiry warnings without any extra writes.
+     */
+    public function notifications(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->activeLease($tenant);
+        $notifications = [];
+
+        foreach ($this->tenantPayments($tenant)->take(5) as $payment) {
+            $notifications[] = [
+                'id' => 'payment-' . $payment->id,
+                'type' => 'payment_received',
+                'title' => 'Payment received — ' . number_format((float) $payment->amount),
+                'body' => $payment->reference
+                    ? 'Reference ' . $payment->reference . '.'
+                    : null,
+                'created_at' => optional($payment->created_at)->toIso8601String()
+                    ?? (string) $payment->payment_date,
+                'read_at' => optional($payment->created_at)?->toIso8601String(),
+            ];
+        }
+
+        $requests = MaintenanceRequest::where('tenant_id', $tenant->id)
+            ->orderByDesc('updated_at')
+            ->limit(5)
+            ->get();
+
+        foreach ($requests as $item) {
+            $notifications[] = [
+                'id' => 'request-' . $item->id,
+                'type' => 'maintenance_update',
+                'title' => $item->title . ' is now ' . $this->statusLabel($item->status),
+                'body' => $item->assigned_to
+                    ? $item->assigned_to . ' is handling this request.'
+                    : null,
+                'created_at' => optional($item->updated_at)->toIso8601String(),
+                'read_at' => $item->status === 'completed'
+                    ? optional($item->updated_at)->toIso8601String()
+                    : null,
+            ];
+        }
+
+        if ($lease && $lease->end_date) {
+            $endsAt = CarbonImmutable::parse($lease->end_date);
+            $daysLeft = CarbonImmutable::now()->startOfDay()->diffInDays($endsAt, false);
+
+            if ($daysLeft >= 0 && $daysLeft <= 60) {
+                $notifications[] = [
+                    'id' => 'lease-' . $lease->id,
+                    'type' => 'lease_expiring',
+                    'title' => 'Your lease ends in ' . $daysLeft . ' days',
+                    'body' => 'Talk to your property manager about renewing.',
+                    'created_at' => CarbonImmutable::now()->toIso8601String(),
+                    'read_at' => null,
+                ];
+            }
+        }
+
+        usort(
+            $notifications,
+            fn (array $a, array $b) => strcmp((string) $b['created_at'], (string) $a['created_at'])
+        );
+
+        return response()->json(['data' => array_values($notifications)]);
+    }
+
+    /**
+     * Vacant units inside the same organization, so a tenant can browse other
+     * homes without leaving the portal.
+     */
+    public function vacancies(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+
+        $propertyIds = Property::where('organization_id', $tenant->organization_id)
+            ->pluck('name', 'id');
+
+        $units = Unit::whereIn('property_id', $propertyIds->keys())
+            ->where('status', 'vacant')
+            ->orderBy('monthly_rent')
+            ->limit(12)
+            ->get();
+
+        $properties = Property::whereIn('id', $units->pluck('property_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        return response()->json([
+            'data' => $units->map(function (Unit $unit) use ($properties) {
+                $property = $properties->get($unit->property_id);
+
+                return [
+                    'id' => $unit->id,
+                    'property_name' => $property?->name,
+                    'unit_number' => $unit->unit_number,
+                    'unit_type' => $unit->unit_type,
+                    'city' => $property?->city,
+                    'monthly_rent' => $unit->monthly_rent,
+                ];
+            })->values(),
+        ]);
+    }
+
+    /* ----------------------------------------------------------------- */
+    /*  helpers                                                           */
+    /* ----------------------------------------------------------------- */
+
+    private function currentTenant(Request $request): Tenant
+    {
+        $user = $request->user();
+
+        $tenant = null;
+
+        if (Schema::hasColumn('users', 'tenant_id') && $user->tenant_id) {
+            $tenant = Tenant::where('id', $user->tenant_id)
+                ->where('organization_id', $user->organization_id)
+                ->first();
+        }
+
+        if ($tenant === null && $user->email) {
+            $tenant = Tenant::where('organization_id', $user->organization_id)
+                ->where('email', $user->email)
+                ->first();
+        }
+
+        abort_if(
+            $tenant === null,
+            404,
+            'No tenant record is linked to your account. Ask your property manager to link it.'
+        );
+
+        return $tenant;
+    }
+
+    private function activeLease(Tenant $tenant): ?Lease
+    {
+        return Lease::where('tenant_id', $tenant->id)
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderByDesc('start_date')
+            ->first();
+    }
+
+    /** @return Collection<int, Payment> */
+    private function tenantPayments(Tenant $tenant): Collection
+    {
+        $leaseIds = Lease::where('tenant_id', $tenant->id)->pluck('id');
+
+        return Payment::whereIn('lease_id', $leaseIds)
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    /** @return array<string, mixed>|null */
+    private function homePayload(
+        ?Property $property,
+        ?Unit $unit,
+        ?Organization $organization
+    ): ?array {
+        if ($property === null && $unit === null) {
+            return null;
+        }
+
+        return [
+            'property_name' => $property?->name,
+            'property_type' => $property?->property_type,
+            'unit_number' => $unit?->unit_number,
+            'unit_type' => $unit?->unit_type,
+            'address' => $property?->address,
+            'city' => $property?->city,
+            'country' => $property?->country,
+            'manager_name' => $organization?->name,
+            'manager_phone' => $this->organizationField($organization, 'phone'),
+            'manager_email' => $this->organizationField($organization, 'email'),
+        ];
+    }
+
+    private function organizationField(?Organization $organization, string $column): ?string
+    {
+        if ($organization === null || ! Schema::hasColumn('organizations', $column)) {
+            return null;
+        }
+
+        $value = $organization->getAttribute($column);
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function leasePayload(?Lease $lease): ?array
+    {
+        if ($lease === null) {
+            return null;
+        }
+
+        return [
+            'id' => $lease->id,
+            'status' => $lease->status,
+            'start_date' => (string) $lease->start_date,
+            'end_date' => $lease->end_date ? (string) $lease->end_date : null,
+            'monthly_rent' => $lease->monthly_rent,
+            'deposit_amount' => $lease->deposit_amount,
+            'notes' => $lease->notes,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function rentPayload(Tenant $tenant, ?Lease $lease): array
+    {
+        $payments = $this->tenantPayments($tenant);
+        $monthlyRent = (float) ($lease->monthly_rent ?? 0);
+        $now = CarbonImmutable::now();
+
+        $rentPayments = $payments->filter(
+            fn (Payment $payment) => ($payment->payment_type ?? 'rent') === 'rent'
+        );
+
+        $paidThisMonth = $rentPayments
+            ->filter(fn (Payment $payment) => CarbonImmutable::parse(
+                (string) $payment->payment_date
+            )->isSameMonth($now))
+            ->sum(fn (Payment $payment) => (float) $payment->amount);
+
+        $paidThisYear = $rentPayments
+            ->filter(fn (Payment $payment) => CarbonImmutable::parse(
+                (string) $payment->payment_date
+            )->year === $now->year)
+            ->sum(fn (Payment $payment) => (float) $payment->amount);
+
+        $balance = max($monthlyRent - $paidThisMonth, 0);
+        $dueDate = $now->endOfMonth()->toDateString();
+
+        return [
+            'amount_due' => $balance,
+            'balance' => $balance,
+            'due_date' => $dueDate,
+            'monthly_rent' => $monthlyRent,
+            'paid_this_year' => $paidThisYear,
+            'status' => $this->rentStatus($balance, $monthlyRent, $now),
+        ];
+    }
+
+    private function rentStatus(float $balance, float $monthlyRent, CarbonImmutable $now): string
+    {
+        if ($monthlyRent <= 0 || $balance <= 0) {
+            return 'paid';
+        }
+
+        if ($balance < $monthlyRent) {
+            return 'partial';
+        }
+
+        return $now->isLastOfMonth() ? 'overdue' : 'pending';
+    }
+
+    /** @return array<string, mixed> */
+    private function paymentPayload(Payment $payment): array
+    {
+        $date = CarbonImmutable::parse((string) $payment->payment_date);
+
+        return [
+            'id' => $payment->id,
+            'period' => $date->format('F Y'),
+            'amount' => $payment->amount,
+            'payment_date' => $date->toDateString(),
+            'payment_method' => $payment->payment_method,
+            'payment_type' => $payment->payment_type,
+            'reference' => $payment->reference,
+            'status' => 'paid',
+        ];
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function paymentNotes(array $validated): ?string
+    {
+        $notes = $validated['notes'] ?? null;
+        $phone = $validated['phone'] ?? null;
+
+        if (is_string($phone) && $phone !== '') {
+            $notes = trim(((string) $notes) . ' Paid from ' . $phone . '.');
+        }
+
+        return is_string($notes) && $notes !== '' ? $notes : null;
+    }
+
+    /** @return array<string, mixed> */
+    private function requestPayload(MaintenanceRequest $item): array
+    {
+        return [
+            'id' => $item->id,
+            'title' => $item->title,
+            'description' => $item->description,
+            'priority' => $item->priority,
+            'status' => $item->status,
+            'assigned_to' => $item->assigned_to,
+            'reported_date' => (string) $item->reported_date,
+            'completed_date' => $item->completed_date ? (string) $item->completed_date : null,
+            'updated_at' => optional($item->updated_at)->toIso8601String(),
+            'notes' => $item->notes,
+        ];
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function describeWithCategory(array $validated): string
+    {
+        $category = $validated['category'] ?? null;
+
+        if (! is_string($category) || $category === '') {
+            return (string) $validated['description'];
+        }
+
+        return ucfirst($category) . ': ' . $validated['description'];
+    }
+
+    private function statusLabel(?string $status): string
+    {
+        return match ($status) {
+            'in_progress' => 'in progress',
+            'completed' => 'resolved',
+            'cancelled' => 'cancelled',
+            default => 'open',
+        };
+    }
+}

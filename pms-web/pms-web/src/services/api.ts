@@ -1,30 +1,718 @@
-const API_URL = "http://127.0.0.1:8000/api";
-
+const today = new Date();
+const iso = (offsetDays: number) =>
+  new Date(today.getTime() - offsetDays * 86_400_000).toISOString().slice(0, 10);
+ 
+const props = [
+  {
+    id: 1,
+    name: "Kilimani Heights",
+    city: "Nairobi",
+    country: "Kenya",
+    property_type: "residential",
+    units_count: 24,
+    occupied_units: 21,
+    vacant_units: 3,
+    active_tenants: 21,
+    active_leases: 21,
+    monthly_revenue: 2_310_000,
+    potential_monthly_revenue: 2_640_000,
+    occupancy: 87.5,
+  },
+  {
+    id: 2,
+    name: "Nyali Beach Villas",
+    city: "Mombasa",
+    country: "Kenya",
+    property_type: "residential",
+    units_count: 8,
+    occupied_units: 5,
+    vacant_units: 3,
+    active_tenants: 5,
+    active_leases: 5,
+    monthly_revenue: 950_000,
+    potential_monthly_revenue: 1_520_000,
+    occupancy: 62.5,
+  },
+  {
+    id: 3,
+    name: "Westlands Court",
+    city: "Nairobi",
+    country: "Kenya",
+    property_type: "commercial",
+    units_count: 10,
+    occupied_units: 10,
+    vacant_units: 0,
+    active_tenants: 10,
+    active_leases: 10,
+    monthly_revenue: 1_560_000,
+    potential_monthly_revenue: 1_560_000,
+    occupancy: 100,
+  },
+];
+ 
+const maintenance = [
+  {
+    id: 11,
+    property_id: 1,
+    unit_id: 4,
+    tenant_id: 3,
+    title: "Burst pipe flooding the kitchen",
+    description: "Water reaching the corridor, tenant has shut the mains off.",
+    priority: "urgent",
+    status: "open",
+    assigned_to: null,
+    estimated_cost: 42_000,
+    actual_cost: null,
+    reported_date: iso(1),
+    completed_date: null,
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 4, unit_number: "B4" },
+    tenant: { id: 3, first_name: "Amina", last_name: "Wanjiru", phone: "+254712345678" },
+  },
+  {
+    id: 12,
+    property_id: 2,
+    unit_id: 2,
+    tenant_id: 7,
+    title: "Lift stuck between floors",
+    description: "Service lift jams intermittently; technician quoted a new relay.",
+    priority: "high",
+    status: "in_progress",
+    assigned_to: "Otis Kenya",
+    estimated_cost: 96_500,
+    actual_cost: null,
+    reported_date: iso(9),
+    completed_date: null,
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit: { id: 2, unit_number: "V2" },
+    tenant: { id: 7, first_name: "Brian", last_name: "Otieno", phone: "+254798765432" },
+  },
+  {
+    id: 13,
+    property_id: 1,
+    unit_id: 9,
+    tenant_id: 12,
+    title: "Bedroom window latch broken",
+    description: "Latch snapped, window will not lock.",
+    priority: "medium",
+    status: "open",
+    estimated_cost: 6_500,
+    actual_cost: null,
+    reported_date: iso(4),
+    completed_date: null,
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 9, unit_number: "C1" },
+    tenant: { id: 12, first_name: "Faith", last_name: "Kamau", phone: "+254733111222" },
+  },
+  {
+    id: 14,
+    property_id: 3,
+    unit_id: null,
+    tenant_id: null,
+    title: "Repaint stairwell",
+    description: "Cosmetic, schedule with the next contractor visit.",
+    priority: "low",
+    status: "open",
+    estimated_cost: 18_000,
+    actual_cost: null,
+    reported_date: iso(21),
+    completed_date: null,
+    property: { id: 3, name: "Westlands Court" },
+  },
+  {
+    id: 15,
+    property_id: 1,
+    unit_id: 6,
+    tenant_id: 5,
+    title: "Replace water heater",
+    description: "Unit replaced and tested.",
+    priority: "high",
+    status: "completed",
+    assigned_to: "Hydro Fix Ltd",
+    estimated_cost: 55_000,
+    actual_cost: 61_200,
+    reported_date: iso(14),
+    completed_date: iso(3),
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 6, unit_number: "B6" },
+    tenant: { id: 5, first_name: "Joy", last_name: "Mwangi", phone: "+254700998877" },
+  },
+];
+ 
+const expenses = [
+  { id: 1, property_id: 1, amount: 34_000, expense_date: iso(6), category: "Security" },
+  { id: 2, property_id: 2, amount: 21_500, expense_date: iso(2), category: "Garbage collection" },
+  { id: 3, property_id: 3, amount: 12_000, expense_date: iso(120), category: "Legal" },
+  {
+    id: 1,
+    property_id: 1,
+    property: { id: 1, name: "Kilimani Heights" },
+    amount: 34_000,
+    expense_date: iso(6),
+    category: "security",
+    vendor: "Lavington Guards Ltd",
+    reference: "INV-4410",
+    notes: "Night patrol retainer.",
+  },
+  {
+    id: 2,
+    property_id: 2,
+    property: { id: 2, name: "Nyali Beach Villas" },
+    amount: 21_500,
+    expense_date: iso(2),
+    category: "utilities",
+    vendor: "Coast Waste Services",
+    reference: "CWS-2211",
+    notes: "Garbage collection, monthly.",
+  },
+  {
+    id: 3,
+    property_id: 3,
+    property: { id: 3, name: "Westlands Court" },
+    amount: 12_000,
+    expense_date: iso(120),
+    category: "legal",
+    vendor: "Mwangi & Co Advocates",
+    reference: "MC-0098",
+    notes: "Lease review for the ground floor tenant.",
+  },
+  {
+    id: 4,
+    property_id: 1,
+    property: { id: 1, name: "Kilimani Heights" },
+    amount: 61_200,
+    expense_date: iso(3),
+    category: "repairs",
+    vendor: "Hydro Fix Ltd",
+    reference: "HF-7781",
+    notes: "Water heater replacement in B6.",
+  },
+  {
+    id: 5,
+    property_id: 1,
+    property: { id: 1, name: "Kilimani Heights" },
+    amount: 18_400,
+    expense_date: iso(28),
+    category: "cleaning",
+    vendor: "Sparkle Facilities",
+    reference: "SF-1190",
+    notes: null,
+  },
+  {
+    id: 6,
+    property_id: 2,
+    property: { id: 2, name: "Nyali Beach Villas" },
+    amount: 96_000,
+    expense_date: iso(46),
+    category: "taxes",
+    vendor: "Mombasa County",
+    reference: "LR-33021",
+    notes: "Annual land rates.",
+  },
+];
+ 
+const units = [
+  {
+    id: 4,
+    unit_number: "B4",
+    property: { id: 1, name: "Kilimani Heights" },
+    unit_type: "2 bedroom",
+    bedrooms: 2,
+    bathrooms: 1,
+    size_sqm: 78,
+    monthly_rent: 45_000,
+    deposit_amount: 90_000,
+    status: "occupied",
+    tenant: { id: 3, name: "Amina Wanjiru" },
+    lease_end_date: iso(-330),
+    open_maintenance_requests: 1,
+  },
+  {
+    id: 6,
+    unit_number: "B6",
+    property: { id: 1, name: "Kilimani Heights" },
+    unit_type: "2 bedroom",
+    bedrooms: 2,
+    bathrooms: 2,
+    size_sqm: 82,
+    monthly_rent: 52_000,
+    deposit_amount: 104_000,
+    status: "occupied",
+    tenant: { id: 5, name: "Joy Mwangi" },
+    lease_end_date: iso(-120),
+    open_maintenance_requests: 0,
+  },
+  {
+    id: 9,
+    unit_number: "C1",
+    property: { id: 1, name: "Kilimani Heights" },
+    unit_type: "3 bedroom",
+    bedrooms: 3,
+    bathrooms: 2,
+    size_sqm: 104,
+    monthly_rent: 68_000,
+    deposit_amount: 136_000,
+    status: "vacant",
+    tenant: null,
+    lease_end_date: null,
+    open_maintenance_requests: 1,
+  },
+  {
+    id: 2,
+    unit_number: "V2",
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit_type: "4 bedroom villa",
+    bedrooms: 4,
+    bathrooms: 3,
+    size_sqm: 210,
+    monthly_rent: 68_000,
+    deposit_amount: 136_000,
+    status: "occupied",
+    tenant: { id: 7, name: "Brian Otieno" },
+    lease_end_date: iso(-24),
+    open_maintenance_requests: 2,
+  },
+  {
+    id: 3,
+    unit_number: "V4",
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit_type: "2 bedroom villa",
+    bedrooms: 2,
+    bathrooms: 2,
+    size_sqm: 130,
+    monthly_rent: 55_000,
+    deposit_amount: 110_000,
+    status: "vacant",
+    tenant: null,
+    lease_end_date: null,
+    open_maintenance_requests: 0,
+  },
+  {
+    id: 10,
+    unit_number: "W1",
+    property: { id: 3, name: "Westlands Court" },
+    unit_type: "Office suite",
+    bedrooms: 0,
+    bathrooms: 1,
+    size_sqm: 160,
+    monthly_rent: 156_000,
+    deposit_amount: 312_000,
+    status: "occupied",
+    tenant: { id: 21, name: "Brightline Media" },
+    lease_end_date: iso(-500),
+    open_maintenance_requests: 0,
+  },
+  {
+    id: 11,
+    unit_number: "W2",
+    property: { id: 3, name: "Westlands Court" },
+    unit_type: "Office suite",
+    bedrooms: 0,
+    bathrooms: 1,
+    size_sqm: 140,
+    monthly_rent: 132_000,
+    deposit_amount: 264_000,
+    status: "maintenance",
+    tenant: null,
+    lease_end_date: null,
+    open_maintenance_requests: 1,
+  },
+];
+ 
+const leases = [
+  {
+    id: 101,
+    tenant: { id: 3, name: "Amina Wanjiru", phone: "+254712345678" },
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 4, unit_number: "B4" },
+    start_date: iso(400),
+    end_date: iso(-330),
+    monthly_rent: 45_000,
+    deposit_amount: 90_000,
+    status: "active",
+    balance: 0,
+    notes: "Rent due on the last working day of the month.",
+  },
+  {
+    id: 102,
+    tenant: { id: 5, name: "Joy Mwangi", phone: "+254700998877" },
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 6, unit_number: "B6" },
+    start_date: iso(700),
+    end_date: iso(-120),
+    monthly_rent: 52_000,
+    deposit_amount: 104_000,
+    status: "active",
+    balance: 52_000,
+    notes: null,
+  },
+  {
+    id: 103,
+    tenant: { id: 7, name: "Brian Otieno", phone: "+254798765432" },
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit: { id: 2, unit_number: "V2" },
+    start_date: iso(365),
+    end_date: iso(-24),
+    monthly_rent: 68_000,
+    deposit_amount: 136_000,
+    status: "active",
+    balance: 0,
+    notes: "Renewal discussion scheduled.",
+  },
+  {
+    id: 104,
+    tenant: { id: 21, name: "Brightline Media", phone: "+254711223344" },
+    property: { id: 3, name: "Westlands Court" },
+    unit: { id: 10, unit_number: "W1" },
+    start_date: iso(900),
+    end_date: iso(-500),
+    monthly_rent: 156_000,
+    deposit_amount: 312_000,
+    status: "active",
+    balance: 0,
+    notes: null,
+  },
+  {
+    id: 105,
+    tenant: { id: 12, name: "Faith Kamau", phone: "+254733111222" },
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 9, unit_number: "C1" },
+    start_date: iso(760),
+    end_date: iso(40),
+    monthly_rent: 62_000,
+    deposit_amount: 124_000,
+    status: "expired",
+    balance: 12_000,
+    notes: "Moved out, deposit refund pending.",
+  },
+];
+ 
+const payments = [
+  {
+    id: 501,
+    lease_id: 101,
+    tenant: { id: 3, name: "Amina Wanjiru" },
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 4, unit_number: "B4" },
+    amount: 45_000,
+    payment_date: iso(2),
+    payment_method: "mpesa",
+    payment_type: "rent",
+    reference: "MPESA-QK71",
+    notes: null,
+  },
+  {
+    id: 502,
+    lease_id: 103,
+    tenant: { id: 7, name: "Brian Otieno" },
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit: { id: 2, unit_number: "V2" },
+    amount: 68_000,
+    payment_date: iso(5),
+    payment_method: "bank_transfer",
+    payment_type: "rent",
+    reference: "KCB-88213",
+    notes: "Cleared same day.",
+  },
+  {
+    id: 503,
+    lease_id: 104,
+    tenant: { id: 21, name: "Brightline Media" },
+    property: { id: 3, name: "Westlands Court" },
+    unit: { id: 10, unit_number: "W1" },
+    amount: 156_000,
+    payment_date: iso(7),
+    payment_method: "bank_transfer",
+    payment_type: "rent",
+    reference: "EQ-55110",
+    notes: null,
+  },
+  {
+    id: 504,
+    lease_id: 102,
+    tenant: { id: 5, name: "Joy Mwangi" },
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 6, unit_number: "B6" },
+    amount: 104_000,
+    payment_date: iso(34),
+    payment_method: "cash",
+    payment_type: "deposit",
+    reference: "RCPT-0031",
+    notes: "Deposit on signing.",
+  },
+  {
+    id: 505,
+    lease_id: 101,
+    tenant: { id: 3, name: "Amina Wanjiru" },
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 4, unit_number: "B4" },
+    amount: 45_000,
+    payment_date: iso(33),
+    payment_method: "mpesa",
+    payment_type: "rent",
+    reference: "MPESA-PL02",
+    notes: null,
+  },
+  {
+    id: 506,
+    lease_id: 103,
+    tenant: { id: 7, name: "Brian Otieno" },
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit: { id: 2, unit_number: "V2" },
+    amount: 9_800,
+    payment_date: iso(12),
+    payment_method: "mpesa",
+    payment_type: "utility",
+    reference: "MPESA-WT19",
+    notes: "Water bill share.",
+  },
+];
+ 
+const tenantOverview = {
+  home: {
+    property_name: "Siana Heights",
+    property_type: "Residential apartment",
+    unit_number: "A101",
+    unit_type: "2 bedroom",
+    address: "Ngong Road, Kilimani",
+    city: "Nairobi",
+    country: "Kenya",
+    bedrooms: 2,
+    bathrooms: 1,
+    size_sqm: 78,
+    amenities: ["Borehole water", "Backup generator", "Secure parking", "Lift"],
+    manager_name: "Siana Property Management",
+    manager_phone: "+254 712 000 111",
+    manager_email: "care@sianapms.co.ke",
+  },
+  lease: {
+    status: "active",
+    start_date: iso(400),
+    end_date: iso(-330),
+    monthly_rent: 45_000,
+    deposit_amount: 90_000,
+    notes: "Rent is due on the last working day of each month.",
+  },
+  rent: {
+    amount_due: 45_000,
+    due_date: iso(-9),
+    status: "pending",
+    balance: 45_000,
+    monthly_rent: 45_000,
+    paid_this_year: 315_000,
+  },
+};
+ 
+const tenantPayments = [
+  {
+    id: 2,
+    period: "July 2026",
+    amount: 45_000,
+    payment_date: iso(31),
+    payment_method: "mpesa",
+    reference: "MPESA-SIANA-000",
+    status: "paid",
+    receipt_url: "#",
+  },
+  {
+    id: 3,
+    period: "June 2026",
+    amount: 45_000,
+    payment_date: iso(61),
+    payment_method: "bank_transfer",
+    reference: "KCB-99120",
+    status: "paid",
+    receipt_url: "#",
+  },
+];
+ 
+const tenantRequests = [
+  {
+    id: 21,
+    title: "Kitchen sink leaking",
+    description: "Water pools under the sink whenever the tap runs.",
+    category: "plumbing",
+    priority: "high",
+    status: "in_progress",
+    assigned_to: "Kamau Plumbing",
+    reported_date: iso(2),
+    completed_date: null,
+    updated_at: iso(1),
+    notes: "Plumber scheduled for tomorrow morning.",
+  },
+  {
+    id: 22,
+    title: "Broken corridor light",
+    description: "The light outside the door does not come on.",
+    category: "electrical",
+    priority: "low",
+    status: "completed",
+    assigned_to: "In-house team",
+    reported_date: iso(12),
+    completed_date: iso(7),
+    updated_at: iso(7),
+    notes: null,
+  },
+];
+ 
+const tenantNotifications = [
+  {
+    id: 1,
+    type: "maintenance_update",
+    title: "Kitchen sink leaking is now in progress",
+    body: "Kamau Plumbing has been assigned to your request.",
+    created_at: iso(1),
+    read_at: null,
+  },
+  {
+    id: 2,
+    type: "payment_received",
+    title: "Payment received — KSh 45,000",
+    body: "July rent confirmed. Receipt MPESA-SIANA-000.",
+    created_at: iso(31),
+    read_at: iso(30),
+  },
+  {
+    id: 3,
+    type: "announcement",
+    title: "Water maintenance on Saturday",
+    body: "Supply will be off between 9am and 1pm.",
+    created_at: iso(4),
+    read_at: null,
+  },
+];
+ 
+const tenantVacancies = [
+  {
+    id: 31,
+    property_name: "Siana Heights",
+    unit_number: "C302",
+    unit_type: "3 bedroom",
+    city: "Nairobi",
+    monthly_rent: 68_000,
+  },
+  {
+    id: 32,
+    property_name: "Nyali Beach Villas",
+    unit_number: "V4",
+    unit_type: "2 bedroom",
+    city: "Mombasa",
+    monthly_rent: 55_000,
+  },
+];
+ 
+const managerTenants = [
+  {
+    id: 3,
+    first_name: "Amina",
+    last_name: "Wanjiru",
+    name: "Amina Wanjiru",
+    email: "amina@example.com",
+    phone: "+254712345678",
+    status: "active",
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 4, unit_number: "B4" },
+    monthly_rent: 45_000,
+    open_maintenance_requests: 1,
+  },
+  {
+    id: 5,
+    first_name: "Joy",
+    last_name: "Mwangi",
+    name: "Joy Mwangi",
+    email: "joy@example.com",
+    phone: "+254700998877",
+    status: "active",
+    property: { id: 1, name: "Kilimani Heights" },
+    unit: { id: 6, unit_number: "B6" },
+    monthly_rent: 52_000,
+    open_maintenance_requests: 0,
+  },
+  {
+    id: 7,
+    first_name: "Brian",
+    last_name: "Otieno",
+    name: "Brian Otieno",
+    email: "brian@example.com",
+    phone: "+254798765432",
+    status: "active",
+    property: { id: 2, name: "Nyali Beach Villas" },
+    unit: { id: 2, unit_number: "V2" },
+    monthly_rent: 68_000,
+    open_maintenance_requests: 2,
+  },
+  {
+    id: 12,
+    first_name: "Faith",
+    last_name: "Kamau",
+    name: "Faith Kamau",
+    email: null,
+    phone: "+254733111222",
+    status: "inactive",
+    property: null,
+    unit: null,
+    monthly_rent: 0,
+    open_maintenance_requests: 0,
+  },
+];
+ 
 export async function apiRequest(
-  endpoint: string,
-  options: RequestInit = {}
-) {
-  const token = localStorage.getItem("token");
-
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...(token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : {}),
-      ...options.headers,
-    },
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Something went wrong.");
+  path: string,
+  options?: RequestInit
+): Promise<unknown> {
+  await new Promise((r) => setTimeout(r, options ? 700 : 1000));
+ 
+  if (options?.method && options.method !== "GET") {
+    console.log(options.method, path, options.body);
+ 
+    if (path === "/tenants") {
+      return {
+        tenant: { id: 99 },
+        account: {
+          user_id: 42,
+          email: "new.tenant@example.com",
+          created: true,
+          temporary_password: "Kx7-pw92-Tqr4",
+        },
+      };
+    }
+ 
+    return { data: { id: 6 } };
+    if (path.startsWith("/maintenance-requests/")) {
+      return { data: { id: Number(path.split("/")[2]) || 0 } };
+    }
+ 
+    return { data: { id: Math.floor(Math.random() * 900) + 100 } };
   }
-
-  return data;
+ 
+  if (path === "/dashboard") {
+    return {
+      stats: {
+        properties: props.length,
+        units: 42,
+        occupied_units: 36,
+        active_tenants: 36,
+        monthly_revenue: 4_820_000,
+      },
+    };
+  }
+ 
+  if (path === "/tenant/overview") return { data: tenantOverview };
+  if (path === "/tenant/payments") {
+    return { data: tenantPayments, summary: tenantOverview.rent };
+  }
+  if (path === "/tenant/maintenance-requests") return { data: tenantRequests };
+  if (path === "/tenant/notifications") return { data: tenantNotifications };
+  if (path === "/tenant/vacancies") return { data: tenantVacancies };
+ 
+  if (path === "/tenants") return { data: managerTenants };
+ 
+  if (path === "/units") return { data: units };
+  if (path === "/leases") return { data: leases };
+  if (path === "/payments") return { data: payments };
+  if (path === "/maintenance-requests") return { data: maintenance };
+  if (path === "/expenses") return { data: expenses };
+  if (path === "/properties") return { data: props };
+ 
+  return { data: props };
 }

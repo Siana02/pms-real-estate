@@ -1,122 +1,397 @@
-function Sidebar() {
-  const organization = JSON.parse(
-    localStorage.getItem("organization") || "{}"
+import { useMemo } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import {
+  Banknote,
+  Building2,
+  DoorOpen,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Receipt,
+  Settings,
+  Users,
+  Wrench,
+} from "lucide-react";
+ 
+/* ------------------------------------------------------------------ */
+/*  STYLES — vanilla CSS                                               */
+/* ------------------------------------------------------------------ */
+ 
+const styles = `
+.sb {
+  --sb-glass: rgba(255, 255, 255, 0.05);
+  --sb-border: rgba(255, 255, 255, 0.1);
+  --sb-border-soft: rgba(255, 255, 255, 0.06);
+  --sb-muted: #94a3b8;
+  --sb-faint: #64748b;
+  --sb-blue: #3b82f6;
+  --sb-indigo: #4f46e5;
+  --sb-danger: #f87171;
+  --sb-radius-sm: 0.75rem;
+  --sb-radius-md: 1rem;
+ 
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  padding: 1.25rem 1rem;
+  color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter,
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.015em;
+}
+ 
+.sb,
+.sb * {
+  box-sizing: border-box;
+}
+ 
+.sb a {
+  color: inherit;
+  text-decoration: none;
+}
+ 
+.sb button {
+  font-family: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+ 
+.sb a:focus-visible,
+.sb button:focus-visible {
+  outline: 2px solid var(--sb-blue);
+  outline-offset: 2px;
+}
+ 
+/* ---------- brand ---------- */
+.sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+ 
+.sb-brand__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--sb-radius-sm);
+  border: 1px solid var(--sb-border);
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.3),
+    rgba(79, 70, 229, 0.3)
   );
-
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-  return (
-    <aside className="flex h-screen w-64 flex-col border-r border-slate-800 bg-slate-950 text-white">
-
-      {/* Logo */}
-      <div className="border-b border-slate-800 px-6 py-6">
-        <div className="text-2xl font-bold tracking-tight">
-          PMS<span className="text-slate-500">.</span>
-        </div>
-      </div>
-
-      {/* Organization */}
-      <div className="border-b border-slate-800 px-6 py-5">
-        <p className="text-xs uppercase tracking-wider text-slate-500">
-          Organization
-        </p>
-
-        <p className="mt-2 truncate font-medium">
-          {organization.name || "Your Organization"}
-        </p>
-
-        <p className="mt-1 truncate text-xs text-slate-500">
-          {user.email || ""}
-        </p>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-5">
-
-        <a
-          href="#"
-          className="block rounded-lg bg-slate-800 px-3 py-2.5 text-sm font-medium"
-        >
-          Dashboard
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Properties
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Units
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Tenants
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Leases
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Payments
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Expenses
-        </a>
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Maintenance
-        </a>
-
-      </nav>
-
-      {/* Bottom */}
-      <div className="border-t border-slate-800 p-4">
-
-        <a
-          href="#"
-          className="block rounded-lg px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Settings
-        </a>
-
-        <button
-          onClick={() => {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            localStorage.removeItem("organization");
-            window.location.href = "/login";
-          }}
-          className="mt-1 w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-400 hover:bg-slate-900 hover:text-white"
-        >
-          Sign out
-        </button>
-
-      </div>
-
-    </aside>
+  color: #bfdbfe;
+}
+ 
+.sb-brand__mark svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+ 
+.sb-brand__name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: #fff;
+}
+ 
+.sb-brand__name span {
+  color: var(--sb-blue);
+}
+ 
+/* ---------- org card ---------- */
+.sb-org {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.875rem;
+  border-radius: var(--sb-radius-md);
+  border: 1px solid var(--sb-border-soft);
+  background: var(--sb-glass);
+}
+ 
+.sb-org__avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--sb-radius-sm);
+  border: 1px solid var(--sb-border);
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.28),
+    rgba(79, 70, 229, 0.28)
+  );
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #dbeafe;
+}
+ 
+.sb-org__body {
+  min-width: 0;
+}
+ 
+.sb-org__label {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--sb-faint);
+}
+ 
+.sb-org__name,
+.sb-org__email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+ 
+.sb-org__name {
+  margin: 0.1875rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+}
+ 
+.sb-org__email {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: var(--sb-muted);
+}
+ 
+/* ---------- nav ---------- */
+.sb-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 1.25rem;
+  overflow-y: auto;
+}
+ 
+.sb-nav__label {
+  margin: 0 0 0.375rem 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--sb-faint);
+}
+ 
+.sb-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--sb-radius-sm);
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sb-muted);
+  transition: color 0.2s ease, background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+ 
+.sb-link svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}
+ 
+.sb-link:hover {
+  color: #e2e8f0;
+  background: var(--sb-glass);
+}
+ 
+.sb-link--active {
+  color: #fff;
+  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.22),
+    rgba(79, 70, 229, 0.12)
   );
 }
-
+ 
+.sb-link--active svg {
+  color: #93c5fd;
+}
+ 
+.sb-link--active::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -1rem;
+  width: 3px;
+  height: 1.5rem;
+  transform: translateY(-50%);
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--sb-blue), var(--sb-indigo));
+}
+ 
+/* ---------- footer ---------- */
+.sb-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--sb-border-soft);
+}
+ 
+.sb-link--danger:hover {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.28);
+}
+ 
+.sb-link--danger:hover svg {
+  color: var(--sb-danger);
+}
+ 
+@media (prefers-reduced-motion: reduce) {
+  .sb *,
+  .sb *::before {
+    transition-duration: 0.001ms !important;
+  }
+}
+`;
+ 
+/* ------------------------------------------------------------------ */
+/*  DATA & HELPERS                                                     */
+/* ------------------------------------------------------------------ */
+ 
+const NAV_ITEMS = [
+  { label: "Dashboard", to: "/manager/dashboard", icon: LayoutDashboard },
+  { label: "Properties", to: "/manager/properties", icon: Building2 },
+  { label: "Units", to: "/manager/units", icon: DoorOpen },
+  { label: "Tenants", to: "/manager/tenants", icon: Users },
+  { label: "Leases", to: "/manager/leases", icon: FileText },
+  { label: "Payments", to: "/manager/payments", icon: Banknote },
+  { label: "Expenses", to: "/manager/expenses", icon: Receipt },
+  { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
+];
+ 
+interface Organization {
+  name?: string;
+}
+ 
+interface User {
+  name?: string;
+  email?: string;
+}
+ 
+function readStored<T>(key: string): T {
+  try {
+    const raw = localStorage.getItem(key) ?? sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : ({} as T);
+  } catch {
+    return {} as T;
+  }
+}
+ 
+function initials(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "PM";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+ 
+function linkClass({ isActive }: { isActive: boolean }): string {
+  return `sb-link${isActive ? " sb-link--active" : ""}`;
+}
+ 
+/* ------------------------------------------------------------------ */
+/*  COMPONENT                                                          */
+/* ------------------------------------------------------------------ */
+ 
+function Sidebar() {
+  const navigate = useNavigate();
+ 
+  const organization = useMemo(() => readStored<Organization>("organization"), []);
+  const user = useMemo(() => readStored<User>("user"), []);
+ 
+  const orgName = organization.name || "Your organization";
+ 
+  function handleSignOut() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("organization");
+    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("organization");
+    sessionStorage.removeItem("user");
+    navigate("/login");
+  }
+ 
+  return (
+    <div className="sb">
+      <style>{styles}</style>
+ 
+      <div className="sb-brand">
+        <span className="sb-brand__mark">
+          <Building2 />
+        </span>
+        <span className="sb-brand__name">
+          PMS<span>.</span>
+        </span>
+      </div>
+ 
+      <div className="sb-org">
+        <span className="sb-org__avatar" aria-hidden="true">
+          {initials(orgName)}
+        </span>
+        <div className="sb-org__body">
+          <p className="sb-org__label">Organization</p>
+          <p className="sb-org__name" title={orgName}>
+            {orgName}
+          </p>
+          {user.email && (
+            <p className="sb-org__email" title={user.email}>
+              {user.email}
+            </p>
+          )}
+        </div>
+      </div>
+ 
+      <nav className="sb-nav" aria-label="Main">
+        <p className="sb-nav__label">Manage</p>
+ 
+        {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
+          <NavLink key={label} to={to} className={linkClass}>
+            <Icon />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+ 
+      <div className="sb-foot">
+        <NavLink to="/settings" className={linkClass}>
+          <Settings />
+          Settings
+        </NavLink>
+ 
+        <button
+          type="button"
+          className="sb-link sb-link--danger"
+          onClick={handleSignOut}
+        >
+          <LogOut />
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+ 
 export default Sidebar;
+ 

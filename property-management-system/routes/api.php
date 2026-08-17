@@ -10,10 +10,13 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\MaintenanceRequestController;
 use App\Http\Controllers\DashboardController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
+Route::get('username-available', [AuthController::class, 'usernameAvailable']);
+Route::get('organizations', [OrganizationController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('organizations', OrganizationController::class);
