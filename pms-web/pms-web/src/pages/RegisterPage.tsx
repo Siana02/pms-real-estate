@@ -1296,6 +1296,13 @@ const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,28})[a-z0-9]$/;
 
 type UsernameState = "idle" | "checking" | "available" | "taken" | "invalid" | "unknown";
 
+type Organization = {
+  id: number;
+  name: string;
+  username: string | null;
+  country: string | null;
+};
+
 function detectCountry(): string {
   const candidates: string[] = [];
 
@@ -1342,7 +1349,7 @@ function RegisterPage() {
   const [step, setStep] = useState(1);
 
   const [role, setRole] = useState<"manager" | "tenant">("manager");
-  const [organizations, setOrganizations] = useState<Array<{ id: number; name: string; username: string; country: string }>>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationsStatus, setOrganizationsStatus] = useState<
     "idle" | "loading" | "loaded" | "error"
   >("idle");
@@ -1371,40 +1378,53 @@ function RegisterPage() {
 
   const usernameRequest = useRef(0);
 
-  /* --- fetch organizations when tenant role is selected --- */
   useEffect(() => {
-    if (role !== "tenant") return;
-    if (organizationsStatus !== "idle") return;
+  if (role !== "tenant") return;
+  if (organizationsStatus !== "idle") return;
 
-    let cancelled = false;
-    setOrganizationsStatus("loading");
-    setOrganizationsError("");
+  let cancelled = false;
 
-    apiRequest("/organizations")
-      .then((data) => {
-        if (cancelled) return;
-        const rows = Array.isArray(data) ? data : [];
-        setOrganizations(rows);
-        setOrganizationsStatus("loaded");
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        setOrganizations([]);
-        setOrganizationsStatus("error");
-        setOrganizationsError(
-          caught instanceof ApiError
-            ? caught.message
-            : "Could not load organizations. Check your connection and try again."
-        );
-      });
+  setOrganizationsStatus("loading");
+  setOrganizationsError("");
 
-    return () => {
-      cancelled = true;
-    };
-  }, [role, organizationsStatus]);
+  apiRequest("/organizations")
+    .then((data) => {
+      if (cancelled) return;
+
+      console.log("ORGANIZATIONS:", data);
+      console.log("IS ARRAY:", Array.isArray(data));
+
+      const rows = Array.isArray(data)
+        ? data
+        : [];
+
+      setOrganizations(rows as Organization[]);
+
+      setOrganizationsStatus("loaded");
+    })
+    .catch((caught: unknown) => {
+      if (cancelled) return;
+
+      console.error("ORGANIZATIONS ERROR:", caught);
+
+      setOrganizations([]);
+      setOrganizationsStatus("error");
+
+      setOrganizationsError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Could not load organizations. Check your connection and try again."
+      );
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [role, organizationsStatus]);
 
   function retryLoadOrganizations() {
     setOrganizationsStatus("idle");
+    setOrganizationsError("");
   }
 
   /* --- smart defaults: keep currency in sync with country --- */
