@@ -11,6 +11,8 @@ class Tenant extends Model
 
     protected $fillable = [
         'organization_id',
+        'property_id',
+        'unit_id',
         'first_name',
         'last_name',
         'email',
@@ -28,6 +30,16 @@ class Tenant extends Model
     public function leases()
     {
         return $this->hasMany(Lease::class);
+    }
+
+    public function property()
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
     }
 
 }

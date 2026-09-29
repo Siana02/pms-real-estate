@@ -4,10 +4,32 @@ namespace App\Http\Controllers;
 
 use App\Models\Unit;
 use App\Models\Property;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 
 class UnitController extends Controller
 {
+    public function availableForRegistration(Property $property)
+    {
+        $today = CarbonImmutable::today()->toDateString();
+
+        $units = Unit::query()
+            ->where('property_id', $property->id)
+            ->where('status', 'vacant')
+            ->whereDoesntHave('leases', function ($query) use ($today) {
+                $query->whereNotIn('status', ['ended', 'terminated'])
+                    ->where(function ($dates) use ($today) {
+                        $dates->whereNull('end_date')
+                            ->orWhereDate('end_date', '>=', $today);
+                    });
+            })
+            ->whereDoesntHave('tenants', fn ($query) => $query->where('status', 'pending'))
+            ->orderBy('unit_number')
+            ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent']);
+
+        return response()->json($units);
+    }
+
     public function index(Request $request)
     {
         $units = Unit::whereHas('property', function ($query) use ($request) {
@@ -27,7 +49,7 @@ class UnitController extends Controller
             'unit_number' => 'required|string|max:255',
             'unit_type' => 'nullable|string|max:255',
             'monthly_rent' => 'required|numeric|min:0',
-            'status' => 'nullable|in:vacant,occupied,maintenance',
+            'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
 
@@ -63,7 +85,7 @@ class UnitController extends Controller
             'unit_number' => 'sometimes|required|string|max:255',
             'unit_type' => 'nullable|string|max:255',
             'monthly_rent' => 'sometimes|required|numeric|min:0',
-            'status' => 'nullable|in:vacant,occupied,maintenance',
+            'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
 

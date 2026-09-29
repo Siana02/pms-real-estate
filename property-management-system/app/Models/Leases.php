@@ -20,6 +20,12 @@ class Leases extends Model
         'deposit_amount',
         'status',
         'notes',
+        'notice_date',
+        'intended_move_out_date',
+        'notice_period_months',
+        'notice_timely',
+        'termination_reason',
+        'actual_move_out_date',
     ];
 
     protected $casts = [
@@ -27,6 +33,11 @@ class Leases extends Model
         'end_date' => 'date',
         'monthly_rent' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
+        'notice_date' => 'date',
+        'intended_move_out_date' => 'date',
+        'notice_period_months' => 'integer',
+        'notice_timely' => 'boolean',
+        'actual_move_out_date' => 'date',
     ];
 
     public function organization()
@@ -52,5 +63,10 @@ class Leases extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class, 'lease_id');
+    }
+
+    public function deposit()
+    {
+        return $this->hasOne(Deposit::class, 'lease_id');
     }
 }

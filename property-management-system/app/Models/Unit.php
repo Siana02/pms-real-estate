@@ -32,4 +32,9 @@ class Unit extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    public function tenants()
+    {
+        return $this->hasMany(Tenant::class);
+    }
 }

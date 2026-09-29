@@ -19,13 +19,14 @@ class TenantController extends Controller
     {
         $filters = $request->validate([
             'property_id' => 'nullable|exists:properties,id',
-            'status' => 'nullable|in:active,inactive',
+            'status' => 'nullable|in:pending,active,inactive',
             'active_only' => 'nullable|boolean',
         ]);
 
         $organizationId = $request->user()->organization_id;
 
-        $tenants = Tenant::where('organization_id', $organizationId)
+        $tenants = Tenant::with(['property', 'unit'])
+            ->where('organization_id', $organizationId)
             ->when(
                 isset($filters['status']),
                 fn ($query) => $query->where('status', $filters['status'])
@@ -267,7 +268,8 @@ public function store(Request $request)
         $activeLease = $leases->firstWhere('status', 'active');
         $unit = $activeLease
             ? $context['units']->get($activeLease->unit_id)
-            : null;
+            : $tenant->unit;
+        $property = $activeLease?->property ?? $tenant->property;
 
         $openRequests = $requests->whereIn('status', ['open', 'in_progress']);
 
@@ -290,7 +292,7 @@ public function store(Request $request)
             'notes' => $tenant->notes,
             'created_at' => $tenant->created_at,
             'updated_at' => $tenant->updated_at,
-            'property' => $activeLease?->property,
+            'property' => $property,
             'unit' => $unit,
             'lease' => $activeLease,
             'leases' => $leases->values(),

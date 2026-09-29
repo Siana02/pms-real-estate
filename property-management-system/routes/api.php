@@ -18,6 +18,8 @@ Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 Route::get('username-available', [AuthController::class, 'usernameAvailable']);
 Route::get('organizations', [OrganizationController::class, 'index']);
+Route::get('organizations/{organization}/properties', [OrganizationController::class, 'properties']);
+Route::get('properties/{property}/available-units', [UnitController::class, 'availableForRegistration']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('change-password', [AuthController::class, 'changePassword']);

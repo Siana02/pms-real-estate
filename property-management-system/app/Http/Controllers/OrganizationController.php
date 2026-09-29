@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Organization;
+use App\Models\Property;
 use Illuminate\Http\Request;
 
 class OrganizationController extends Controller
@@ -15,6 +16,16 @@ class OrganizationController extends Controller
         $organizations = Organization::all();
 
         return response()->json($organizations);
+    }
+
+    public function properties(Organization $organization)
+    {
+        return response()->json(
+            Property::query()
+                ->where('organization_id', $organization->id)
+                ->orderBy('name')
+                ->get(['id', 'organization_id', 'name', 'property_type', 'city'])
+        );
     }
 
     /**
