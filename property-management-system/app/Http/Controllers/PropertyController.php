@@ -60,7 +60,7 @@ class PropertyController extends Controller
 
         $organizationId = $request->user()->organization_id;
 
-        $property = DB::transaction(function () use ($validated, $organizationId, $request) {
+        $property = DB::transaction(function () use ($validated, $organizationId) {
             $property = Property::create([
                 'organization_id' => $organizationId,
                 'name' => $validated['name'],
@@ -191,11 +191,30 @@ class PropertyController extends Controller
 
         $unitsCount = $units->count();
         $occupiedUnits = $activeLeases->pluck('unit_id')->unique()->count();
+        $reservedUnitIds = Unit::where('property_id', $property->id)
+            ->where('status', 'reserved')
+            ->pluck('id')
+            ->merge(
+                Lease::where('property_id', $property->id)
+                    ->whereNotIn('status', ['ended', 'terminated'])
+                    ->whereDate('start_date', '>', $today)
+                    ->pluck('unit_id')
+            )
+            ->merge(
+                Tenant::where('organization_id', $property->organization_id)
+                    ->where('property_id', $property->id)
+                    ->where('status', 'pending')
+                    ->pluck('unit_id')
+            )
+            ->unique()
+            ->diff($activeLeases->pluck('unit_id')->unique());
+        $reservedUnits = $reservedUnitIds->count();
 
         return [
             'units_count' => $unitsCount,
             'occupied_units' => $occupiedUnits,
-            'vacant_units' => $unitsCount - $occupiedUnits,
+            'reserved_units' => $reservedUnits,
+            'vacant_units' => max($unitsCount - $occupiedUnits - $reservedUnits, 0),
             'active_tenants' => $activeLeases->pluck('tenant_id')->unique()->count(),
             'active_leases' => $activeLeases->count(),
             'monthly_revenue' => (float) $activeLeases->sum('monthly_rent'),

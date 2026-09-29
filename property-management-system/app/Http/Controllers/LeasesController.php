@@ -75,6 +75,7 @@ class LeasesController extends Controller
             'notice_date' => 'nullable|date',
             'intended_move_out_date' => 'nullable|date|after_or_equal:notice_date',
             'notice_period_months' => 'nullable|integer|min:1|max:12',
+            'notice_charge_amount' => 'nullable|numeric|min:0',
             'termination_reason' => 'nullable|string|max:255',
             'actual_move_out_date' => 'nullable|date',
             'notes' => 'nullable|string',
@@ -130,7 +131,11 @@ class LeasesController extends Controller
             if ($deposit) {
                 $amountRequired = (float) ($validated['deposit_amount'] ?? $deposit->amount_required);
                 $amountPaid = (float) ($validated['deposit_paid_amount'] ?? $deposit->amount_paid);
-                $amountPaid = min($amountPaid, $amountRequired);
+                abort_if(
+                    $amountPaid > $amountRequired,
+                    422,
+                    'The amount paid cannot exceed the required deposit.'
+                );
                 $deposit->update([
                     'amount_required' => $amountRequired,
                     'amount_paid' => $amountPaid,

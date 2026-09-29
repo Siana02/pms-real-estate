@@ -41,7 +41,11 @@ class UnitController extends Controller
 
         $today = CarbonImmutable::today()->toDateString();
         $units->each(function (Unit $unit) use ($today) {
+            $pendingTenant = $unit->tenants->firstWhere('status', 'pending');
+
             if ($unit->status === 'maintenance') {
+                $unit->setAttribute('pending_registration', false);
+                $unit->setAttribute('pending_email', null);
                 return;
             }
 
@@ -54,11 +58,13 @@ class UnitController extends Controller
                 ? 'occupied'
                 : ($unit->leases
                     ->contains(fn ($lease) => $lease->status === 'upcoming') ||
-                    $unit->tenants->contains(fn ($tenant) => $tenant->status === 'pending')
+                    $pendingTenant !== null
                     ? 'reserved'
                     : 'vacant');
 
             $unit->setAttribute('status', $status);
+            $unit->setAttribute('pending_registration', $pendingTenant !== null);
+            $unit->setAttribute('pending_email', $pendingTenant?->email);
         });
 
         return response()->json($units);

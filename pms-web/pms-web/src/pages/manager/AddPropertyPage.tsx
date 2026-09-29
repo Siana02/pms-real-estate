@@ -1560,23 +1560,6 @@ function AddProperties() {
                     <div className="ap-unit" key={index}>
                       <div className="ap-unit__fields">
                         <div>
-                          <label
-                            className="ap-unit__label"
-                            htmlFor={`${unit.id}-type`}
-                          >
-                            Unit type
-                          </label>
-                          <input
-                            id={`${unit.id}-type`}
-                            className="ap-input"
-                            value={unit.unit_type}
-                            onChange={(event) =>
-                              updateUnit(unit.id, { unit_type: event.target.value })
-                            }
-                            placeholder={form.property_type}
-                          />
-                        </div>
-                        <div>
                           <label className="ap-unit__label" htmlFor={`inventory-type-${index}`}>Unit type</label>
                           <input
                             id={`inventory-type-${index}`}
@@ -1765,6 +1748,23 @@ function AddProperties() {
                       </div>
 
                       <div className="ap-unit__fields">
+                        <div>
+                          <label
+                            className="ap-unit__label"
+                            htmlFor={`${unit.id}-type`}
+                          >
+                            Unit type
+                          </label>
+                          <input
+                            id={`${unit.id}-type`}
+                            className="ap-input"
+                            value={unit.unit_type}
+                            onChange={(event) =>
+                              updateUnit(unit.id, { unit_type: event.target.value })
+                            }
+                            placeholder={form.property_type}
+                          />
+                        </div>
                         <div>
                           <label
                             className="ap-unit__label"

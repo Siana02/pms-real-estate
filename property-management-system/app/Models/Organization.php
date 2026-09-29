@@ -51,4 +51,9 @@ class Organization extends Model
         return $this->hasMany(Lease::class);
     }
 
+    public function deposits(): HasMany
+    {
+        return $this->hasMany(Deposit::class);
+    }
+
 }

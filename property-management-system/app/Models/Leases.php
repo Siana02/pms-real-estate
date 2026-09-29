@@ -25,6 +25,7 @@ class Leases extends Model
         'intended_move_out_date',
         'notice_period_months',
         'notice_timely',
+        'notice_charge_amount',
         'termination_reason',
         'actual_move_out_date',
     ];
@@ -38,6 +39,7 @@ class Leases extends Model
         'intended_move_out_date' => 'date',
         'notice_period_months' => 'integer',
         'notice_timely' => 'boolean',
+        'notice_charge_amount' => 'decimal:2',
         'actual_move_out_date' => 'date',
     ];
 
@@ -73,7 +75,7 @@ class Leases extends Model
 
     public function getStatusAttribute($value): string
     {
-        if (in_array($value, ['notice', 'ended', 'terminated'], true)) {
+        if (in_array($value, ['ended', 'terminated'], true)) {
             return $value;
         }
 
@@ -83,6 +85,10 @@ class Leases extends Model
 
         if ($endDate && CarbonImmutable::parse($endDate)->toDateString() < $today) {
             return 'ended';
+        }
+
+        if ($value === 'notice') {
+            return 'notice';
         }
 
         return $startDate > $today ? 'upcoming' : 'active';

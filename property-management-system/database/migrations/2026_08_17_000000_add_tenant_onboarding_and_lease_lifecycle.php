@@ -27,6 +27,7 @@ return new class extends Migration
             $table->date('intended_move_out_date')->nullable();
             $table->unsignedTinyInteger('notice_period_months')->default(1);
             $table->boolean('notice_timely')->nullable();
+            $table->decimal('notice_charge_amount', 12, 2)->nullable();
             $table->string('termination_reason')->nullable();
             $table->date('actual_move_out_date')->nullable();
         });
@@ -63,6 +64,12 @@ return new class extends Migration
         Schema::dropIfExists('deposits');
 
         if (DB::getDriverName() === 'mysql') {
+            DB::table('leases')
+                ->whereIn('status', ['upcoming', 'notice'])
+                ->update(['status' => 'active']);
+            DB::table('units')
+                ->where('status', 'reserved')
+                ->update(['status' => 'vacant']);
             DB::statement(
                 "ALTER TABLE leases MODIFY status ENUM('active', 'ended', 'terminated') NOT NULL DEFAULT 'active'"
             );
@@ -77,6 +84,7 @@ return new class extends Migration
                 'intended_move_out_date',
                 'notice_period_months',
                 'notice_timely',
+                'notice_charge_amount',
                 'termination_reason',
                 'actual_move_out_date',
             ]);

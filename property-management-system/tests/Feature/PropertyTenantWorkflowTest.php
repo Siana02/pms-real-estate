@@ -103,6 +103,95 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertDatabaseMissing('tenants', ['email' => 'cross@example.test']);
     }
 
+    public function test_manager_can_create_a_property_with_generated_units_and_default_rents(): void
+    {
+        [$organization] = $this->createPropertyInventory();
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Property Manager',
+            'username' => 'inventory-manager',
+            'email' => 'inventory-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+
+        $response = $this->withToken($manager->createToken('inventory-manager')->plainTextToken)
+            ->postJson('/api/properties', [
+                'name' => 'ABC Plaza',
+                'property_type' => 'residential',
+                'units' => [
+                    ['unit_number' => 'OB01', 'unit_type' => 'One Bedroom', 'status' => 'vacant', 'monthly_rent' => 25000],
+                    ['unit_number' => 'OB02', 'unit_type' => 'One Bedroom', 'status' => 'vacant', 'monthly_rent' => 25000],
+                    ['unit_number' => 'BS01', 'unit_type' => 'Bedsitter', 'status' => 'vacant', 'monthly_rent' => 12000],
+                ],
+            ]);
+
+        $response->assertCreated();
+        $propertyId = $response->json('property.id');
+        $this->assertSame(3, Unit::where('property_id', $propertyId)->count());
+        $this->assertDatabaseHas('units', [
+            'property_id' => $propertyId,
+            'unit_number' => 'OB01',
+            'unit_type' => 'One Bedroom',
+            'monthly_rent' => 25000,
+            'status' => 'vacant',
+        ]);
+        $this->assertDatabaseHas('units', [
+            'property_id' => $propertyId,
+            'unit_number' => 'BS01',
+            'unit_type' => 'Bedsitter',
+            'monthly_rent' => 12000,
+            'status' => 'vacant',
+        ]);
+    }
+
+    public function test_manager_cannot_view_or_assign_another_organizations_property_or_unit(): void
+    {
+        [$organization, $property] = $this->createPropertyInventory();
+        $foreignOrganization = Organization::create([
+            'name' => 'Other Organization',
+            'email' => 'foreign@example.test',
+        ]);
+        $foreignProperty = Property::create([
+            'organization_id' => $foreignOrganization->id,
+            'name' => 'Foreign Plaza',
+        ]);
+        $foreignUnit = Unit::create([
+            'property_id' => $foreignProperty->id,
+            'unit_number' => 'X01',
+            'monthly_rent' => 10000,
+            'status' => 'vacant',
+        ]);
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Scoped Manager',
+            'username' => 'scoped-manager',
+            'email' => 'scoped-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+        $token = $manager->createToken('scoped-manager')->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/properties')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $foreignProperty->id, 'name' => $foreignProperty->name]);
+
+        $this->withToken($token)->getJson("/api/properties/{$foreignProperty->id}")
+            ->assertForbidden();
+
+        $this->withToken($token)->postJson('/api/units', [
+            'property_id' => $foreignProperty->id,
+            'unit_number' => 'X02',
+            'monthly_rent' => 10000,
+            'status' => 'vacant',
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('units', [
+            'property_id' => $foreignProperty->id,
+            'unit_number' => 'X02',
+        ]);
+    }
+
     public function test_manager_tenant_creation_keeps_lease_and_deposit_dates_separate_and_preserves_temporary_password(): void
     {
         [$organization, $property, $unit] = $this->createPropertyInventory();
@@ -192,6 +281,56 @@ class PropertyTenantWorkflowTest extends TestCase
             'login' => 'new-manager@example.test',
             'password' => 'Password123!',
         ])->assertOk()->assertJsonPath('user.role', 'admin');
+    }
+
+    public function test_manager_can_confirm_a_pending_registration_without_duplicating_its_tenant(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+        $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'name' => 'Pending Tenant',
+            'email' => 'pending@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Property Manager',
+            'username' => 'pending-manager',
+            'email' => 'pending-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+
+        $this->withToken($manager->createToken('pending-manager')->plainTextToken)
+            ->postJson('/api/tenants', [
+                'first_name' => 'Pending',
+                'last_name' => 'Tenant',
+                'email' => 'pending@example.test',
+                'phone' => '+254700000000',
+                'create_login' => true,
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+                'start_date' => now()->addMonth()->toDateString(),
+                'monthly_rent' => 25000,
+                'deposit_amount' => 0,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('account.created', false);
+
+        $this->assertDatabaseCount('tenants', 1);
+        $this->assertDatabaseCount('leases', 1);
+        $this->assertDatabaseHas('tenants', [
+            'email' => 'pending@example.test',
+            'status' => 'active',
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+        ]);
+        $this->assertSame('reserved', $unit->fresh()->status);
     }
 
     private function createPropertyInventory(): array

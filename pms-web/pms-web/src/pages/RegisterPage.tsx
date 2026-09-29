@@ -493,6 +493,10 @@ const styles = `
   color: #fff;
 }
 
+.rg-spin {
+  animation: rg-spin 0.8s linear infinite;
+}
+
 .rg-choice-list {
   display: grid;
   gap: 0.25rem;
@@ -1346,6 +1350,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function positiveId(value: unknown): number | null {
+  if (
+    typeof value !== "number" &&
+    (typeof value !== "string" || !/^\d+$/.test(value))
+  ) {
+    return null;
+  }
   const id = typeof value === "number" ? value : Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }

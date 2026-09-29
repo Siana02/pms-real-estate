@@ -760,6 +760,10 @@ interface TenantRecord {
   property: { id: number; name: string } | null;
   unit: { id: number; unit_number: string } | null;
   monthly_rent: number;
+  lease_status: string | null;
+  lease_start: string | null;
+  lease_end: string | null;
+  deposit_status: string | null;
   open_maintenance_requests: number;
   has_login?: boolean;
 }
@@ -782,6 +786,8 @@ interface UnitOption {
   unit_type: string | null;
   monthly_rent: number;
   status: string;
+  pending_registration: boolean;
+  pending_email: string | null;
 }
 
 const UNASSIGNED = "No active lease";
@@ -856,6 +862,8 @@ function parseTenants(payload: unknown): TenantRecord[] {
     const first = asString(record.first_name);
     const last = asString(record.last_name);
     const unit = namedRef(record.unit, "unit_number");
+    const lease = toRecord(record.lease);
+    const deposit = toRecord(record.deposit);
  
     return {
       id: asNumber(record.id),
@@ -868,6 +876,10 @@ function parseTenants(payload: unknown): TenantRecord[] {
       property: namedRef(record.property, "name"),
       unit: unit ? { id: unit.id, unit_number: unit.name } : null,
       monthly_rent: asNumber(record.monthly_rent),
+      lease_status: asString(lease.status) || null,
+      lease_start: asString(lease.start_date) || null,
+      lease_end: asString(lease.end_date) || null,
+      deposit_status: asString(deposit.status) || null,
       open_maintenance_requests: asNumber(record.open_maintenance_requests),
       has_login: record.has_login === true,
     };
@@ -952,6 +964,8 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
             unit_type: asString(record.unit_type) || null,
             monthly_rent: asNumber(record.monthly_rent),
             status: asString(record.status),
+            pending_registration: record.pending_registration === true,
+            pending_email: asString(record.pending_email) || null,
           }];
         }));
       })
@@ -971,12 +985,14 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
 
   const availableUnits = units.filter((unit) =>
     unit.property_id === Number(propertyId) &&
-    unit.status === "vacant"
+    (unit.status === "vacant" ||
+      (unit.pending_registration &&
+        unit.pending_email?.toLowerCase() === email.trim().toLowerCase()))
   );
   const selectedUnit = availableUnits.find((unit) => String(unit.id) === unitId);
   const hasLeaseAssignment = Boolean(propertyId || unitId || startDate || monthlyRent);
   const leaseAssignmentValid = !hasLeaseAssignment || Boolean(
-    propertyId && unitId && startDate && monthlyRent !== "" &&
+    propertyId && unitId && selectedUnit && startDate && monthlyRent !== "" &&
     Number.isFinite(Number(monthlyRent)) && Number(monthlyRent) >= 0 &&
     (!endDate || endDate >= startDate)
   );
@@ -1153,7 +1169,10 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                 autoCapitalize="none"
                 spellCheck={false}
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (selectedUnit?.pending_registration) setUnitId("");
+                }}
                 placeholder="tenant@example.com"
                 autoComplete="email"
               />
@@ -1256,7 +1275,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                         <option value="">Select a vacant unit</option>
                         {availableUnits.map((unit) => (
                           <option key={unit.id} value={unit.id}>
-                            {unit.unit_number}{unit.unit_type ? ` — ${unit.unit_type}` : ""} · {formatMoney(unit.monthly_rent, readCurrency())}
+                            {unit.unit_number}{unit.unit_type ? ` — ${unit.unit_type}` : ""} · {formatMoney(unit.monthly_rent, readCurrency())}{unit.pending_registration ? " · Confirm pending registration" : ""}
                           </option>
                         ))}
                       </select>
@@ -1359,9 +1378,9 @@ function ManagerTenantsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">(
-    "all"
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "pending" | "inactive"
+  >("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [account, setAccount] = useState<ProvisionedAccount | null>(null);
   const [copied, setCopied] = useState(false);
@@ -1396,7 +1415,8 @@ function ManagerTenantsPage() {
     () => ({
       all: tenants.length,
       active: tenants.filter((tenant) => tenant.status === "active").length,
-      inactive: tenants.filter((tenant) => tenant.status !== "active").length,
+      pending: tenants.filter((tenant) => tenant.status === "pending").length,
+      inactive: tenants.filter((tenant) => tenant.status === "inactive").length,
     }),
     [tenants]
   );
@@ -1425,7 +1445,8 @@ function ManagerTenantsPage() {
  
     return tenants.filter((tenant) => {
       if (statusFilter === "active" && tenant.status !== "active") return false;
-      if (statusFilter === "inactive" && tenant.status === "active") return false;
+      if (statusFilter === "pending" && tenant.status !== "pending") return false;
+      if (statusFilter === "inactive" && tenant.status !== "inactive") return false;
       if (!term) return true;
  
       return [
@@ -1469,10 +1490,11 @@ function ManagerTenantsPage() {
     }
   }
  
-  const filters: { key: "all" | "active" | "inactive"; label: string; count: number }[] =
+  const filters: { key: "all" | "active" | "pending" | "inactive"; label: string; count: number }[] =
     [
       { key: "all", label: "All", count: counts.all },
       { key: "active", label: "Active", count: counts.active },
+      { key: "pending", label: "Pending onboarding", count: counts.pending },
       { key: "inactive", label: "Inactive", count: counts.inactive },
     ];
  
@@ -1712,17 +1734,37 @@ function ManagerTenantsPage() {
                               : "—"}
                           </p>
                         </div>
- 
+
+                        <div className="tn-cell">
+                          <p className="tn-cell__label">Lease</p>
+                          <p className="tn-cell__value">
+                            {tenant.lease_status
+                              ? `${tenant.lease_status}${tenant.lease_start ? ` · ${tenant.lease_start}` : ""}${tenant.lease_end ? ` – ${tenant.lease_end}` : ""}`
+                              : tenant.status === "pending" ? "Pending manager confirmation" : "No lease"}
+                          </p>
+                        </div>
+
+                        <div className="tn-cell">
+                          <p className="tn-cell__label">Deposit</p>
+                          <p className="tn-cell__value">
+                            {tenant.deposit_status ?? "—"}
+                          </p>
+                        </div>
+
                         <div className="tn-tags">
                           <span
                             className={`tn-pill tn-pill--${
-                              tenant.status === "active" ? "active" : "inactive"
+                              tenant.status === "active"
+                                ? "active"
+                                : tenant.status === "pending" ? "warn" : "inactive"
                             }`}
                           >
-                            {tenant.status === "active" ? "Active" : "Inactive"}
+                            {tenant.status === "pending"
+                              ? "Pending onboarding"
+                              : tenant.status === "active" ? "Active" : "Inactive"}
                           </span>
- 
-                          {tenant.unit === null && (
+
+                          {tenant.unit === null && tenant.status !== "pending" && (
                             <span className="tn-pill">
                               <DoorOpen />
                               No lease

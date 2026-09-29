@@ -210,7 +210,7 @@ public function store(Request $request)
             }
         }
 
-        if (! empty($validated['unit_id'])) {
+        if (! empty($tenantData['unit_id'])) {
             app(LeaseProvisioner::class)->create(
                 $leaseData + [
                     'property_id' => $tenantData['property_id'],
@@ -285,7 +285,7 @@ public function store(Request $request)
      */
     private function contextFor(array $tenantIds): array
     {
-        $leases = Lease::with('property')
+        $leases = Lease::with(['property', 'deposit'])
             ->whereIn('tenant_id', $tenantIds)
             ->get();
 
@@ -345,6 +345,7 @@ public function store(Request $request)
             'property' => $property,
             'unit' => $unit,
             'lease' => $displayLease,
+            'deposit' => $displayLease?->deposit,
             'leases' => $leases->values(),
             'active_leases' => $leases->where('status', 'active')->count(),
             'monthly_rent' => (float) ($displayLease->monthly_rent ?? 0),

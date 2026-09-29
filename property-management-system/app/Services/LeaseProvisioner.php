@@ -23,6 +23,12 @@ class LeaseProvisioner
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            if ($unit->status === 'maintenance') {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'A unit under maintenance cannot be leased.',
+                ]);
+            }
+
             if ($tenant->organization_id !== $organizationId) {
                 abort(403, 'You do not have access to this tenant.');
             }
@@ -69,7 +75,16 @@ class LeaseProvisioner
                     ? $amountRequired
                     : 0
             ));
-            $amountPaid = min(max($amountPaid, 0), $amountRequired);
+            if ($amountPaid > $amountRequired) {
+                throw ValidationException::withMessages([
+                    'deposit_paid_amount' => 'The amount paid cannot exceed the required deposit.',
+                ]);
+            }
+            if ($amountPaid > 0 && empty($data['deposit_payment_date'])) {
+                throw ValidationException::withMessages([
+                    'deposit_payment_date' => 'Enter the date the deposit was paid.',
+                ]);
+            }
             $depositStatus = $amountRequired <= 0
                 ? 'not_required'
                 : ($amountPaid >= $amountRequired

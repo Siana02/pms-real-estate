@@ -43,4 +43,9 @@ class Tenant extends Model
         return $this->belongsTo(Unit::class);
     }
 
+    public function deposits()
+    {
+        return $this->hasMany(Deposit::class);
+    }
+
 }
