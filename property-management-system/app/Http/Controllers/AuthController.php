@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Organization;
+use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -36,18 +38,46 @@ public function usernameAvailable(Request $request)
                 'role' => ['nullable', 'string', 'in:manager,tenant'],
                 'organization_id' => ['required', 'integer', 'exists:organizations,id'],
                 'name' => ['required', 'string', 'max:255'],
+                'phone' => ['nullable', 'string', 'max:50'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
                 'password' => ['required', 'string', 'min:8', 'confirmed'],
             ]);
 
             $user = DB::transaction(function () use ($validated) {
-                return User::create([
+                $nameParts = preg_split('/\s+/', trim($validated['name']), 2);
+                $firstName = $nameParts[0] ?? $validated['name'];
+                $lastName = $nameParts[1] ?? '';
+
+                $tenant = Tenant::create([
                     'organization_id' => $validated['organization_id'],
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'email' => $validated['email'],
+                    'phone' => $validated['phone'] ?? '',
+                    'status' => 'active',
+                ]);
+
+                $baseUsername = Str::slug($validated['name'], '') ?: 'tenant';
+                $username = $baseUsername;
+                $counter = 1;
+
+                while (User::where('username', $username)->exists()) {
+                    $username = $baseUsername . $counter;
+                    $counter++;
+                }
+
+                $user = User::create([
+                    'organization_id' => $validated['organization_id'],
+                    'tenant_id' => $tenant->id,
                     'name' => $validated['name'],
+                    'username' => $username,
                     'email' => $validated['email'],
                     'password' => Hash::make($validated['password']),
                     'role' => 'tenant',
+                    'must_change_password' => false,
                 ]);
+
+                return $user;
             });
 
             $token = $user->createToken('auth-token')->plainTextToken;
@@ -59,9 +89,12 @@ public function usernameAvailable(Request $request)
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'username' => $user->username,
                     'email' => $user->email,
                     'role' => $user->role,
                     'organization_id' => $user->organization_id,
+                    'tenant_id' => $user->tenant_id,
+                    'must_change_password' => $user->must_change_password,
                 ],
             ], 201);
         }
@@ -151,7 +184,48 @@ public function usernameAvailable(Request $request)
             'role' => $user->role,
             'organization_id' => $user->organization_id,
             'tenant_id' => $user->tenant_id,
+            'must_change_password' => (bool) $user->must_change_password,
         ],
     ]);
 }
+
+    /**
+     * Change the authenticated user's password. Used both for the
+     * mandatory first-login flow (temporary -> permanent password) and as
+     * a general "change my password" action.
+     */
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'message' => 'Your current password is incorrect.',
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['password']),
+            'must_change_password' => false,
+        ]);
+
+        return response()->json([
+            'message' => 'Password updated successfully.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'organization_id' => $user->organization_id,
+                'tenant_id' => $user->tenant_id,
+                'must_change_password' => (bool) $user->must_change_password,
+            ],
+        ]);
+    }
 }

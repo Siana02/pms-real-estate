@@ -15,6 +15,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { ApiError, apiRequest } from "../services/api";
+
 /* ------------------------------------------------------------------ */
 /*  STYLES — vanilla CSS                                               */
 /* ------------------------------------------------------------------ */
@@ -956,23 +958,20 @@ function LoginPage() {
   setLoading(true);
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/login", {
+    const data = (await apiRequest("/login", {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         login: login.trim(),
         password,
       }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Login failed.");
-    }
+    })) as {
+      token: string;
+      organization?: unknown;
+      user?: {
+        role?: string;
+        must_change_password?: boolean;
+      };
+    };
 
     const store = remember ? localStorage : sessionStorage;
 
@@ -992,13 +991,18 @@ function LoginPage() {
       .toLowerCase();
 
     const isTenant = role === "tenant";
+    const needsPasswordChange = data.user?.must_change_password === true;
 
-    const redirectPath = isTenant
+    const redirectPath = needsPasswordChange
+      ? "/password-setup"
+      : isTenant
       ? "/tenant/dashboard"
       : "/manager/dashboard";
 
     setMessage(
-      isTenant
+      needsPasswordChange
+        ? "Login successful — please set a permanent password."
+        : isTenant
         ? "Login successful — taking you to your tenant portal."
         : "Login successful — taking you to your manager dashboard."
     );
@@ -1008,7 +1012,9 @@ function LoginPage() {
     }, 1500);
   } catch (err) {
     setError(
-      err instanceof Error
+      err instanceof ApiError
+        ? err.message
+        : err instanceof Error
         ? err.message
         : "Something went wrong while logging in."
     );

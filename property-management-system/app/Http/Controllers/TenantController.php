@@ -161,6 +161,7 @@ public function store(Request $request)
                     'email' => $tenant->email,
                     'password' => Hash::make($temporaryPassword),
                     'role' => 'tenant',
+                    'must_change_password' => true,
                 ]);
 
                 $account = [
