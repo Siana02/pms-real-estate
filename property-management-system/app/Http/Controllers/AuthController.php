@@ -121,15 +121,17 @@ public function usernameAvailable(Request $request)
    public function login(Request $request)
 {
     $credentials = $request->validate([
-        'email' => ['required', 'email'],
-        'password' => ['required'],
+        'login' => ['required', 'string'],
+        'password' => ['required', 'string'],
     ]);
 
-    $user = User::where('email', $credentials['email'])->first();
+    $user = User::where('email', $credentials['login'])
+        ->orWhere('username', $credentials['login'])
+        ->first();
 
     if (!$user || !Hash::check($credentials['password'], $user->password)) {
         return response()->json([
-            'message' => 'Invalid email or password.',
+            'message' => 'Invalid username/email or password.',
         ], 401);
     }
 
@@ -140,15 +142,16 @@ public function usernameAvailable(Request $request)
     return response()->json([
         'message' => 'Login successful.',
         'token' => $token,
-
         'organization' => $organization,
-
         'user' => [
             'id' => $user->id,
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'role' => $user->role,
             'organization_id' => $user->organization_id,
+            'tenant_id' => $user->tenant_id,
         ],
     ]);
-}}
+}
+}

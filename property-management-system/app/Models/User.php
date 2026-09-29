@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Organization;
+use App\Models\Tenant;
+
 
 class User extends Authenticatable
 {
@@ -35,7 +38,10 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Organization::class);
     }
-
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }   
     protected function casts(): array
     {
         return [

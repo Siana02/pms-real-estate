@@ -907,7 +907,10 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
  
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      setError("Enter a first name, last name, and a valid phone number.");
+      return;
+    }
  
     setSaving(true);
     setError("");
@@ -975,7 +978,12 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
           </button>
         </div>
  
-        <form className="tn-form" onSubmit={handleSubmit} noValidate>
+        <form
+          id="tn-add-tenant-form"
+          className="tn-form"
+          onSubmit={handleSubmit}
+          noValidate
+        >
           {error && (
             <div className="tn-alert" role="alert">
               <AlertCircle />
@@ -1127,9 +1135,9 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
           </button>
  
           <button
-            type="button"
+            type="submit"
+            form="tn-add-tenant-form"
             className="tn-btn tn-btn--primary"
-            onClick={handleSubmit}
             disabled={!canSubmit}
           >
             <UserPlus />

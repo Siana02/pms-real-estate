@@ -903,13 +903,8 @@ function GitHubIcon() {
 /*  HELPERS                                                            */
 /* ------------------------------------------------------------------ */
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function validateEmail(value: string): string {
-  if (!value.trim()) return "Email address is required.";
-  if (!EMAIL_PATTERN.test(value.trim())) {
-    return "Enter a valid email address, e.g. you@company.com";
-  }
+function validateLogin(value: string): string {
+  if (!value.trim()) return "Username or email is required.";
   return "";
 }
 
@@ -930,23 +925,23 @@ const STATS = [
 /* ------------------------------------------------------------------ */
 
 function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [emailError, setEmailError] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [emailTouched, setEmailTouched] = useState(false);
+  const [loginTouched, setLoginTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleEmailChange(value: string) {
-    setEmail(value);
-    if (emailTouched) setEmailError(validateEmail(value));
+  function handleLoginChange(value: string) {
+    setLogin(value);
+    if (loginTouched) setLoginError(validateLogin(value));
   }
 
   function handlePasswordChange(value: string) {
@@ -954,18 +949,18 @@ function LoginPage() {
     if (passwordTouched) setPasswordError(validatePassword(value));
   }
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+ async function handleLogin(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
 
-  const nextEmailError = validateEmail(email);
+  const nextLoginError = validateLogin(login);
   const nextPasswordError = validatePassword(password);
 
-  setEmailTouched(true);
+  setLoginTouched(true);
   setPasswordTouched(true);
-  setEmailError(nextEmailError);
+  setLoginError(nextLoginError);
   setPasswordError(nextPasswordError);
 
-  if (nextEmailError || nextPasswordError) return;
+  if (nextLoginError || nextPasswordError) return;
 
   setMessage("");
   setError("");
@@ -979,7 +974,7 @@ function LoginPage() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email,
+        login: login.trim(),
         password,
       }),
     });
@@ -990,26 +985,35 @@ function LoginPage() {
       throw new Error(data.message || "Login failed.");
     }
 
-    // Store token and user data
     const store = remember ? localStorage : sessionStorage;
+
     store.setItem("token", data.token);
     store.setItem("user", JSON.stringify(data.user));
+
     if (data.organization) {
-      store.setItem("organization", JSON.stringify(data.organization));
+      store.setItem(
+        "organization",
+        JSON.stringify(data.organization)
+      );
     }
 
-    // Determine redirect path based on user role
-    const role = (data.user?.role ?? "").toString().trim().toLowerCase();
+    const role = (data.user?.role ?? "")
+      .toString()
+      .trim()
+      .toLowerCase();
+
     const isTenant = role === "tenant";
-    const redirectPath = isTenant ? "/tenant/dashboard" : "/manager/dashboard";
+
+    const redirectPath = isTenant
+      ? "/tenant/dashboard"
+      : "/manager/dashboard";
 
     setMessage(
       isTenant
         ? "Login successful — taking you to your tenant portal."
         : "Login successful — taking you to your manager dashboard."
     );
-    
-    // Redirect to the appropriate portal after 1.5 seconds
+
     setTimeout(() => {
       window.location.href = redirectPath;
     }, 1500);
@@ -1135,38 +1139,42 @@ function LoginPage() {
 
             <form className="lg-form" onSubmit={handleLogin} noValidate>
               <div>
-                <label className="lg-label" htmlFor="email">
-                  Email address
-                </label>
-                <div className="lg-input-wrap">
-                  <Mail className="lg-input-icon" />
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    value={email}
-                    onChange={(event) => handleEmailChange(event.target.value)}
-                    onBlur={() => {
-                      setEmailTouched(true);
-                      setEmailError(validateEmail(email));
-                    }}
-                    placeholder="you@company.com"
-                    aria-invalid={Boolean(emailError)}
-                    aria-describedby={emailError ? "email-error" : undefined}
-                    className={`lg-input${emailError ? " lg-input--invalid" : ""}`}
-                  />
-                </div>
-                {emailError && (
-                  <p className="lg-hint" id="email-error" role="alert">
-                    <AlertCircle />
-                    {emailError}
-                  </p>
-                )}
-              </div>
+  <label className="lg-label" htmlFor="login">
+    Username or email
+  </label>
+
+  <div className="lg-input-wrap">
+    <Mail className="lg-input-icon" />
+
+    <input
+      id="login"
+      name="login"
+      type="text"
+      autoComplete="username"
+      autoCapitalize="none"
+      spellCheck={false}
+      value={login}
+      onChange={(event) => handleLoginChange(event.target.value)}
+      onBlur={() => {
+        setLoginTouched(true);
+        setLoginError(validateLogin(login));
+      }}
+      placeholder="Username or email"
+      aria-invalid={Boolean(loginError)}
+      aria-describedby={loginError ? "login-error" : undefined}
+      className={`lg-input${
+        loginError ? " lg-input--invalid" : ""
+      }`}
+    />
+  </div>
+
+  {loginError && (
+    <p className="lg-hint" id="login-error" role="alert">
+      <AlertCircle />
+      {loginError}
+    </p>
+  )}
+</div>
 
               <div>
                 <div className="lg-field__top">

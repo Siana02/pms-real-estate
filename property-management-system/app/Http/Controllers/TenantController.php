@@ -8,6 +8,10 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\Unit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use App\Models\User;
 
 class TenantController extends Controller
 {
@@ -49,28 +53,137 @@ class TenantController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'required|string|max:50',
-            'national_id' => 'nullable|string|max:100',
-            'status' => 'nullable|in:active,inactive',
-            'notes' => 'nullable|string',
-        ]);
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'first_name' => 'required|string|max:255',
+        'last_name' => 'required|string|max:255',
+        'email' => 'nullable|email|max:255',
+        'phone' => 'required|string|max:50',
+        'national_id' => 'nullable|string|max:100',
+        'status' => 'nullable|in:active,inactive',
+        'notes' => 'nullable|string',
+        'create_login' => 'nullable|boolean',
+    ]);
 
-        $validated['organization_id'] = $request->user()->organization_id;
-        $validated['status'] = $validated['status'] ?? 'active';
+    $organizationId = $request->user()->organization_id;
 
+    $validated['organization_id'] = $organizationId;
+    $validated['status'] = $validated['status'] ?? 'active';
+
+    $createLogin = filter_var(
+        $validated['create_login'] ?? false,
+        FILTER_VALIDATE_BOOL
+    );
+
+    unset($validated['create_login']);
+
+    if ($createLogin && empty($validated['email'])) {
+        return response()->json([
+            'message' => 'An email address is required to create a tenant login.',
+        ], 422);
+    }
+
+    $account = null;
+
+    $tenant = DB::transaction(function () use (
+        $validated,
+        $createLogin,
+        $organizationId,
+        &$account
+    ) {
         $tenant = Tenant::create($validated);
 
-        return response()->json([
-            'message' => 'Tenant created successfully.',
-            'tenant' => $this->present($tenant, $this->contextFor([$tenant->id])),
-        ], 201);
-    }
+        if ($createLogin) {
+            $email = $tenant->email;
+
+            $existingUser = User::where('email', $email)->first();
+
+            if ($existingUser) {
+                // Never turn a manager/admin account into a tenant account.
+                if ($existingUser->role !== 'tenant') {
+                    abort(
+                        422,
+                        'That email address already belongs to a non-tenant account.'
+                    );
+                }
+
+                if ($existingUser->organization_id !== $organizationId) {
+                    abort(
+                        422,
+                        'That email address already belongs to another organization.'
+                    );
+                }
+
+                if (
+                    $existingUser->tenant_id !== null &&
+                    $existingUser->tenant_id !== $tenant->id
+                ) {
+                    abort(
+                        422,
+                        'That email address is already linked to another tenant.'
+                    );
+                }
+
+                $existingUser->update([
+                    'tenant_id' => $tenant->id,
+                ]);
+
+                $account = [
+                    'username' => $existingUser->username,
+                    'email' => $existingUser->email,
+                    'created' => false,
+                    'temporary_password' => null,
+                ];
+            } else {
+                $baseUsername = Str::slug(
+                    $tenant->first_name . $tenant->last_name,
+                    ''
+                );
+
+                $username = $baseUsername;
+                $counter = 1;
+
+                while (User::where('username', $username)->exists()) {
+                    $username = $baseUsername . $counter;
+                    $counter++;
+                }
+
+                $temporaryPassword = Str::random(12);
+
+                $user = User::create([
+                    'organization_id' => $organizationId,
+                    'tenant_id' => $tenant->id,
+                    'name' => trim(
+                        $tenant->first_name . ' ' . $tenant->last_name
+                    ),
+                    'username' => $username,
+                    'email' => $tenant->email,
+                    'password' => Hash::make($temporaryPassword),
+                    'role' => 'tenant',
+                ]);
+
+                $account = [
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'created' => true,
+                    'temporary_password' => $temporaryPassword,
+                ];
+            }
+        }
+
+        return $tenant;
+    });
+
+    return response()->json([
+        'message' => 'Tenant created successfully.',
+        'tenant' => $this->present(
+            $tenant,
+            $this->contextFor([$tenant->id])
+        ),
+        'account' => $account,
+    ], 201);
+}
 
     public function show(Request $request, Tenant $tenant)
     {
