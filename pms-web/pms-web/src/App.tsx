@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 import DashboardPage from "./pages/manager/DashboardPage";
 import AddProperties from "./pages/manager/AddPropertyPage";
 import ManagerTenantsPage from "./pages/manager/ManagerTenantsPage";
@@ -52,6 +53,22 @@ function getRole(): string {
   return "";
 }
 
+function mustChangePassword(): boolean {
+  try {
+    const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user");
+    if (!raw) return false;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return (parsed as Record<string, unknown>).must_change_password === true;
+    }
+  } catch {
+    /* stored value is not valid JSON or storage is unavailable */
+  }
+
+  return false;
+}
+
 /**
  * The backend owns the role; the UI only decides which portal that role maps
  * to, and defaults to the manager portal for any role it does not recognise.
@@ -83,6 +100,9 @@ function RequirePortal({
   if (portalForRole(getRole()) !== portal) {
     return <Navigate to={homePath()} replace />;
   }
+  if (mustChangePassword()) {
+    return <Navigate to="/password-setup" replace />;
+  }
 
   return <>{children}</>;
 }
@@ -103,6 +123,14 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/password-setup"
+          element={
+            <RequireAuth>
+              <ChangePasswordPage />
+            </RequireAuth>
+          }
+        />
 
         {/* Manager portal */}
         <Route

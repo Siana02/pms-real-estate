@@ -21,6 +21,8 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { API_BASE, ApiError, apiRequest } from "../services/api";
+
 /* ------------------------------------------------------------------ */
 /*  STYLES — vanilla CSS                                               */
 /* ------------------------------------------------------------------ */
@@ -604,6 +606,18 @@ const styles = `
 
 .rg-help--ok {
   color: var(--rg-success);
+}
+
+.rg-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.25rem;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* ---------- password checklist ---------- */
@@ -1230,8 +1244,6 @@ function GitHubIcon() {
 /*  CONSTANTS & HELPERS                                                */
 /* ------------------------------------------------------------------ */
 
-const API_BASE = "http://127.0.0.1:8000/api";
-
 const STEPS = [
   { id: 1, label: "Organization" },
   { id: 2, label: "Your details" },
@@ -1331,6 +1343,10 @@ function RegisterPage() {
 
   const [role, setRole] = useState<"manager" | "tenant">("manager");
   const [organizations, setOrganizations] = useState<Array<{ id: number; name: string; username: string; country: string }>>([]);
+  const [organizationsStatus, setOrganizationsStatus] = useState<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
+  const [organizationsError, setOrganizationsError] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [country, setCountry] = useState(detectCountry);
@@ -1358,21 +1374,38 @@ function RegisterPage() {
   /* --- fetch organizations when tenant role is selected --- */
   useEffect(() => {
     if (role !== "tenant") return;
+    if (organizationsStatus !== "idle") return;
+
     let cancelled = false;
-    fetch(`${API_BASE}/organizations`, {
-      headers: { Accept: "application/json" },
-    })
-      .then((response) => response.json())
-      .then((data: Array<{ id: number; name: string; username: string; country: string }>) => {
-        if (!cancelled) setOrganizations(Array.isArray(data) ? data : []);
+    setOrganizationsStatus("loading");
+    setOrganizationsError("");
+
+    apiRequest("/organizations")
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data) ? data : [];
+        setOrganizations(rows);
+        setOrganizationsStatus("loaded");
       })
-      .catch(() => {
-        if (!cancelled) setOrganizations([]);
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setOrganizations([]);
+        setOrganizationsStatus("error");
+        setOrganizationsError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not load organizations. Check your connection and try again."
+        );
       });
+
     return () => {
       cancelled = true;
     };
-  }, [role]);
+  }, [role, organizationsStatus]);
+
+  function retryLoadOrganizations() {
+    setOrganizationsStatus("idle");
+  }
 
   /* --- smart defaults: keep currency in sync with country --- */
   function handleCountryChange(code: string) {
@@ -1763,11 +1796,16 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                           name="organization_id"
                           className="rg-select"
                           value={organizationId}
+                          disabled={organizationsStatus === "loading"}
                           onChange={(event) => setOrganizationId(event.target.value)}
                         >
                           <option value="">
-                            {organizations.length === 0
+                            {organizationsStatus === "loading"
                               ? "Loading organizations…"
+                              : organizationsStatus === "error"
+                              ? "Organizations unavailable"
+                              : organizations.length === 0
+                              ? "No organizations available yet"
                               : "Select your property manager"}
                           </option>
                           {organizations.map((org) => (
@@ -1778,7 +1816,26 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                           ))}
                         </select>
                       </div>
-                      {touched.organizationId && !tenantOrgValid ? (
+                      {organizationsStatus === "error" ? (
+                        <p className="rg-help rg-help--error" role="alert">
+                          <AlertCircle />
+                          {organizationsError || "Could not load organizations."}{" "}
+                          <button
+                            type="button"
+                            className="rg-link-btn"
+                            onClick={retryLoadOrganizations}
+                          >
+                            Retry
+                          </button>
+                        </p>
+                      ) : organizationsStatus === "loaded" &&
+                        organizations.length === 0 ? (
+                        <p className="rg-help rg-help--error" role="alert">
+                          <AlertCircle />
+                          No property management organizations exist yet.
+                          Ask your property manager to register first.
+                        </p>
+                      ) : touched.organizationId && !tenantOrgValid ? (
                         <p className="rg-help rg-help--error" role="alert">
                           <AlertCircle />
                           Please select your property management company.
@@ -1789,6 +1846,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                         </p>
                       )}
                     </div>
+
                   ) : (
                     <div>
                       <label className="rg-label" htmlFor="organizationName">
