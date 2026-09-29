@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Leases as Lease;
 use App\Models\MaintenanceRequest;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Models\Leases as Lease;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -259,6 +259,46 @@ class TenantPortalController extends Controller
         ]);
     }
 
+    public function submitMoveOutNotice(Request $request, Lease $lease): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        abort_if(
+            $lease->tenant_id !== $tenant->id ||
+            $lease->organization_id !== $tenant->organization_id,
+            403,
+            'You do not have access to this lease.'
+        );
+        abort_if(
+            $lease->end_date !== null ||
+            in_array($lease->status, ['ended', 'terminated'], true),
+            422,
+            'Move-out notice is only available for an open-ended active lease.'
+        );
+
+        $validated = $request->validate([
+            'intended_move_out_date' => ['required', 'date', 'after_or_equal:today'],
+        ]);
+
+        $noticeDate = CarbonImmutable::today();
+        $noticeMonths = max(1, (int) $lease->notice_period_months);
+        $moveOutDate = CarbonImmutable::parse($validated['intended_move_out_date']);
+
+        $lease->update([
+            'status' => 'notice',
+            'notice_date' => $noticeDate->toDateString(),
+            'intended_move_out_date' => $moveOutDate->toDateString(),
+            'notice_period_months' => $noticeMonths,
+            'notice_timely' => $moveOutDate->greaterThanOrEqualTo(
+                $noticeDate->addMonthsNoOverflow($noticeMonths)
+            ),
+        ]);
+
+        return response()->json([
+            'message' => 'Move-out notice recorded.',
+            'lease' => $lease->fresh(),
+        ]);
+    }
+
     /* ----------------------------------------------------------------- */
     /*  helpers                                                           */
     /* ----------------------------------------------------------------- */
@@ -292,8 +332,14 @@ class TenantPortalController extends Controller
 
     private function activeLease(Tenant $tenant): ?Lease
     {
+        $today = CarbonImmutable::today()->toDateString();
+
         return Lease::where('tenant_id', $tenant->id)
-            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->whereNotIn('status', ['ended', 'terminated'])
+            ->whereDate('start_date', '<=', $today)
+            ->where(fn ($query) => $query
+                ->whereNull('end_date')
+                ->orWhereDate('end_date', '>=', $today))
             ->orderByDesc('start_date')
             ->first();
     }

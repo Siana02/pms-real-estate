@@ -15,7 +15,7 @@ class UnitController extends Controller
 
         $units = Unit::query()
             ->where('property_id', $property->id)
-            ->where('status', 'vacant')
+            ->where('status', '!=', 'maintenance')
             ->whereDoesntHave('leases', function ($query) use ($today) {
                 $query->whereNotIn('status', ['ended', 'terminated'])
                     ->where(function ($dates) use ($today) {
@@ -37,7 +37,29 @@ class UnitController extends Controller
                 'organization_id',
                 $request->user()->organization_id
             );
-        })->with('property')->get();
+        })->with(['property', 'leases', 'tenants'])->get();
+
+        $today = CarbonImmutable::today()->toDateString();
+        $units->each(function (Unit $unit) use ($today) {
+            if ($unit->status === 'maintenance') {
+                return;
+            }
+
+            $status = $unit->leases
+                ->filter(fn ($lease) => ! in_array($lease->status, ['ended', 'terminated'], true))
+                ->contains(fn ($lease) =>
+                    $lease->start_date->toDateString() <= $today &&
+                    ($lease->end_date === null || $lease->end_date->toDateString() >= $today)
+                )
+                ? 'occupied'
+                : ($unit->leases
+                    ->contains(fn ($lease) => $lease->status === 'upcoming') ||
+                    $unit->tenants->contains(fn ($tenant) => $tenant->status === 'pending')
+                    ? 'reserved'
+                    : 'vacant');
+
+            $unit->setAttribute('status', $status);
+        });
 
         return response()->json($units);
     }
@@ -88,6 +110,11 @@ class UnitController extends Controller
             'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
+
+        if (isset($validated['property_id'])) {
+            Property::where('organization_id', $request->user()->organization_id)
+                ->findOrFail($validated['property_id']);
+        }
 
         $unit->update($validated);
 

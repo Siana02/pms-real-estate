@@ -493,6 +493,30 @@ const styles = `
   color: #fff;
 }
 
+.rg-choice-list {
+  display: grid;
+  gap: 0.25rem;
+  max-height: 12rem;
+  margin: 0.5rem 0 0;
+  padding: 0.375rem;
+  overflow-y: auto;
+  border: 1px solid var(--rg-border);
+  border-radius: var(--rg-radius-sm);
+  background: #0f172a;
+}
+
+.rg-choice {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  text-align: left;
+  color: #e2e8f0;
+}
+
+.rg-choice:hover,
+.rg-choice[aria-selected="true"] {
+  background: rgba(59, 130, 246, 0.18);
+}
+
 .rg-input--action {
   padding-right: 3.25rem;
 }
@@ -1303,6 +1327,73 @@ type Organization = {
   country: string | null;
 };
 
+type PropertyOption = {
+  id: number;
+  name: string;
+};
+
+type UnitOption = {
+  id: number;
+  unit_number: string;
+  unit_type: string | null;
+  monthly_rent: number;
+};
+
+type LoadState = "idle" | "loading" | "loaded" | "error";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function positiveId(value: unknown): number | null {
+  const id = typeof value === "number" ? value : Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function parseOrganizationOptions(payload: unknown): Organization[] {
+  if (!Array.isArray(payload)) return [];
+
+  return payload.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = positiveId(item.id);
+    if (!id || typeof item.name !== "string" || !item.name.trim()) return [];
+
+    return [{
+      id,
+      name: item.name,
+      username: typeof item.username === "string" ? item.username : null,
+      country: typeof item.country === "string" ? item.country : null,
+    }];
+  });
+}
+
+function parsePropertyOptions(payload: unknown): PropertyOption[] {
+  if (!Array.isArray(payload)) return [];
+
+  return payload.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = positiveId(item.id);
+    return id && typeof item.name === "string" ? [{ id, name: item.name }] : [];
+  });
+}
+
+function parseUnitOptions(payload: unknown): UnitOption[] {
+  if (!Array.isArray(payload)) return [];
+
+  return payload.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = positiveId(item.id);
+    if (!id || typeof item.unit_number !== "string") return [];
+
+    return [{
+      id,
+      unit_number: item.unit_number,
+      unit_type: typeof item.unit_type === "string" ? item.unit_type : null,
+      monthly_rent: Number(item.monthly_rent) || 0,
+    }];
+  });
+}
+
 function detectCountry(): string {
   const candidates: string[] = [];
 
@@ -1350,11 +1441,21 @@ function RegisterPage() {
 
   const [role, setRole] = useState<"manager" | "tenant">("manager");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [organizationsStatus, setOrganizationsStatus] = useState<
-    "idle" | "loading" | "loaded" | "error"
-  >("idle");
+  const [organizationsStatus, setOrganizationsStatus] = useState<LoadState>("idle");
   const [organizationsError, setOrganizationsError] = useState("");
   const [organizationId, setOrganizationId] = useState("");
+  const [organizationQuery, setOrganizationQuery] = useState("");
+  const [organizationReload, setOrganizationReload] = useState(0);
+  const [properties, setProperties] = useState<PropertyOption[]>([]);
+  const [propertiesStatus, setPropertiesStatus] = useState<LoadState>("idle");
+  const [propertiesError, setPropertiesError] = useState("");
+  const [propertyId, setPropertyId] = useState("");
+  const [propertyReload, setPropertyReload] = useState(0);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [unitsStatus, setUnitsStatus] = useState<LoadState>("idle");
+  const [unitsError, setUnitsError] = useState("");
+  const [unitId, setUnitId] = useState("");
+  const [unitsReload, setUnitsReload] = useState(0);
   const [organizationName, setOrganizationName] = useState("");
   const [country, setCountry] = useState(detectCountry);
   const [currency, setCurrency] = useState(() =>
@@ -1379,52 +1480,112 @@ function RegisterPage() {
   const usernameRequest = useRef(0);
 
   useEffect(() => {
-  if (role !== "tenant") return;
-  if (organizationsStatus !== "idle") return;
+    if (role !== "tenant") return;
 
-  let cancelled = false;
+    let cancelled = false;
+    setOrganizationsStatus("loading");
+    setOrganizationsError("");
 
-  setOrganizationsStatus("loading");
-  setOrganizationsError("");
+    apiRequest("/organizations")
+      .then((data) => {
+        if (cancelled) return;
+        setOrganizations(parseOrganizationOptions(data));
+        setOrganizationsStatus("loaded");
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setOrganizations([]);
+        setOrganizationsStatus("error");
+        setOrganizationsError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not load organizations. Check your connection and try again."
+        );
+      });
 
-  apiRequest("/organizations")
-    .then((data) => {
-      if (cancelled) return;
+    return () => {
+      cancelled = true;
+    };
+  }, [role, organizationReload]);
 
-      console.log("ORGANIZATIONS:", data);
-      console.log("IS ARRAY:", Array.isArray(data));
+  useEffect(() => {
+    if (role !== "tenant" || !organizationId) {
+      setProperties([]);
+      setPropertiesStatus("idle");
+      setPropertyId("");
+      setUnits([]);
+      setUnitsStatus("idle");
+      setUnitId("");
+      return;
+    }
 
-      const rows = Array.isArray(data)
-        ? data
-        : [];
+    let cancelled = false;
+    setPropertiesStatus("loading");
+    setPropertiesError("");
+    setPropertyId("");
+    setUnits([]);
+    setUnitsStatus("idle");
+    setUnitId("");
 
-      setOrganizations(rows as Organization[]);
+    apiRequest(`/organizations/${encodeURIComponent(organizationId)}/properties`)
+      .then((data) => {
+        if (cancelled) return;
+        setProperties(parsePropertyOptions(data));
+        setPropertiesStatus("loaded");
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setProperties([]);
+        setPropertiesStatus("error");
+        setPropertiesError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not load properties. Check your connection and try again."
+        );
+      });
 
-      setOrganizationsStatus("loaded");
-    })
-    .catch((caught: unknown) => {
-      if (cancelled) return;
+    return () => {
+      cancelled = true;
+    };
+  }, [role, organizationId, propertyReload]);
 
-      console.error("ORGANIZATIONS ERROR:", caught);
+  useEffect(() => {
+    if (role !== "tenant" || !propertyId) {
+      setUnits([]);
+      setUnitsStatus("idle");
+      setUnitId("");
+      return;
+    }
 
-      setOrganizations([]);
-      setOrganizationsStatus("error");
+    let cancelled = false;
+    setUnitsStatus("loading");
+    setUnitsError("");
+    setUnitId("");
 
-      setOrganizationsError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not load organizations. Check your connection and try again."
-      );
-    });
+    apiRequest(`/properties/${encodeURIComponent(propertyId)}/available-units`)
+      .then((data) => {
+        if (cancelled) return;
+        setUnits(parseUnitOptions(data));
+        setUnitsStatus("loaded");
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setUnits([]);
+        setUnitsStatus("error");
+        setUnitsError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not load available units. Check your connection and try again."
+        );
+      });
 
-  return () => {
-    cancelled = true;
-  };
-}, [role, organizationsStatus]);
+    return () => {
+      cancelled = true;
+    };
+  }, [role, propertyId, unitsReload]);
 
   function retryLoadOrganizations() {
-    setOrganizationsStatus("idle");
-    setOrganizationsError("");
+    setOrganizationReload((current) => current + 1);
   }
 
   /* --- smart defaults: keep currency in sync with country --- */
@@ -1484,14 +1645,29 @@ function RegisterPage() {
   const passwordScore = passwordChecks.filter((rule) => rule.met).length;
   const emailValid = EMAIL_PATTERN.test(email.trim());
   const orgValid = organizationName.trim().length >= 2;
-  const tenantOrgValid = Boolean(organizationId);
+  const tenantOrgValid =
+    Number.isSafeInteger(Number(organizationId)) && Number(organizationId) > 0;
+  const tenantPropertyValid =
+    Number.isSafeInteger(Number(propertyId)) && Number(propertyId) > 0;
+  const tenantUnitValid =
+    Number.isSafeInteger(Number(unitId)) && Number(unitId) > 0;
+  const organizationSearchResults = useMemo(() => {
+    const query = organizationQuery.trim().toLowerCase();
+    return organizations.filter((organization) =>
+      `${organization.name} ${organization.country ?? ""}`
+        .toLowerCase()
+        .includes(query)
+    ).slice(0, 25);
+  }, [organizations, organizationQuery]);
   const nameValid = name.trim().length >= 2;
   const usernameValid =
     USERNAME_PATTERN.test(username.trim()) && usernameState !== "taken";
   const passwordValid = passwordScore === PASSWORD_RULES.length;
 
   const stepValid: Record<number, boolean> = {
-    1: role === "tenant" ? tenantOrgValid : orgValid,
+    1: role === "tenant"
+      ? tenantOrgValid && tenantPropertyValid && tenantUnitValid
+      : orgValid,
     2:
       role === "tenant"
         ? nameValid && emailValid
@@ -1507,7 +1683,11 @@ function RegisterPage() {
   }
 
   function goNext() {
-    if (step === 1) markTouched("organizationId");
+    if (step === 1) {
+      markTouched("organizationId");
+      markTouched("propertyId");
+      markTouched("unitId");
+    }
     if (step === 2) {
       markTouched("name");
       if (role !== "tenant") markTouched("username");
@@ -1572,17 +1752,15 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const isTenant = role === "tenant";
     const countryName = COUNTRIES.find((c) => c.code === country)?.name || country;
 
-    const response = await fetch(`${API_BASE}/register`, {
+    await apiRequest("/register", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
       body: JSON.stringify(
         isTenant
           ? {
               role,
               organization_id: Number(organizationId),
+              property_id: Number(propertyId),
+              unit_id: Number(unitId),
               name,
               email,
               password,
@@ -1601,26 +1779,16 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
       ),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      // Handle validation errors
-      if (data.errors) {
-        const firstError = Object.values(data.errors)[0] as string[];
-        setError(firstError[0] || "Registration failed. Please try again.");
-      } else {
-        setError(data.message || "Registration failed. Please try again.");
-      }
-      setLoading(false);
-      return;
-    }
-
     // Success message before redirect
     setSuccess("Account created successfully — redirecting to login…");
     setError("");
 
     // Clear form data
     setOrganizationName("");
+    setOrganizationId("");
+    setOrganizationQuery("");
+    setPropertyId("");
+    setUnitId("");
     setName("");
     setUsername("");
     setEmail("");
@@ -1805,67 +1973,171 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 <legend className="rg-sr">Organization details</legend>
 
                   {role === "tenant" ? (
-                    <div>
-                      <label className="rg-label" htmlFor="organizationId">
-                        Which property management company are you leasing with?
-                      </label>
-                      <div className="rg-input-wrap">
-                        <Building2 className="rg-input-icon" />
-                        <select
-                          id="organizationId"
-                          name="organization_id"
-                          className="rg-select"
-                          value={organizationId}
-                          disabled={organizationsStatus === "loading"}
-                          onChange={(event) => setOrganizationId(event.target.value)}
-                        >
-                          <option value="">
-                            {organizationsStatus === "loading"
-                              ? "Loading organizations…"
-                              : organizationsStatus === "error"
-                              ? "Organizations unavailable"
-                              : organizations.length === 0
-                              ? "No organizations available yet"
-                              : "Select your property manager"}
-                          </option>
-                          {organizations.map((org) => (
-                            <option key={org.id} value={org.id}>
-                              {org.name}
-                              {org.country ? ` — ${org.country}` : ""}
-                            </option>
-                          ))}
-                        </select>
+                    <>
+                      <div>
+                        <label className="rg-label" htmlFor="organizationSearch">
+                          Property management company
+                        </label>
+                        <div className="rg-input-wrap">
+                          <Building2 className="rg-input-icon" />
+                          <input
+                            id="organizationSearch"
+                            name="organization_search"
+                            type="search"
+                            className="rg-input"
+                            value={organizationQuery}
+                            disabled={organizationsStatus === "loading"}
+                            placeholder="Search property management company…"
+                            autoComplete="off"
+                            onChange={(event) => {
+                              setOrganizationQuery(event.target.value);
+                              setOrganizationId("");
+                              setPropertyId("");
+                              setUnitId("");
+                            }}
+                            onBlur={() => markTouched("organizationId")}
+                            aria-invalid={touched.organizationId && !tenantOrgValid}
+                            aria-describedby="organization-help"
+                          />
+                        </div>
+                        {organizationsStatus === "loading" ? (
+                          <p className="rg-help" role="status">
+                            <Loader2 className="rg-spin" />
+                            Loading organizations…
+                          </p>
+                        ) : organizationsStatus === "error" ? (
+                          <p className="rg-help rg-help--error" id="organization-help" role="alert">
+                            <AlertCircle />
+                            {organizationsError || "Could not load organizations."}{" "}
+                            <button
+                              type="button"
+                              className="rg-link-btn"
+                              onClick={retryLoadOrganizations}
+                            >
+                              Retry
+                            </button>
+                          </p>
+                        ) : organizationsStatus === "loaded" && organizations.length === 0 ? (
+                          <p className="rg-help rg-help--error" id="organization-help" role="alert">
+                            <AlertCircle />
+                            No organizations exist yet. Ask your property manager to register first.
+                          </p>
+                        ) : organizationId ? (
+                          <p className="rg-help rg-help--ok" id="organization-help">
+                            <CheckCircle2 />
+                            {organizations.find((item) => String(item.id) === organizationId)?.name} selected
+                          </p>
+                        ) : (
+                          <>
+                            <p className={`rg-help${touched.organizationId && !tenantOrgValid ? " rg-help--error" : ""}`} id="organization-help">
+                              {touched.organizationId && !tenantOrgValid
+                                ? "Select an existing organization from the results."
+                                : "Choose an existing organization; new organizations cannot be created here."}
+                            </p>
+                            {organizationQuery.trim() && organizationSearchResults.length > 0 && (
+                              <div className="rg-choice-list" role="listbox" aria-label="Organizations">
+                                {organizationSearchResults.map((organization) => (
+                                  <button
+                                    key={organization.id}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={false}
+                                    className="rg-choice"
+                                    onClick={() => {
+                                      setOrganizationId(String(organization.id));
+                                      setOrganizationQuery(organization.name);
+                                      setPropertyId("");
+                                      setUnitId("");
+                                    }}
+                                  >
+                                    {organization.name}
+                                    {organization.country ? ` — ${organization.country}` : ""}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {organizationQuery.trim() && organizationSearchResults.length === 0 && (
+                              <p className="rg-help" role="status">No matching organizations found.</p>
+                            )}
+                          </>
+                        )}
                       </div>
-                      {organizationsStatus === "error" ? (
-                        <p className="rg-help rg-help--error" role="alert">
-                          <AlertCircle />
-                          {organizationsError || "Could not load organizations."}{" "}
-                          <button
-                            type="button"
-                            className="rg-link-btn"
-                            onClick={retryLoadOrganizations}
-                          >
-                            Retry
-                          </button>
-                        </p>
-                      ) : organizationsStatus === "loaded" &&
-                        organizations.length === 0 ? (
-                        <p className="rg-help rg-help--error" role="alert">
-                          <AlertCircle />
-                          No property management organizations exist yet.
-                          Ask your property manager to register first.
-                        </p>
-                      ) : touched.organizationId && !tenantOrgValid ? (
-                        <p className="rg-help rg-help--error" role="alert">
-                          <AlertCircle />
-                          Please select your property management company.
-                        </p>
-                      ) : (
-                        <p className="rg-help">
-                          We'll link your account to this organization.
-                        </p>
+
+                      {organizationId && (
+                        <div>
+                          <label className="rg-label" htmlFor="propertyId">Property</label>
+                          <div className="rg-input-wrap">
+                            <Building2 className="rg-input-icon" />
+                            <select
+                              id="propertyId"
+                              className="rg-select"
+                              value={propertyId}
+                              disabled={propertiesStatus !== "loaded" || properties.length === 0}
+                              onChange={(event) => {
+                                setPropertyId(event.target.value);
+                                setUnitId("");
+                              }}
+                            >
+                              <option value="">
+                                {propertiesStatus === "loading" ? "Loading properties…" :
+                                  propertiesStatus === "error" ? "Properties unavailable" :
+                                  properties.length === 0 ? "No properties available" : "Select a property"}
+                              </option>
+                              {properties.map((property) => (
+                                <option key={property.id} value={property.id}>{property.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {propertiesStatus === "error" ? (
+                            <p className="rg-help rg-help--error" role="alert">
+                              <AlertCircle />{propertiesError}{" "}
+                              <button type="button" className="rg-link-btn" onClick={() => setPropertyReload((value) => value + 1)}>Retry</button>
+                            </p>
+                          ) : propertiesStatus === "loaded" && properties.length === 0 ? (
+                            <p className="rg-help" role="status">This organization has no properties yet.</p>
+                          ) : touched.propertyId && !tenantPropertyValid ? (
+                            <p className="rg-help rg-help--error" role="alert"><AlertCircle />Select a property.</p>
+                          ) : null}
+                        </div>
                       )}
-                    </div>
+
+                      {propertyId && (
+                        <div>
+                          <label className="rg-label" htmlFor="unitId">Available unit</label>
+                          <div className="rg-input-wrap">
+                            <Building2 className="rg-input-icon" />
+                            <select
+                              id="unitId"
+                              className="rg-select"
+                              value={unitId}
+                              disabled={unitsStatus !== "loaded" || units.length === 0}
+                              onChange={(event) => setUnitId(event.target.value)}
+                            >
+                              <option value="">
+                                {unitsStatus === "loading" ? "Loading available units…" :
+                                  unitsStatus === "error" ? "Units unavailable" :
+                                  units.length === 0 ? "No available units" : "Select a unit"}
+                              </option>
+                              {units.map((unit) => (
+                                <option key={unit.id} value={unit.id}>
+                                  {unit.unit_number}{unit.unit_type ? ` — ${unit.unit_type}` : ""} — KSh {unit.monthly_rent.toLocaleString()}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {unitsStatus === "error" ? (
+                            <p className="rg-help rg-help--error" role="alert">
+                              <AlertCircle />{unitsError}{" "}
+                              <button type="button" className="rg-link-btn" onClick={() => setUnitsReload((value) => value + 1)}>Retry</button>
+                            </p>
+                          ) : unitsStatus === "loaded" && units.length === 0 ? (
+                            <p className="rg-help" role="status">No vacant units are currently available in this property.</p>
+                          ) : touched.unitId && !tenantUnitValid ? (
+                            <p className="rg-help rg-help--error" role="alert"><AlertCircle />Select an available unit.</p>
+                          ) : null}
+                        </div>
+                      )}
+                    </>
 
                   ) : (
                     <div>

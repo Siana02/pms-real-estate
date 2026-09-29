@@ -42,4 +42,5 @@ Route::middleware('auth:sanctum')->prefix('tenant')->group(function () {
     Route::post('maintenance-requests', [TenantPortalController::class, 'storeMaintenanceRequest']);
     Route::get('notifications', [TenantPortalController::class, 'notifications']);
     Route::get('vacancies', [TenantPortalController::class, 'vacancies']);
+    Route::post('leases/{lease}/notice', [TenantPortalController::class, 'submitMoveOutNotice']);
 });

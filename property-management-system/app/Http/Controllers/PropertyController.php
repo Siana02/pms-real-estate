@@ -6,6 +6,8 @@ use App\Models\Leases as Lease;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\LeaseProvisioner;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +39,7 @@ class PropertyController extends Controller
             'units' => 'array',
             'units.*.unit_number' => 'required|string|max:255|distinct:ignore_case',
             'units.*.unit_type' => 'nullable|string|max:255',
-            'units.*.status' => 'required|in:vacant,occupied,maintenance',
+            'units.*.status' => 'required|in:vacant,occupied,reserved,maintenance',
             'units.*.monthly_rent' => 'nullable|numeric|min:0',
             'units.*.description' => 'nullable|string',
 
@@ -58,7 +60,7 @@ class PropertyController extends Controller
 
         $organizationId = $request->user()->organization_id;
 
-        $property = DB::transaction(function () use ($validated, $organizationId) {
+        $property = DB::transaction(function () use ($validated, $organizationId, $request) {
             $property = Property::create([
                 'organization_id' => $organizationId,
                 'name' => $validated['name'],
@@ -88,28 +90,18 @@ class PropertyController extends Controller
                 $leasePayload = $payload['lease'] ?? null;
 
                 if (!$tenantPayload || !$leasePayload) {
-                    continue;
+                    abort(422, 'Occupied units require tenant and lease details.');
                 }
 
                 $tenant = $this->resolveTenant($organizationId, $tenantPayload);
 
-                Lease::create([
-                    'organization_id' => $organizationId,
+                app(LeaseProvisioner::class)->create([
+                    ...$leasePayload,
                     'property_id' => $property->id,
                     'unit_id' => $unit->id,
-                    'tenant_id' => $tenant->id,
-                    'start_date' => $leasePayload['start_date'],
-                    'end_date' => $leasePayload['end_date'] ?? null,
                     'monthly_rent' => $leasePayload['monthly_rent'] ?? $unit->monthly_rent,
-                    'deposit_amount' => $leasePayload['deposit_amount'] ?? 0,
-                    'status' => 'active',
-                    'notes' => $leasePayload['notes'] ?? null,
-                ]);
+                ], $organizationId, $tenant);
             }
-
-            $property->update([
-                'monthly_rent' => $this->metrics($property)['monthly_revenue'],
-            ]);
 
             return $property;
         });
@@ -187,13 +179,18 @@ class PropertyController extends Controller
 
     private function metrics(Property $property): array
     {
+        $today = CarbonImmutable::today()->toDateString();
         $units = Unit::where('property_id', $property->id)->get();
         $activeLeases = Lease::where('property_id', $property->id)
-            ->where('status', 'active')
+            ->whereNotIn('status', ['ended', 'terminated'])
+            ->whereDate('start_date', '<=', $today)
+            ->where(fn ($query) => $query
+                ->whereNull('end_date')
+                ->orWhereDate('end_date', '>=', $today))
             ->get();
 
         $unitsCount = $units->count();
-        $occupiedUnits = $units->where('status', 'occupied')->count();
+        $occupiedUnits = $activeLeases->pluck('unit_id')->unique()->count();
 
         return [
             'units_count' => $unitsCount,

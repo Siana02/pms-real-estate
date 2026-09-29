@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\CarbonImmutable;
 
 class Leases extends Model
 {
@@ -68,5 +69,22 @@ class Leases extends Model
     public function deposit()
     {
         return $this->hasOne(Deposit::class, 'lease_id');
+    }
+
+    public function getStatusAttribute($value): string
+    {
+        if (in_array($value, ['notice', 'ended', 'terminated'], true)) {
+            return $value;
+        }
+
+        $today = CarbonImmutable::today()->toDateString();
+        $startDate = CarbonImmutable::parse($this->attributes['start_date'])->toDateString();
+        $endDate = $this->attributes['end_date'] ?? null;
+
+        if ($endDate && CarbonImmutable::parse($endDate)->toDateString() < $today) {
+            return 'ended';
+        }
+
+        return $startDate > $today ? 'upcoming' : 'active';
     }
 }
