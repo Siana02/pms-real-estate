@@ -18,9 +18,14 @@ Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 Route::get('username-available', [AuthController::class, 'usernameAvailable']);
 Route::get('organizations', [OrganizationController::class, 'index']);
+Route::get('organizations/{organization}/properties', [OrganizationController::class, 'properties']);
+Route::get('properties/{property}/available-units', [UnitController::class, 'availableForRegistration']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('change-password', [AuthController::class, 'changePassword']);
+});
+
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::apiResource('organizations', OrganizationController::class)->except(['index']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
@@ -32,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index']);
 });
 
-Route::middleware('auth:sanctum')->prefix('tenant')->group(function () {
+Route::middleware(['auth:sanctum', 'role:tenant'])->prefix('tenant')->group(function () {
     Route::get('overview', [TenantPortalController::class, 'overview']);
     Route::get('payments', [TenantPortalController::class, 'payments']);
     Route::post('payments', [TenantPortalController::class, 'storePayment']);
@@ -40,4 +45,5 @@ Route::middleware('auth:sanctum')->prefix('tenant')->group(function () {
     Route::post('maintenance-requests', [TenantPortalController::class, 'storeMaintenanceRequest']);
     Route::get('notifications', [TenantPortalController::class, 'notifications']);
     Route::get('vacancies', [TenantPortalController::class, 'vacancies']);
+    Route::post('leases/{lease}/notice', [TenantPortalController::class, 'submitMoveOutNotice']);
 });

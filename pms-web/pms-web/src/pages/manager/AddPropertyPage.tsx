@@ -968,6 +968,7 @@ const styles = `
 interface UnitForm {
   id: string;
   unit_number: string;
+  unit_type: string;
   status: "occupied" | "vacant";
   monthly_rent: number;
   tenant_name: string;
@@ -1026,6 +1027,7 @@ function makeUnit(index: number): UnitForm {
   return {
     id: `unit-${unitSeq}`,
     unit_number: `Unit ${index}`,
+    unit_type: "",
     status: "vacant",
     monthly_rent: 0,
     tenant_name: "",
@@ -1188,6 +1190,10 @@ function AddProperties() {
 
   const [form, setForm] = useState<PropertyForm>(initialForm);
   const [units, setUnits] = useState<UnitForm[]>(() => [makeUnit(1)]);
+  const [inventory, setInventory] = useState([
+    { unit_type: "One Bedroom", quantity: 1, monthly_rent: 0 },
+  ]);
+  const [inventoryError, setInventoryError] = useState("");
   const [touched, setTouched] = useState<
     Partial<Record<keyof PropertyForm, boolean>>
   >({});
@@ -1261,6 +1267,50 @@ function AddProperties() {
     });
   }
 
+  function applyInventory() {
+    setInventoryError("");
+    const invalid = inventory.some((item) =>
+      !item.unit_type.trim() ||
+      !Number.isInteger(item.quantity) ||
+      item.quantity < 1 ||
+      !Number.isFinite(item.monthly_rent) ||
+      item.monthly_rent < 0
+    );
+    const total = inventory.reduce((sum, item) => sum + item.quantity, 0);
+
+    if (invalid || total < 1 || total > MAX_UNITS) {
+      setInventoryError(
+        `Enter a unit type, a quantity from 1–${MAX_UNITS}, and a non-negative rent.`
+      );
+      return;
+    }
+
+    const usedPrefixes = new Set<string>();
+    const generated = inventory.flatMap((item, groupIndex) => {
+      const initials = item.unit_type
+        .trim()
+        .split(/\s+/)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "U";
+      const prefix = usedPrefixes.has(initials)
+        ? `${initials}${groupIndex + 1}`
+        : initials;
+      usedPrefixes.add(initials);
+
+      return Array.from({ length: item.quantity }, (_, index) => ({
+        ...makeUnit(index + 1),
+        unit_number: `${prefix}${String(index + 1).padStart(2, "0")}`,
+        unit_type: item.unit_type.trim(),
+        monthly_rent: item.monthly_rent,
+      }));
+    });
+
+    setUnits(generated);
+    setUnitsTouched(false);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -1290,7 +1340,7 @@ function AddProperties() {
 
             return {
               unit_number: unit.unit_number.trim(),
-              unit_type: form.property_type,
+              unit_type: unit.unit_type.trim() || form.property_type,
               status: occupied ? "occupied" : "vacant",
               monthly_rent: unit.monthly_rent,
               tenant:
@@ -1499,8 +1549,85 @@ function AddProperties() {
               <section className="ap-section">
                 <h2 className="ap-section__title">
                   <DoorOpen />
-                  Units, tenants &amp; leases
+                  Unit inventory
                 </h2>
+                <p className="ap-units-bar__hint">
+                  Set a type, quantity and default rent. Generated unit numbers can be edited below.
+                </p>
+
+                <div className="ap-units">
+                  {inventory.map((item, index) => (
+                    <div className="ap-unit" key={index}>
+                      <div className="ap-unit__fields">
+                        <div>
+                          <label className="ap-unit__label" htmlFor={`inventory-type-${index}`}>Unit type</label>
+                          <input
+                            id={`inventory-type-${index}`}
+                            className="ap-input"
+                            value={item.unit_type}
+                            onChange={(event) => setInventory((current) => current.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, unit_type: event.target.value } : row
+                            ))}
+                            placeholder="e.g. One Bedroom"
+                          />
+                        </div>
+                        <div>
+                          <label className="ap-unit__label" htmlFor={`inventory-quantity-${index}`}>Quantity</label>
+                          <input
+                            id={`inventory-quantity-${index}`}
+                            className="ap-input"
+                            type="number"
+                            min={1}
+                            max={MAX_UNITS}
+                            value={item.quantity}
+                            onChange={(event) => setInventory((current) => current.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, quantity: Number.parseInt(event.target.value, 10) || 0 } : row
+                            ))}
+                          />
+                        </div>
+                        <div>
+                          <label className="ap-unit__label" htmlFor={`inventory-rent-${index}`}>Default rent ({currency})</label>
+                          <input
+                            id={`inventory-rent-${index}`}
+                            className="ap-input"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={item.monthly_rent}
+                            onChange={(event) => setInventory((current) => current.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, monthly_rent: Number.parseFloat(event.target.value) || 0 } : row
+                            ))}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="ap-iconbtn"
+                          onClick={() => setInventory((current) => current.filter((_, rowIndex) => rowIndex !== index))}
+                          disabled={inventory.length === 1}
+                          aria-label={`Remove inventory type ${index + 1}`}
+                        >
+                          <Trash2 />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {inventoryError && <p className="ap-error" role="alert"><AlertCircle />{inventoryError}</p>}
+                <div className="ap-units-bar">
+                  <button
+                    type="button"
+                    className="ap-step-btn"
+                    onClick={() => setInventory((current) => [...current, { unit_type: "", quantity: 1, monthly_rent: 0 }])}
+                  >
+                    <Plus /> Add unit type
+                  </button>
+                  <button type="button" className="ap-step-btn" onClick={applyInventory}>
+                    Generate units
+                  </button>
+                </div>
+
+                <h3 className="ap-section__title">Individual units, tenants &amp; leases</h3>
 
                 <div className="ap-units-bar">
                   <p className="ap-units-bar__hint">
@@ -1621,6 +1748,23 @@ function AddProperties() {
                       </div>
 
                       <div className="ap-unit__fields">
+                        <div>
+                          <label
+                            className="ap-unit__label"
+                            htmlFor={`${unit.id}-type`}
+                          >
+                            Unit type
+                          </label>
+                          <input
+                            id={`${unit.id}-type`}
+                            className="ap-input"
+                            value={unit.unit_type}
+                            onChange={(event) =>
+                              updateUnit(unit.id, { unit_type: event.target.value })
+                            }
+                            placeholder={form.property_type}
+                          />
+                        </div>
                         <div>
                           <label
                             className="ap-unit__label"

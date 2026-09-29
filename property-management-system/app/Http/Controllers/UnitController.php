@@ -4,10 +4,32 @@ namespace App\Http\Controllers;
 
 use App\Models\Unit;
 use App\Models\Property;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 
 class UnitController extends Controller
 {
+    public function availableForRegistration(Property $property)
+    {
+        $today = CarbonImmutable::today()->toDateString();
+
+        $units = Unit::query()
+            ->where('property_id', $property->id)
+            ->where('status', '!=', 'maintenance')
+            ->whereDoesntHave('leases', function ($query) use ($today) {
+                $query->whereNotIn('status', ['ended', 'terminated'])
+                    ->where(function ($dates) use ($today) {
+                        $dates->whereNull('end_date')
+                            ->orWhereDate('end_date', '>=', $today);
+                    });
+            })
+            ->whereDoesntHave('tenants', fn ($query) => $query->where('status', 'pending'))
+            ->orderBy('unit_number')
+            ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent']);
+
+        return response()->json($units);
+    }
+
     public function index(Request $request)
     {
         $units = Unit::whereHas('property', function ($query) use ($request) {
@@ -15,7 +37,35 @@ class UnitController extends Controller
                 'organization_id',
                 $request->user()->organization_id
             );
-        })->with('property')->get();
+        })->with(['property', 'leases', 'tenants'])->get();
+
+        $today = CarbonImmutable::today()->toDateString();
+        $units->each(function (Unit $unit) use ($today) {
+            $pendingTenant = $unit->tenants->firstWhere('status', 'pending');
+
+            if ($unit->status === 'maintenance') {
+                $unit->setAttribute('pending_registration', false);
+                $unit->setAttribute('pending_email', null);
+                return;
+            }
+
+            $status = $unit->leases
+                ->filter(fn ($lease) => ! in_array($lease->status, ['ended', 'terminated'], true))
+                ->contains(fn ($lease) =>
+                    $lease->start_date->toDateString() <= $today &&
+                    ($lease->end_date === null || $lease->end_date->toDateString() >= $today)
+                )
+                ? 'occupied'
+                : ($unit->leases
+                    ->contains(fn ($lease) => $lease->status === 'upcoming') ||
+                    $pendingTenant !== null
+                    ? 'reserved'
+                    : 'vacant');
+
+            $unit->setAttribute('status', $status);
+            $unit->setAttribute('pending_registration', $pendingTenant !== null);
+            $unit->setAttribute('pending_email', $pendingTenant?->email);
+        });
 
         return response()->json($units);
     }
@@ -27,7 +77,7 @@ class UnitController extends Controller
             'unit_number' => 'required|string|max:255',
             'unit_type' => 'nullable|string|max:255',
             'monthly_rent' => 'required|numeric|min:0',
-            'status' => 'nullable|in:vacant,occupied,maintenance',
+            'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
 
@@ -63,9 +113,14 @@ class UnitController extends Controller
             'unit_number' => 'sometimes|required|string|max:255',
             'unit_type' => 'nullable|string|max:255',
             'monthly_rent' => 'sometimes|required|numeric|min:0',
-            'status' => 'nullable|in:vacant,occupied,maintenance',
+            'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
+
+        if (isset($validated['property_id'])) {
+            Property::where('organization_id', $request->user()->organization_id)
+                ->findOrFail($validated['property_id']);
+        }
 
         $unit->update($validated);
 

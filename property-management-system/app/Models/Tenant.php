@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Leases as Lease;
 
 class Tenant extends Model
 {
@@ -11,6 +12,8 @@ class Tenant extends Model
 
     protected $fillable = [
         'organization_id',
+        'property_id',
+        'unit_id',
         'first_name',
         'last_name',
         'email',
@@ -28,6 +31,21 @@ class Tenant extends Model
     public function leases()
     {
         return $this->hasMany(Lease::class);
+    }
+
+    public function property()
+    {
+        return $this->belongsTo(Property::class);
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function deposits()
+    {
+        return $this->hasMany(Deposit::class);
     }
 
 }

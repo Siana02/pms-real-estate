@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Organization;
 use App\Models\Tenant;
+use App\Models\Unit;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -37,6 +40,18 @@ public function usernameAvailable(Request $request)
             $validated = $request->validate([
                 'role' => ['nullable', 'string', 'in:manager,tenant'],
                 'organization_id' => ['required', 'integer', 'exists:organizations,id'],
+                'property_id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('properties', 'id')
+                        ->where('organization_id', $request->input('organization_id')),
+                ],
+                'unit_id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('units', 'id')
+                        ->where('property_id', $request->input('property_id')),
+                ],
                 'name' => ['required', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -44,18 +59,76 @@ public function usernameAvailable(Request $request)
             ]);
 
             $user = DB::transaction(function () use ($validated) {
+                $tenant = Tenant::where('organization_id', $validated['organization_id'])
+                    ->where('email', $validated['email'])
+                    ->lockForUpdate()
+                    ->first();
+
+                $unit = Unit::whereKey($validated['unit_id'])
+                    ->where('property_id', $validated['property_id'])
+                    ->where('status', 'vacant')
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $today = CarbonImmutable::today()->toDateString();
+                $hasLease = $unit->leases()
+                    ->whereNotIn('status', ['ended', 'terminated'])
+                    ->where(fn ($query) => $query
+                        ->whereNull('end_date')
+                        ->orWhereDate('end_date', '>=', $today))
+                    ->exists();
+
+                $hasPendingRegistration = Tenant::where('unit_id', $unit->id)
+                    ->where('status', 'pending')
+                    ->when($tenant, fn ($query) => $query->where('id', '<>', $tenant->id))
+                    ->exists();
+
+                abort_if(
+                    $hasLease || $hasPendingRegistration,
+                    422,
+                    'This unit is no longer available. Please choose another unit.'
+                );
+
                 $nameParts = preg_split('/\s+/', trim($validated['name']), 2);
                 $firstName = $nameParts[0] ?? $validated['name'];
                 $lastName = $nameParts[1] ?? '';
 
-                $tenant = Tenant::create([
-                    'organization_id' => $validated['organization_id'],
+                $tenantData = [
+                    'property_id' => $validated['property_id'],
+                    'unit_id' => $validated['unit_id'],
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'email' => $validated['email'],
                     'phone' => $validated['phone'] ?? '',
-                    'status' => 'active',
-                ]);
+                    'status' => 'pending',
+                ];
+
+                if ($tenant) {
+                    $existingLease = $tenant->leases()
+                        ->whereNotIn('status', ['ended', 'terminated'])
+                        ->where(fn ($query) => $query
+                            ->whereNull('end_date')
+                            ->orWhereDate('end_date', '>=', CarbonImmutable::today()->toDateString()))
+                        ->first();
+
+                    abort_if(
+                        $existingLease &&
+                        ($existingLease->property_id !== $unit->property_id ||
+                            $existingLease->unit_id !== $unit->id),
+                        422,
+                        'This email already has a tenancy assigned to a different unit.'
+                    );
+
+                    if ($existingLease) {
+                        unset($tenantData['status']);
+                    }
+                    $tenant->update($tenantData);
+                } else {
+                    $tenant = Tenant::create([
+                        'organization_id' => $validated['organization_id'],
+                        ...$tenantData,
+                    ]);
+                }
 
                 $baseUsername = Str::slug($validated['name'], '') ?: 'tenant';
                 $username = $baseUsername;
@@ -95,6 +168,13 @@ public function usernameAvailable(Request $request)
                     'organization_id' => $user->organization_id,
                     'tenant_id' => $user->tenant_id,
                     'must_change_password' => $user->must_change_password,
+                ],
+                'tenant' => [
+                    'id' => $user->tenant_id,
+                    'organization_id' => $user->organization_id,
+                    'property_id' => $user->tenant?->property_id,
+                    'unit_id' => $user->tenant?->unit_id,
+                    'status' => $user->tenant?->status,
                 ],
             ], 201);
         }

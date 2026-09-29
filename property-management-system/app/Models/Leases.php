@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\CarbonImmutable;
 
 class Leases extends Model
 {
@@ -20,6 +21,13 @@ class Leases extends Model
         'deposit_amount',
         'status',
         'notes',
+        'notice_date',
+        'intended_move_out_date',
+        'notice_period_months',
+        'notice_timely',
+        'notice_charge_amount',
+        'termination_reason',
+        'actual_move_out_date',
     ];
 
     protected $casts = [
@@ -27,6 +35,12 @@ class Leases extends Model
         'end_date' => 'date',
         'monthly_rent' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
+        'notice_date' => 'date',
+        'intended_move_out_date' => 'date',
+        'notice_period_months' => 'integer',
+        'notice_timely' => 'boolean',
+        'notice_charge_amount' => 'decimal:2',
+        'actual_move_out_date' => 'date',
     ];
 
     public function organization()
@@ -52,5 +66,31 @@ class Leases extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class, 'lease_id');
+    }
+
+    public function deposit()
+    {
+        return $this->hasOne(Deposit::class, 'lease_id');
+    }
+
+    public function getStatusAttribute($value): string
+    {
+        if (in_array($value, ['ended', 'terminated'], true)) {
+            return $value;
+        }
+
+        $today = CarbonImmutable::today()->toDateString();
+        $startDate = CarbonImmutable::parse($this->attributes['start_date'])->toDateString();
+        $endDate = $this->attributes['end_date'] ?? null;
+
+        if ($endDate && CarbonImmutable::parse($endDate)->toDateString() < $today) {
+            return 'ended';
+        }
+
+        if ($value === 'notice') {
+            return 'notice';
+        }
+
+        return $startDate > $today ? 'upcoming' : 'active';
     }
 }

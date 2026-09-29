@@ -38,12 +38,16 @@ interface LeaseRecord {
   end_date: string | null;
   monthly_rent: number;
   deposit_amount: number;
+  deposit_status: string | null;
   balance: number;
   status: string;
   notes: string | null;
 }
  
-type LeaseView = LeaseRecord & { computed: "active" | "expiring" | "expired" };
+type LeaseView = LeaseRecord & {
+  computed: "upcoming" | "active" | "notice" | "expiring" | "expired";
+};
+type LeaseFilter = "all" | LeaseView["computed"];
  
 const EXPIRING_WINDOW_DAYS = 60;
  
@@ -63,6 +67,7 @@ function parseLeases(payload: unknown): LeaseRecord[] {
       end_date: asString(record.end_date) || null,
       monthly_rent: asNumber(record.monthly_rent),
       deposit_amount: asNumber(record.deposit_amount),
+      deposit_status: asString(toRecord(record.deposit).status) || null,
       balance: asNumber(record.balance),
       status: asString(record.status) || "active",
       notes: asString(record.notes) || null,
@@ -71,11 +76,19 @@ function parseLeases(payload: unknown): LeaseRecord[] {
 }
  
 function classify(lease: LeaseRecord): LeaseView["computed"] {
-  const remaining = daysBetween(lease.end_date);
- 
-  if (lease.status === "expired" || lease.status === "terminated") {
+  const today = new Date().toISOString().slice(0, 10);
+  const startDate = lease.start_date?.slice(0, 10) ?? null;
+  const endDate = lease.end_date?.slice(0, 10) ?? null;
+
+  if (lease.status === "ended" || lease.status === "terminated") {
     return "expired";
   }
+  if (startDate && startDate > today) return "upcoming";
+  if (lease.status === "notice") return "notice";
+  if (endDate && endDate < today) return "expired";
+
+  const remaining = daysBetween(lease.end_date);
+
   if (remaining !== null && remaining < 0) return "expired";
   if (remaining !== null && remaining <= EXPIRING_WINDOW_DAYS) return "expiring";
  
@@ -84,13 +97,15 @@ function classify(lease: LeaseRecord): LeaseView["computed"] {
  
 function badgeClass(view: LeaseView["computed"]): string {
   if (view === "active") return "mg-badge mg-badge--ok";
-  if (view === "expiring") return "mg-badge mg-badge--warn";
+  if (view !== "expired") return "mg-badge mg-badge--warn";
   return "mg-badge mg-badge--danger";
 }
- 
-const FILTERS: { id: string; label: string }[] = [
+
+const FILTERS: { id: LeaseFilter; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "upcoming", label: "Upcoming" },
   { id: "active", label: "Active" },
+  { id: "notice", label: "Notice" },
   { id: "expiring", label: "Expiring soon" },
   { id: "expired", label: "Expired" },
 ];
@@ -106,7 +121,7 @@ function ManagerLeasesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState<LeaseFilter>("all");
  
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,7 +149,9 @@ function ManagerLeasesPage() {
   const counts = useMemo(
     () => ({
       all: views.length,
+      upcoming: views.filter((lease) => lease.computed === "upcoming").length,
       active: views.filter((lease) => lease.computed === "active").length,
+      notice: views.filter((lease) => lease.computed === "notice").length,
       expiring: views.filter((lease) => lease.computed === "expiring").length,
       expired: views.filter((lease) => lease.computed === "expired").length,
     }),
@@ -163,7 +180,9 @@ function ManagerLeasesPage() {
     const active = views.filter((lease) => lease.computed !== "expired");
  
     return {
-      contracted: active.reduce((sum, lease) => sum + lease.monthly_rent, 0),
+      contracted: active
+        .filter((lease) => lease.computed !== "upcoming")
+        .reduce((sum, lease) => sum + lease.monthly_rent, 0),
       deposits: active.reduce((sum, lease) => sum + lease.deposit_amount, 0),
       arrears: views.reduce((sum, lease) => sum + Math.max(lease.balance, 0), 0),
     };
@@ -229,7 +248,7 @@ function ManagerLeasesPage() {
               <p className="mg-stat__hint">Per month</p>
             </article>
             <article className="mg-stat">
-              <p className="mg-stat__label">Deposits held</p>
+              <p className="mg-stat__label">Deposits required</p>
               <p className="mg-stat__value">
                 {formatMoney(totals.deposits, currency)}
               </p>
@@ -368,6 +387,9 @@ function ManagerLeasesPage() {
                         </td>
                         <td data-label="Deposit" className="mg-num">
                           {formatMoney(lease.deposit_amount, currency)}
+                          <span className="mg-sub">
+                            {titleCase(lease.deposit_status ?? "not required")}
+                          </span>
                         </td>
                         <td data-label="Status">
                           <span className={badgeClass(lease.computed)}>

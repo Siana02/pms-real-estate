@@ -189,6 +189,12 @@ const styles = `
 }
  
 .tn-alert svg { width: 1rem; height: 1rem; flex: none; margin-top: 0.0625rem; }
+.tn-link {
+  padding: 0;
+  color: #93c5fd;
+  text-decoration: underline;
+  font: inherit;
+}
  
 .tn-alert--ok {
   border-color: rgba(74, 222, 128, 0.28);
@@ -754,6 +760,10 @@ interface TenantRecord {
   property: { id: number; name: string } | null;
   unit: { id: number; unit_number: string } | null;
   monthly_rent: number;
+  lease_status: string | null;
+  lease_start: string | null;
+  lease_end: string | null;
+  deposit_status: string | null;
   open_maintenance_requests: number;
   has_login?: boolean;
 }
@@ -763,7 +773,23 @@ interface ProvisionedAccount {
   created: boolean;
   temporary_password: string | null;
 }
- 
+
+interface PropertyOption {
+  id: number;
+  name: string;
+}
+
+interface UnitOption {
+  id: number;
+  property_id: number;
+  unit_number: string;
+  unit_type: string | null;
+  monthly_rent: number;
+  status: string;
+  pending_registration: boolean;
+  pending_email: string | null;
+}
+
 const UNASSIGNED = "No active lease";
  
 function readCurrency(): string {
@@ -836,6 +862,8 @@ function parseTenants(payload: unknown): TenantRecord[] {
     const first = asString(record.first_name);
     const last = asString(record.last_name);
     const unit = namedRef(record.unit, "unit_number");
+    const lease = toRecord(record.lease);
+    const deposit = toRecord(record.deposit);
  
     return {
       id: asNumber(record.id),
@@ -848,6 +876,10 @@ function parseTenants(payload: unknown): TenantRecord[] {
       property: namedRef(record.property, "name"),
       unit: unit ? { id: unit.id, unit_number: unit.name } : null,
       monthly_rent: asNumber(record.monthly_rent),
+      lease_status: asString(lease.status) || null,
+      lease_start: asString(lease.start_date) || null,
+      lease_end: asString(lease.end_date) || null,
+      deposit_status: asString(deposit.status) || null,
       open_maintenance_requests: asNumber(record.open_maintenance_requests),
       has_login: record.has_login === true,
     };
@@ -887,13 +919,90 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
   const [status, setStatus] = useState("active");
   const [notes, setNotes] = useState("");
   const [createLogin, setCreateLogin] = useState(true);
+  const [properties, setProperties] = useState<PropertyOption[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState("");
+  const [optionsReload, setOptionsReload] = useState(0);
+  const [propertyId, setPropertyId] = useState("");
+  const [unitId, setUnitId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [monthlyRent, setMonthlyRent] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [depositPaymentDate, setDepositPaymentDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
- 
+
+  useEffect(() => {
+    let cancelled = false;
+    setOptionsLoading(true);
+    setOptionsError("");
+
+    Promise.all([apiRequest("/properties"), apiRequest("/units")])
+      .then(([propertyPayload, unitPayload]) => {
+        if (cancelled) return;
+        const propertyRows = Array.isArray(propertyPayload) ? propertyPayload : [];
+        const unitRows = Array.isArray(unitPayload) ? unitPayload : [];
+        setProperties(propertyRows.flatMap((item) => {
+          const record = toRecord(item);
+          const id = asNumber(record.id);
+          const name = asString(record.name);
+          return id > 0 && name ? [{ id, name }] : [];
+        }));
+        setUnits(unitRows.flatMap((item) => {
+          const record = toRecord(item);
+          const id = asNumber(record.id);
+          const property_id = asNumber(record.property_id);
+          const unit_number = asString(record.unit_number);
+          if (!id || !property_id || !unit_number) return [];
+          return [{
+            id,
+            property_id,
+            unit_number,
+            unit_type: asString(record.unit_type) || null,
+            monthly_rent: asNumber(record.monthly_rent),
+            status: asString(record.status),
+            pending_registration: record.pending_registration === true,
+            pending_email: asString(record.pending_email) || null,
+          }];
+        }));
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setOptionsError(caught instanceof Error ? caught.message : "Could not load properties and units.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setOptionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [optionsReload]);
+
+  const availableUnits = units.filter((unit) =>
+    unit.property_id === Number(propertyId) &&
+    (unit.status === "vacant" ||
+      (unit.pending_registration &&
+        unit.pending_email?.toLowerCase() === email.trim().toLowerCase()))
+  );
+  const selectedUnit = availableUnits.find((unit) => String(unit.id) === unitId);
+  const hasLeaseAssignment = Boolean(propertyId || unitId || startDate || monthlyRent);
+  const leaseAssignmentValid = !hasLeaseAssignment || Boolean(
+    propertyId && unitId && selectedUnit && startDate && monthlyRent !== "" &&
+    Number.isFinite(Number(monthlyRent)) && Number(monthlyRent) >= 0 &&
+    (!endDate || endDate >= startDate)
+  );
+
   const canSubmit =
     firstName.trim().length >= 2 &&
     lastName.trim().length >= 2 &&
     phone.trim().length >= 6 &&
+    leaseAssignmentValid &&
+    (!depositPaid || Boolean(depositPaymentDate)) &&
     !saving;
  
   useEffect(() => {
@@ -928,6 +1037,14 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
           status,
           notes: notes.trim() || null,
           create_login: createLogin && email.trim().length > 0,
+          property_id: propertyId ? Number(propertyId) : null,
+          unit_id: unitId ? Number(unitId) : null,
+          start_date: propertyId ? startDate : null,
+          end_date: propertyId ? endDate || null : null,
+          monthly_rent: propertyId ? Number(monthlyRent) : null,
+          deposit_amount: depositAmount ? Number(depositAmount) : 0,
+          deposit_paid: depositPaid,
+          deposit_payment_date: depositPaid ? depositPaymentDate : null,
         }),
       });
  
@@ -963,8 +1080,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
               Add a tenant
             </h2>
             <p className="tn-drawer__text">
-              Create the person first. You can attach them to a unit when you
-              create their lease.
+              Add the tenant, assign a vacant unit and record lease and deposit details in one step.
             </p>
           </div>
  
@@ -1053,7 +1169,10 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                 autoCapitalize="none"
                 spellCheck={false}
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (selectedUnit?.pending_registration) setUnitId("");
+                }}
                 placeholder="tenant@example.com"
                 autoComplete="email"
               />
@@ -1104,7 +1223,107 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
               />
             </div>
           </fieldset>
- 
+
+          <fieldset className="tn-fieldset">
+            <legend className="tn-legend">Property, lease &amp; deposit (optional)</legend>
+            {optionsLoading ? (
+              <p className="tn-field__hint" role="status">Loading your properties and units…</p>
+            ) : optionsError ? (
+              <div className="tn-alert" role="alert">
+                <AlertCircle />
+                <span>{optionsError}{" "}
+                  <button type="button" className="tn-link" onClick={() => setOptionsReload((value) => value + 1)}>Retry</button>
+                </span>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="tn-field__label" htmlFor="tn-property">Property</label>
+                  <select
+                    id="tn-property"
+                    className="tn-select"
+                    value={propertyId}
+                    onChange={(event) => {
+                      setPropertyId(event.target.value);
+                      setUnitId("");
+                      setMonthlyRent("");
+                    }}
+                  >
+                    <option value="">Create tenant without assigning a property</option>
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>{property.name}</option>
+                    ))}
+                  </select>
+                  {properties.length === 0 && <p className="tn-field__hint">Create a property and units before assigning a tenancy.</p>}
+                </div>
+
+                {propertyId && (
+                  <>
+                    <div>
+                      <label className="tn-field__label" htmlFor="tn-unit">Vacant unit</label>
+                      <select
+                        id="tn-unit"
+                        className="tn-select"
+                        value={unitId}
+                        onChange={(event) => {
+                          const nextId = event.target.value;
+                          setUnitId(nextId);
+                          const selected = availableUnits.find((unit) => String(unit.id) === nextId);
+                          setMonthlyRent(selected ? String(selected.monthly_rent) : "");
+                        }}
+                      >
+                        <option value="">Select a vacant unit</option>
+                        {availableUnits.map((unit) => (
+                          <option key={unit.id} value={unit.id}>
+                            {unit.unit_number}{unit.unit_type ? ` — ${unit.unit_type}` : ""} · {formatMoney(unit.monthly_rent, readCurrency())}{unit.pending_registration ? " · Confirm pending registration" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      {availableUnits.length === 0 && <p className="tn-field__hint">No vacant units are available in this property.</p>}
+                    </div>
+
+                    {unitId && (
+                      <>
+                        <div className="tn-grid2">
+                          <div>
+                            <label className="tn-field__label" htmlFor="tn-lease-start">Lease start date</label>
+                            <input id="tn-lease-start" className="tn-input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required />
+                          </div>
+                          <div>
+                            <label className="tn-field__label" htmlFor="tn-lease-end">Lease end date (optional)</label>
+                            <input id="tn-lease-end" className="tn-input" type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} />
+                          </div>
+                        </div>
+                        <div className="tn-grid2">
+                          <div>
+                            <label className="tn-field__label" htmlFor="tn-monthly-rent">Agreed monthly rent</label>
+                            <input id="tn-monthly-rent" className="tn-input" type="number" min={0} step="0.01" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} required />
+                            <p className="tn-field__hint">Prefilled from the unit's default; changing this will not change the unit's default rent.</p>
+                          </div>
+                          <div>
+                            <label className="tn-field__label" htmlFor="tn-deposit-amount">Security deposit required</label>
+                            <input id="tn-deposit-amount" className="tn-input" type="number" min={0} step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
+                          </div>
+                        </div>
+                        <label className="tn-check" htmlFor="tn-deposit-paid">
+                          <input id="tn-deposit-paid" type="checkbox" checked={depositPaid} onChange={(event) => setDepositPaid(event.target.checked)} />
+                          <span className="tn-check__title">Deposit has been paid</span>
+                        </label>
+                        {depositPaid && (
+                          <div>
+                            <label className="tn-field__label" htmlFor="tn-deposit-date">Deposit payment date</label>
+                            <input id="tn-deposit-date" className="tn-input" type="date" value={depositPaymentDate} onChange={(event) => setDepositPaymentDate(event.target.value)} required />
+                            <p className="tn-field__hint">This date is recorded separately from the lease start date.</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </fieldset>
+
           <fieldset className="tn-fieldset">
             <legend className="tn-legend">Portal access</legend>
  
@@ -1159,9 +1378,9 @@ function ManagerTenantsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">(
-    "all"
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "pending" | "inactive"
+  >("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [account, setAccount] = useState<ProvisionedAccount | null>(null);
   const [copied, setCopied] = useState(false);
@@ -1196,7 +1415,8 @@ function ManagerTenantsPage() {
     () => ({
       all: tenants.length,
       active: tenants.filter((tenant) => tenant.status === "active").length,
-      inactive: tenants.filter((tenant) => tenant.status !== "active").length,
+      pending: tenants.filter((tenant) => tenant.status === "pending").length,
+      inactive: tenants.filter((tenant) => tenant.status === "inactive").length,
     }),
     [tenants]
   );
@@ -1225,7 +1445,8 @@ function ManagerTenantsPage() {
  
     return tenants.filter((tenant) => {
       if (statusFilter === "active" && tenant.status !== "active") return false;
-      if (statusFilter === "inactive" && tenant.status === "active") return false;
+      if (statusFilter === "pending" && tenant.status !== "pending") return false;
+      if (statusFilter === "inactive" && tenant.status !== "inactive") return false;
       if (!term) return true;
  
       return [
@@ -1269,10 +1490,11 @@ function ManagerTenantsPage() {
     }
   }
  
-  const filters: { key: "all" | "active" | "inactive"; label: string; count: number }[] =
+  const filters: { key: "all" | "active" | "pending" | "inactive"; label: string; count: number }[] =
     [
       { key: "all", label: "All", count: counts.all },
       { key: "active", label: "Active", count: counts.active },
+      { key: "pending", label: "Pending onboarding", count: counts.pending },
       { key: "inactive", label: "Inactive", count: counts.inactive },
     ];
  
@@ -1512,17 +1734,37 @@ function ManagerTenantsPage() {
                               : "—"}
                           </p>
                         </div>
- 
+
+                        <div className="tn-cell">
+                          <p className="tn-cell__label">Lease</p>
+                          <p className="tn-cell__value">
+                            {tenant.lease_status
+                              ? `${tenant.lease_status}${tenant.lease_start ? ` · ${tenant.lease_start}` : ""}${tenant.lease_end ? ` – ${tenant.lease_end}` : ""}`
+                              : tenant.status === "pending" ? "Pending manager confirmation" : "No lease"}
+                          </p>
+                        </div>
+
+                        <div className="tn-cell">
+                          <p className="tn-cell__label">Deposit</p>
+                          <p className="tn-cell__value">
+                            {tenant.deposit_status ?? "—"}
+                          </p>
+                        </div>
+
                         <div className="tn-tags">
                           <span
                             className={`tn-pill tn-pill--${
-                              tenant.status === "active" ? "active" : "inactive"
+                              tenant.status === "active"
+                                ? "active"
+                                : tenant.status === "pending" ? "warn" : "inactive"
                             }`}
                           >
-                            {tenant.status === "active" ? "Active" : "Inactive"}
+                            {tenant.status === "pending"
+                              ? "Pending onboarding"
+                              : tenant.status === "active" ? "Active" : "Inactive"}
                           </span>
- 
-                          {tenant.unit === null && (
+
+                          {tenant.unit === null && tenant.status !== "pending" && (
                             <span className="tn-pill">
                               <DoorOpen />
                               No lease

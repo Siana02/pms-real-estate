@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use App\Models\User;
+use App\Services\LeaseProvisioner;
 
 class TenantController extends Controller
 {
@@ -19,13 +20,14 @@ class TenantController extends Controller
     {
         $filters = $request->validate([
             'property_id' => 'nullable|exists:properties,id',
-            'status' => 'nullable|in:active,inactive',
+            'status' => 'nullable|in:pending,active,inactive',
             'active_only' => 'nullable|boolean',
         ]);
 
         $organizationId = $request->user()->organization_id;
 
-        $tenants = Tenant::where('organization_id', $organizationId)
+        $tenants = Tenant::with(['property', 'unit'])
+            ->where('organization_id', $organizationId)
             ->when(
                 isset($filters['status']),
                 fn ($query) => $query->where('status', $filters['status'])
@@ -38,7 +40,10 @@ class TenantController extends Controller
                 $tenantIds = Lease::where('property_id', $filters['property_id'])
                     ->pluck('tenant_id');
 
-                $query->whereIn('id', $tenantIds);
+                $query->where(function ($tenants) use ($filters, $tenantIds) {
+                    $tenants->whereIn('id', $tenantIds)
+                        ->orWhere('property_id', $filters['property_id']);
+                });
             })
             ->orderBy('first_name')
             ->orderBy('last_name')
@@ -64,6 +69,15 @@ public function store(Request $request)
         'status' => 'nullable|in:active,inactive',
         'notes' => 'nullable|string',
         'create_login' => 'nullable|boolean',
+    'property_id' => 'nullable|required_with:unit_id|integer|exists:properties,id',
+    'unit_id' => 'nullable|required_with:property_id|integer|exists:units,id',
+    'start_date' => 'required_with:unit_id|date',
+    'end_date' => 'nullable|date|after_or_equal:start_date',
+    'monthly_rent' => 'required_with:unit_id|numeric|min:0',
+    'deposit_amount' => 'nullable|numeric|min:0',
+    'deposit_paid' => 'nullable|boolean',
+    'deposit_paid_amount' => 'nullable|numeric|min:0',
+    'deposit_payment_date' => 'nullable|date',
     ]);
 
     $organizationId = $request->user()->organization_id;
@@ -85,14 +99,37 @@ public function store(Request $request)
     }
 
     $account = null;
+    $leaseFields = [
+        'start_date',
+        'end_date',
+        'monthly_rent',
+        'deposit_amount',
+        'deposit_paid',
+        'deposit_paid_amount',
+        'deposit_payment_date',
+    ];
+    $leaseData = array_intersect_key($validated, array_flip($leaseFields));
+    $tenantData = array_diff_key($validated, array_flip($leaseFields));
 
     $tenant = DB::transaction(function () use (
-        $validated,
+        $tenantData,
+        $leaseData,
         $createLogin,
         $organizationId,
         &$account
     ) {
-        $tenant = Tenant::create($validated);
+        $tenant = ! empty($tenantData['email'])
+            ? Tenant::where('organization_id', $organizationId)
+                ->where('email', $tenantData['email'])
+                ->lockForUpdate()
+                ->first()
+            : null;
+
+        if ($tenant) {
+            $tenant->update($tenantData);
+        } else {
+            $tenant = Tenant::create($tenantData);
+        }
 
         if ($createLogin) {
             $email = $tenant->email;
@@ -173,6 +210,17 @@ public function store(Request $request)
             }
         }
 
+        if (! empty($tenantData['unit_id'])) {
+            app(LeaseProvisioner::class)->create(
+                $leaseData + [
+                    'property_id' => $tenantData['property_id'],
+                    'unit_id' => $tenantData['unit_id'],
+                ],
+                $organizationId,
+                $tenant
+            );
+        }
+
         return $tenant;
     });
 
@@ -237,7 +285,7 @@ public function store(Request $request)
      */
     private function contextFor(array $tenantIds): array
     {
-        $leases = Lease::with('property')
+        $leases = Lease::with(['property', 'deposit'])
             ->whereIn('tenant_id', $tenantIds)
             ->get();
 
@@ -265,9 +313,13 @@ public function store(Request $request)
         $requests = $context['requests']->get($tenant->id, collect());
 
         $activeLease = $leases->firstWhere('status', 'active');
-        $unit = $activeLease
-            ? $context['units']->get($activeLease->unit_id)
-            : null;
+        $displayLease = $activeLease
+            ?? $leases->firstWhere('status', 'upcoming')
+            ?? $leases->firstWhere('status', 'notice');
+        $unit = $displayLease
+            ? $context['units']->get($displayLease->unit_id)
+            : $tenant->unit;
+        $property = $displayLease?->property ?? $tenant->property;
 
         $openRequests = $requests->whereIn('status', ['open', 'in_progress']);
 
@@ -290,12 +342,13 @@ public function store(Request $request)
             'notes' => $tenant->notes,
             'created_at' => $tenant->created_at,
             'updated_at' => $tenant->updated_at,
-            'property' => $activeLease?->property,
+            'property' => $property,
             'unit' => $unit,
-            'lease' => $activeLease,
+            'lease' => $displayLease,
+            'deposit' => $displayLease?->deposit,
             'leases' => $leases->values(),
             'active_leases' => $leases->where('status', 'active')->count(),
-            'monthly_rent' => (float) ($activeLease->monthly_rent ?? 0),
+            'monthly_rent' => (float) ($displayLease->monthly_rent ?? 0),
             'total_paid' => round($paid, 2),
             'maintenance_requests' => $requests->values(),
             'open_maintenance_requests' => $openRequests->count(),

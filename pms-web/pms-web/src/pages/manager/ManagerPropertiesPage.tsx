@@ -138,6 +138,7 @@ interface PropertyRecord {
   units_count: number;
   occupied_units: number;
   vacant_units: number;
+  reserved_units: number;
   active_tenants: number;
   monthly_revenue: number;
   potential_monthly_revenue: number;
@@ -148,6 +149,7 @@ function parseProperties(payload: unknown): PropertyRecord[] {
   return rows(payload).map((record) => {
     const units = asNumber(record.units_count);
     const occupied = asNumber(record.occupied_units);
+    const reserved = asNumber(record.reserved_units);
  
     return {
       id: asNumber(record.id),
@@ -157,7 +159,12 @@ function parseProperties(payload: unknown): PropertyRecord[] {
       property_type: asString(record.property_type) || "residential",
       units_count: units,
       occupied_units: occupied,
-      vacant_units: asNumber(record.vacant_units) || Math.max(units - occupied, 0),
+      vacant_units:
+        typeof record.vacant_units === "number" ||
+        typeof record.vacant_units === "string"
+          ? asNumber(record.vacant_units)
+          : Math.max(units - occupied - reserved, 0),
+      reserved_units: reserved,
       active_tenants: asNumber(record.active_tenants),
       monthly_revenue: asNumber(record.monthly_revenue),
       potential_monthly_revenue: asNumber(record.potential_monthly_revenue),
@@ -222,6 +229,7 @@ function ManagerPropertiesPage() {
   const totals = useMemo(() => {
     const units = properties.reduce((sum, item) => sum + item.units_count, 0);
     const occupied = properties.reduce((sum, item) => sum + item.occupied_units, 0);
+    const reserved = properties.reduce((sum, item) => sum + item.reserved_units, 0);
     const revenue = properties.reduce((sum, item) => sum + item.monthly_revenue, 0);
     const potential = properties.reduce(
       (sum, item) => sum + item.potential_monthly_revenue,
@@ -231,7 +239,8 @@ function ManagerPropertiesPage() {
     return {
       units,
       occupied,
-      vacant: Math.max(units - occupied, 0),
+      reserved,
+      vacant: properties.reduce((sum, item) => sum + item.vacant_units, 0),
       revenue,
       idle: Math.max(potential - revenue, 0),
       occupancy: units > 0 ? Math.round((occupied / units) * 100) : 0,
@@ -296,7 +305,9 @@ function ManagerPropertiesPage() {
             <article className="mg-stat">
               <p className="mg-stat__label">Units</p>
               <p className="mg-stat__value">{formatNumber(totals.units)}</p>
-              <p className="mg-stat__hint">{totals.vacant} vacant</p>
+              <p className="mg-stat__hint">
+                {totals.vacant} vacant · {totals.reserved} reserved
+              </p>
             </article>
  
             <article className="mg-stat">
@@ -457,6 +468,7 @@ function ManagerPropertiesPage() {
                     <div className="pr-occ__row">
                       <span>
                         {property.vacant_units} vacant ·{" "}
+                        {property.reserved_units} reserved ·{" "}
                         {formatMoney(
                           Math.max(
                             property.potential_monthly_revenue -

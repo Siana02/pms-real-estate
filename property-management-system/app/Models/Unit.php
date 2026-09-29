@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Leases as Lease;
 
 class Unit extends Model
 {
@@ -31,5 +32,10 @@ class Unit extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function tenants()
+    {
+        return $this->hasMany(Tenant::class);
     }
 }
