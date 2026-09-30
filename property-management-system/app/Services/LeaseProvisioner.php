@@ -79,7 +79,7 @@ class LeaseProvisioner
                 'requested_move_out_date' => $requestedEnd,
                 'end_date' => null,
                 'monthly_rent' => $unit->monthly_rent,
-                'deposit_amount' => 0,
+                'deposit_amount' => $unit->monthly_rent,
                 'status' => 'pending',
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
@@ -89,7 +89,7 @@ class LeaseProvisioner
                 'organization_id' => $organizationId,
                 'lease_id' => $lease->id,
                 'tenant_id' => $tenant->id,
-                'amount_required' => 0,
+                'amount_required' => $unit->monthly_rent,
                 'amount_paid' => 0,
                 'status' => 'unpaid',
             ]);
@@ -376,8 +376,8 @@ class LeaseProvisioner
             ($lease->end_date === null || $lease->end_date->toDateString() >= $today)
         );
         $reserved = $leases->contains(fn (Leases $lease) =>
-            $lease->start_date !== null &&
-            $lease->start_date->toDateString() > $today
+            $lease->status === 'pending' ||
+            ($lease->start_date !== null && $lease->start_date->toDateString() > $today)
         );
 
         $unit->update([
