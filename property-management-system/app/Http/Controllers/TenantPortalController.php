@@ -550,7 +550,30 @@ class TenantPortalController extends Controller
             return null;
         }
 
-        $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization']);
+        $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization', 'tenant.property', 'tenant.unit']);
+
+        // Self-registered tenants have the organization/property/unit selected
+        // during registration on the tenant record. The lease should use those
+        // relationships as a fallback so the portal never renders blank tenancy
+        // details merely because an older/pending lease row is incomplete.
+        $tenant = $lease->tenant;
+        $organization = $tenant?->organization ?? $lease->organization;
+        $property = $lease->property ?? $tenant?->property;
+        $unit = $lease->unit ?? $tenant?->unit;
+
+        // Unit rent is the source of truth for a newly requested tenancy.
+        // The lease stores the contractual snapshot, but if a legacy pending
+        // lease has a null/zero amount, populate the portal from the unit.
+        $monthlyRent = (float) ($lease->monthly_rent ?? 0);
+        if ($monthlyRent <= 0 && $unit?->monthly_rent !== null) {
+            $monthlyRent = (float) $unit->monthly_rent;
+        }
+
+        $depositAmount = (float) ($lease->deposit_amount ?? 0);
+        if ($depositAmount <= 0 && $monthlyRent > 0) {
+            $depositAmount = $monthlyRent;
+        }
+
         $deposit = $lease->deposit;
         $status = $lease->manager_signed_at !== null
             ? 'locked'
@@ -569,26 +592,26 @@ class TenantPortalController extends Controller
             'end_date' => $lease->end_date?->toDateString(),
             'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
             'requested_move_out_date' => $lease->requested_move_out_date?->toDateString(),
-            'monthly_rent' => $lease->monthly_rent,
-            'deposit_amount' => $lease->deposit_amount,
+            'monthly_rent' => $monthlyRent,
+            'deposit_amount' => $depositAmount,
             'rent_due_day' => 5,
-            'organization' => $lease->tenant?->organization ? [
-                'id' => $lease->tenant->organization->id,
-                'name' => $lease->tenant->organization->name,
+            'organization' => $organization ? [
+                'id' => $organization->id,
+                'name' => $organization->name,
             ] : null,
-            'property' => $lease->property ? [
-                'id' => $lease->property->id,
-                'name' => $lease->property->name,
-                'property_type' => $lease->property->property_type,
-                'address' => $lease->property->address,
-                'city' => $lease->property->city,
-                'country' => $lease->property->country,
+            'property' => $property ? [
+                'id' => $property->id,
+                'name' => $property->name,
+                'property_type' => $property->property_type,
+                'address' => $property->address,
+                'city' => $property->city,
+                'country' => $property->country,
             ] : null,
-            'unit' => $lease->unit ? [
-                'id' => $lease->unit->id,
-                'unit_number' => $lease->unit->unit_number,
-                'unit_type' => $lease->unit->unit_type,
-                'default_rent' => $lease->unit->monthly_rent,
+            'unit' => $unit ? [
+                'id' => $unit->id,
+                'unit_number' => $unit->unit_number,
+                'unit_type' => $unit->unit_type,
+                'default_rent' => $unit->monthly_rent,
             ] : null,
             'tenant' => $lease->tenant ? [
                 'id' => $lease->tenant->id,
