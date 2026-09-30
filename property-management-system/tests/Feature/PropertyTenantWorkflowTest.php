@@ -274,6 +274,57 @@ class PropertyTenantWorkflowTest extends TestCase
             ->assertJsonPath('data.home.unit_number', $unit->unit_number);
     }
 
+    public function test_future_reservation_can_start_on_current_tenants_end_date(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Reservation Manager',
+            'username' => 'reservation-manager',
+            'email' => 'reservation-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+        $managerToken = $manager->createToken('reservation-manager')->plainTextToken;
+
+        $this->withToken($managerToken)->postJson('/api/tenants', [
+            'first_name' => 'Current',
+            'last_name' => 'Tenant',
+            'email' => 'current@example.test',
+            'phone' => '+254700000001',
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-10-01',
+            'monthly_rent' => 25000,
+            'deposit_amount' => 25000,
+            'create_login' => true,
+        ])->assertCreated();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => '2026-10-01',
+            'requested_move_out_date' => '2027-10-01',
+            'name' => 'Future Tenant',
+            'phone' => '+254700000002',
+            'email' => 'future@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $futureTenant = Tenant::where('email', 'future@example.test')->firstOrFail();
+        $this->assertDatabaseHas('leases', [
+            'tenant_id' => $futureTenant->id,
+            'unit_id' => $unit->id,
+            'status' => 'pending',
+            'requested_move_in_date' => '2026-10-01',
+        ]);
+    }
+
     public function test_self_registered_lease_is_one_canonical_agreement_and_locks_after_manager_signature(): void
     {
         [$organization, $property, $unit] = $this->createPropertyInventory();
