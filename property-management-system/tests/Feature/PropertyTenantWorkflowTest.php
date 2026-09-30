@@ -58,6 +58,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertNull($lease->start_date);
         $this->assertSame(now()->addMonth()->toDateString(), $lease->requested_move_in_date->toDateString());
         $this->assertSame('25000.00', $lease->monthly_rent);
+        $this->assertSame('25000.00', $lease->deposit->amount_required);
         $this->assertSame('unpaid', $lease->deposit->status);
     }
 
