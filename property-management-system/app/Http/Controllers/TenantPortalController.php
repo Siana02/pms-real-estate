@@ -627,8 +627,8 @@ class TenantPortalController extends Controller
         return [
             'id' => $lease->id,
             'status' => $lease->status,
-            'start_date' => (string) $lease->start_date,
-            'end_date' => $lease->end_date ? (string) $lease->end_date : null,
+            'start_date' => $lease->start_date?->toDateString(),
+            'end_date' => $lease->end_date?->toDateString(),
             'monthly_rent' => $lease->monthly_rent,
             'deposit_amount' => $lease->deposit_amount,
             'notes' => $lease->notes,
@@ -638,9 +638,27 @@ class TenantPortalController extends Controller
     /** @return array<string, mixed> */
     private function rentPayload(Tenant $tenant, ?Lease $lease): array
     {
-        $payments = $this->tenantPayments($tenant);
+        $payments = $lease
+            ? $lease->payments()->orderByDesc('payment_date')->orderByDesc('id')->get()
+            : collect();
         $monthlyRent = (float) ($lease->monthly_rent ?? 0);
         $now = CarbonImmutable::now();
+
+        if ($lease?->status === 'pending') {
+            $dueDay = 5;
+            $dueDate = $now->day <= $dueDay
+                ? $now->copy()->day($dueDay)->toDateString()
+                : $now->addMonthNoOverflow()->day($dueDay)->toDateString();
+
+            return [
+                'amount_due' => 0,
+                'balance' => 0,
+                'due_date' => $dueDate,
+                'monthly_rent' => $monthlyRent,
+                'paid_this_year' => 0,
+                'status' => 'pending_lease',
+            ];
+        }
 
         $rentPayments = $payments->filter(
             fn (Payment $payment) => ($payment->payment_type ?? 'rent') === 'rent'
