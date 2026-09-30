@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Facades\DB;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
