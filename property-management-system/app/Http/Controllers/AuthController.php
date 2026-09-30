@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Organization;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\LeaseProvisioner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,8 +53,15 @@ public function usernameAvailable(Request $request)
                     Rule::exists('units', 'id')
                         ->where('property_id', $request->input('property_id')),
                 ],
+                'requested_move_in_date' => ['required', 'date'],
+                'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
                 'name' => ['required', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
+                'national_id' => ['nullable', 'string', 'max:100'],
+                'employer_name' => ['nullable', 'string', 'max:255'],
+                'employer_phone' => ['nullable', 'string', 'max:50'],
+                'next_of_kin_name' => ['nullable', 'string', 'max:255'],
+                'next_of_kin_phone' => ['nullable', 'string', 'max:50'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
                 'password' => ['required', 'string', 'min:8', 'confirmed'],
             ]);
@@ -100,6 +108,11 @@ public function usernameAvailable(Request $request)
                     'last_name' => $lastName,
                     'email' => $validated['email'],
                     'phone' => $validated['phone'] ?? '',
+                    'national_id' => $validated['national_id'] ?? null,
+                    'employer_name' => $validated['employer_name'] ?? null,
+                    'employer_phone' => $validated['employer_phone'] ?? null,
+                    'next_of_kin_name' => $validated['next_of_kin_name'] ?? null,
+                    'next_of_kin_phone' => $validated['next_of_kin_phone'] ?? null,
                     'status' => 'pending',
                 ];
 
@@ -149,6 +162,20 @@ public function usernameAvailable(Request $request)
                     'role' => 'tenant',
                     'must_change_password' => false,
                 ]);
+
+                $currentLease = $tenant->leases()
+                    ->whereNotIn('status', ['ended', 'terminated'])
+                    ->latest('id')
+                    ->first();
+
+                if ($currentLease === null) {
+                    app(LeaseProvisioner::class)->createPending([
+                        'property_id' => $validated['property_id'],
+                        'unit_id' => $validated['unit_id'],
+                        'requested_move_in_date' => $validated['requested_move_in_date'],
+                        'requested_move_out_date' => $validated['requested_move_out_date'] ?? null,
+                    ], (int) $validated['organization_id'], $tenant);
+                }
 
                 return $user;
             });
