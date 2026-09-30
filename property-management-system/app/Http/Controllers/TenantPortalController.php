@@ -29,9 +29,17 @@ class TenantPortalController extends Controller
     {
         $tenant = $this->currentTenant($request);
         $lease = $this->latestLease($tenant);
-        $unit = $lease?->unit_id ? Unit::find($lease->unit_id) : null;
-        $property = $lease?->property_id ? Property::find($lease->property_id) : null;
-        $organization = Organization::find($tenant->organization_id);
+
+        // The lease is the canonical source of the tenant's current/reserved
+        // home. Independently registered tenants may have older tenant-level
+        // property/unit fields, so do not rely on those fields for the portal.
+        $lease?->loadMissing(['property', 'unit', 'tenant.organization']);
+        $unit = $lease?->unit ?? ($tenant->unit_id ? Unit::find($tenant->unit_id) : null);
+        $property = $lease?->property
+            ?? ($unit?->property_id ? Property::find($unit->property_id) : null)
+            ?? ($tenant->property_id ? Property::find($tenant->property_id) : null);
+        $organization = $lease?->tenant?->organization
+            ?? Organization::find($lease?->organization_id ?? $tenant->organization_id);
 
         return response()->json([
             'data' => [
