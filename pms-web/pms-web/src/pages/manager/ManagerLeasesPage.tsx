@@ -985,9 +985,11 @@ function ManagerLeasesPage() {
                           <td data-label="Status">
                             <div className="ls-inline-actions">
                               <span className={badgeClass(lease.computed)}>
-                                {lease.computed === "expiring"
-                                  ? "Expiring soon"
-                                  : titleCase(lease.computed)}
+                                {lease.status === "pending"
+                                  ? "Pending review"
+                                  : lease.computed === "expiring"
+                                    ? "Expiring soon"
+                                    : titleCase(lease.computed)}
                               </span>
                               <button
                                 type="button"
