@@ -303,8 +303,6 @@ function TenantLeasePage() {
         setTenantTerms(parsed.tenant_terms ?? "");
         setRequestedStart(parsed.requested_move_in_date ?? "");
         setRequestedEnd(parsed.requested_move_out_date ?? "");
-        setRequestedStart(parsed.requested_move_in_date ?? "");
-        setRequestedEnd(parsed.requested_move_out_date ?? "");
       }
       setTermsMessage("Your copy has been saved.");
     } catch (caught) {
@@ -330,6 +328,8 @@ function TenantLeasePage() {
       if (parsed) {
         setAgreement(parsed);
         setTenantTerms(parsed.tenant_terms ?? "");
+        setRequestedStart(parsed.requested_move_in_date ?? "");
+        setRequestedEnd(parsed.requested_move_out_date ?? "");
       }
       setInitials("");
       setTermsMessage("Signed — your copy of the agreement is now locked in.");
@@ -426,7 +426,7 @@ function TenantLeasePage() {
                 </div>
                 <div>
                   <dt className="tp-label">Official lease start</dt>
-                  <dd>{longDate(agreement.start_date)}</dd>
+                  <dd>{agreement.start_date ? longDate(agreement.start_date) : "Not confirmed"}</dd>
                 </div>
                 <div>
                   <dt className="tp-label">Official lease end</dt>
