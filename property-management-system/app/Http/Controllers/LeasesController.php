@@ -227,7 +227,8 @@ class LeasesController extends Controller
                 'termination_reason' => $validated['termination_reason'] ?? $lease->termination_reason,
                 'actual_move_out_date' => $validated['actual_move_out_date'] ?? $lease->actual_move_out_date,
                 'notes' => $validated['notes'] ?? $lease->notes,
-                'manager_terms' => $validated['manager_terms'] ?? $lease->manager_terms,
+                'manager_terms' => $managerTerms,
+                'tenant_terms' => $tenantTerms,
                 ...$signatureUpdates,
             ]);
 
