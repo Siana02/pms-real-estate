@@ -17,6 +17,8 @@ class LeasesController extends Controller
     {
         $leases = Leases::where('organization_id', $request->user()->organization_id)
             ->with(['property', 'unit', 'tenant', 'deposit.tenant'])
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'upcoming' THEN 1 WHEN status = 'active' THEN 2 ELSE 3 END")
+            ->orderByDesc('id')
             ->get();
 
         // A lease is assigned when its canonical lease/deposit record identifies
