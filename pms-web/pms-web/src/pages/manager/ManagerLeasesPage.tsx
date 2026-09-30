@@ -91,6 +91,49 @@ const leaseStyles = `
   min-width: 0;
 }
 
+.ls-page-intro {
+  max-width: 48rem;
+}
+
+.ls-table-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ls-table-secondary {
+  color: var(--pms-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.ls-drawer-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pms-faint);
+}
+
+.ls-drawer-kicker svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.ls-section-head {
+  padding-bottom: 0.125rem;
+}
+
+@media (max-width: 719px) {
+  .ls-inline-actions {
+    justify-content: flex-start;
+  }
+}
+
 .ls-toolbar-field .mg-label {
   display: block;
   margin-bottom: 0.5rem;
@@ -512,8 +555,16 @@ function ManagerLeasesPage() {
     setManagerTermsDraft(selectedLease.manager_terms ?? "");
     setTenantTermsDraft(selectedLease.tenant_terms ?? "");
     setManagerInitials("");
-    setManagerStartDate(selectedLease.start_date?.slice(0, 10) ?? selectedLease.requested_move_in_date?.slice(0, 10) ?? "");
-    setManagerEndDate(selectedLease.end_date?.slice(0, 10) ?? selectedLease.requested_move_out_date?.slice(0, 10) ?? "");
+    setManagerStartDate(
+      selectedLease.start_date?.slice(0, 10) ??
+        selectedLease.requested_move_in_date?.slice(0, 10) ??
+        ""
+    );
+    setManagerEndDate(
+      selectedLease.end_date?.slice(0, 10) ??
+        selectedLease.requested_move_out_date?.slice(0, 10) ??
+        ""
+    );
     setManagerRentDraft(String(selectedLease.monthly_rent));
     setManagerDepositRequiredDraft(String(depositRequired(selectedLease)));
     setDepositAmountDraft(String(depositPaid(selectedLease)));
@@ -557,6 +608,7 @@ function ManagerLeasesPage() {
         lease.property?.name ?? "",
         lease.unit?.unit_number ?? "",
         lease.status ?? "",
+        lease.computed ?? "",
       ]
         .join(" ")
         .toLowerCase()
@@ -820,6 +872,11 @@ function ManagerLeasesPage() {
 
           <section className="mg-stats" aria-label="Lease summary">
             <article className="mg-stat">
+              <p className="mg-stat__label">Needs review</p>
+              <p className="mg-stat__value">{formatNumber(views.filter((lease) => lease.status === "pending").length)}</p>
+              <p className="mg-stat__hint mg-stat__hint--warn">Tenant reservations</p>
+            </article>
+            <article className="mg-stat">
               <p className="mg-stat__label">Active leases</p>
               <p className="mg-stat__value">{formatNumber(counts.active)}</p>
             </article>
@@ -865,7 +922,7 @@ function ManagerLeasesPage() {
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Type a tenant, property or unit number…"
+                  placeholder="Search tenant, phone, email, property or unit…"
                 />
               </div>
             </div>
@@ -952,8 +1009,15 @@ function ManagerLeasesPage() {
                               </span>
                               <div>
                                 <span className="mg-strong">
-                                  {lease.tenant?.name ?? "Unassigned"}
+                                  {lease.tenant?.name ?? "⚠ Tenant not linked"}
                                 </span>
+                                {lease.tenant?.phone || lease.tenant?.email ? (
+                                  <span className="mg-sub">
+                                    {[lease.tenant.phone, lease.tenant.email].filter(Boolean).join(" · ")}
+                                  </span>
+                                ) : (
+                                  <span className="mg-sub">Contact details not provided</span>
+                                )}
                                 {lease.balance > 0 && (
                                   <span className="mg-sub">
                                     {formatMoney(lease.balance, currency)} outstanding
@@ -969,11 +1033,16 @@ function ManagerLeasesPage() {
                             <span className="mg-sub">
                               {lease.property?.name ?? "No property"}
                             </span>
+                            <span className="mg-sub">
+                              {lease.unit ? "Unit assigned" : "Unit not linked"}
+                            </span>
                           </td>
                           <td data-label="Term" className="mg-nowrap">
-                            {formatDate(lease.start_date)} → {formatDate(lease.end_date)}
+                            {lease.start_date ? formatDate(lease.start_date) : formatDate(lease.requested_move_in_date)}
+                            {" → "}
+                            {lease.end_date ? formatDate(lease.end_date) : formatDate(lease.requested_move_out_date)}
                             <span className="mg-sub">
-                              Ends {relativeDays(lease.end_date)}
+                              {lease.start_date ? ("Ends " + relativeDays(lease.end_date)) : "Tenant-requested dates · awaiting manager confirmation"}
                             </span>
                           </td>
                           <td data-label="Rent" className="mg-num">
@@ -1065,8 +1134,12 @@ function ManagerLeasesPage() {
             <div className="mg-drawer__panel">
               <div className="mg-drawer__head">
                 <div>
+                  <span className="ls-drawer-kicker">
+                    <FileText />
+                    Lease record #{selectedLease.id}
+                  </span>
                   <h2 className="mg-drawer__title" id="lease-agreement-title">
-                    {selectedLease.tenant?.name ?? "Unassigned"} · {selectedLease.unit?.unit_number ?? "—"}
+                    {selectedLease.tenant?.name ?? "⚠ Tenant not linked"} · {selectedLease.unit?.unit_number ?? "—"}
                   </h2>
                   <p className="mg-drawer__sub">
                     {selectedLease.property?.name ?? "No property"} · Unit {selectedLease.unit?.unit_number ?? "—"}

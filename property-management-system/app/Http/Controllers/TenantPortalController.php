@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Services\LeaseProvisioner;
 
 /**
  * Read/write endpoints for the tenant portal.
@@ -320,7 +321,7 @@ class TenantPortalController extends Controller
      * tenants who self-registered both use this same endpoint — only the
      * `tenant_terms` copy is ever writable here, never `manager_terms`.
      */
-    public function updateLeaseAgreement(Request $request): JsonResponse
+    public function updateLeaseAgreement(Request $request, LeaseProvisioner $provisioner): JsonResponse
     {
         $tenant = $this->currentTenant($request);
         $lease = $this->latestLease($tenant);
@@ -347,15 +348,65 @@ class TenantPortalController extends Controller
             );
         }
 
+        $requestedStart = array_key_exists('requested_move_in_date', $validated)
+            ? ($validated['requested_move_in_date']
+                ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString()
+                : null)
+            : $lease->requested_move_in_date?->toDateString();
+
+        $requestedEnd = array_key_exists('requested_move_out_date', $validated)
+            ? ($validated['requested_move_out_date']
+                ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
+                : null)
+            : $lease->requested_move_out_date?->toDateString();
+
+        if ($requestedStart !== null) {
+            $provisioner->assertNoOverlap(
+                $lease->unit,
+                $requestedStart,
+                $requestedEnd,
+                $lease->id
+            );
+        }
+
         $updates = [];
         if (array_key_exists('requested_move_in_date', $validated)) {
             $updates['requested_move_in_date'] = $validated['requested_move_in_date']
                 ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString() : null;
+            $updates['requested_move_in_date'] = $requestedStart;
         }
         if (array_key_exists('requested_move_out_date', $validated)) {
             $updates['requested_move_out_date'] = $validated['requested_move_out_date']
                 ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString() : null;
         }
+            $updates['requested_move_out_date'] = $requestedEnd;
+        }
+
+        if (array_key_exists('tenant_terms', $validated)) {
+            $updates['tenant_terms'] = $validated['tenant_terms'];
+        }
+
+        // Keep the generated tenant agreement coherent when the tenant changes
+        // dates without manually rewriting the agreement text.
+        if (
+            $lease->status === 'pending' &&
+            !array_key_exists('tenant_terms', $validated) &&
+            ($requestedStart !== $lease->requested_move_in_date?->toDateString()
+                || $requestedEnd !== $lease->requested_move_out_date?->toDateString())
+        ) {
+            $updates['tenant_terms'] = preg_replace(
+                [
+                    '/^Requested lease start: .*$/m',
+                    '/^Requested lease end: .*$/m',
+                ],
+                [
+                    'Requested lease start: ' . ($requestedStart ?? 'Not provided'),
+                    'Requested lease end: ' . ($requestedEnd ?? 'Open-ended / to be confirmed'),
+                ],
+                (string) $lease->tenant_terms
+            );
+        }
+
         if ($signing) {
             $updates['tenant_signature'] = trim($validated['tenant_signature']);
             $updates['tenant_signed_at'] = CarbonImmutable::now();

@@ -49,7 +49,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame('pending', $tenant->status);
         $this->assertSame($property->id, $tenant->property_id);
         $this->assertSame($unit->id, $tenant->unit_id);
-        $this->assertSame('vacant', $unit->fresh()->status);
+        $this->assertSame('reserved', $unit->fresh()->status);
         $this->assertDatabaseCount('organizations', 1);
         $this->assertDatabaseCount('leases', 1);
         $this->assertDatabaseCount('deposits', 1);
@@ -403,6 +403,21 @@ class PropertyTenantWorkflowTest extends TestCase
                 'tenant_terms' => 'Tenant accepts the current lease terms.',
             ])
             ->assertOk();
+
+        $this->withToken($tenantToken)
+            ->patchJson('/api/tenant/lease-agreement', [
+                'requested_move_in_date' => now()->addMonths(2)->toDateString(),
+                'requested_move_out_date' => now()->addMonths(14)->toDateString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.requested_move_in_date', now()->addMonths(2)->toDateString())
+            ->assertJsonPath('data.requested_move_out_date', now()->addMonths(14)->toDateString());
+
+        $this->assertDatabaseHas('leases', [
+            'id' => $leaseId,
+            'requested_move_in_date' => now()->addMonths(2)->toDateString(),
+            'requested_move_out_date' => now()->addMonths(14)->toDateString(),
+        ]);
 
         $this->withToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
