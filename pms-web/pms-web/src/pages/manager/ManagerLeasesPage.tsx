@@ -50,6 +50,8 @@ interface LeaseRecord {
   unit: { id: number; unit_number: string } | null;
   start_date: string | null;
   end_date: string | null;
+  requested_move_in_date: string | null;
+  requested_move_out_date: string | null;
   monthly_rent: number;
   deposit_amount: number;
   balance: number;
@@ -69,7 +71,7 @@ type LeaseView = LeaseRecord & {
   computed: "upcoming" | "active" | "notice" | "expiring" | "expired";
 };
 
-type LeaseFilter = "all" | LeaseView["computed"];
+type LeaseFilter = "all" | LeaseView["computed"] | "pending";
 
 const EXPIRING_WINDOW_DAYS = 60;
 
@@ -286,6 +288,8 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
       : null,
     start_date: asString(record.start_date) || null,
     end_date: asString(record.end_date) || null,
+    requested_move_in_date: asString(record.requested_move_in_date) || null,
+    requested_move_out_date: asString(record.requested_move_out_date) || null,
     monthly_rent: asNumber(record.monthly_rent),
     deposit_amount:
       depositRecord.amount_required !== undefined
@@ -333,6 +337,7 @@ function classify(lease: LeaseRecord): LeaseView["computed"] {
   const startDate = lease.start_date?.slice(0, 10) ?? null;
   const endDate = lease.end_date?.slice(0, 10) ?? null;
 
+  if (lease.status === "pending") return "upcoming";
   if (lease.status === "ended" || lease.status === "terminated") {
     return "expired";
   }
@@ -398,6 +403,7 @@ function agreementState(lease: LeaseRecord): {
 
 const FILTERS: { id: LeaseFilter; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "pending", label: "Pending review" },
   { id: "upcoming", label: "Upcoming" },
   { id: "active", label: "Active" },
   { id: "notice", label: "Notice" },
@@ -421,6 +427,10 @@ function ManagerLeasesPage() {
   const [managerTermsDraft, setManagerTermsDraft] = useState("");
   const [tenantTermsDraft, setTenantTermsDraft] = useState("");
   const [managerInitials, setManagerInitials] = useState("");
+  const [managerStartDate, setManagerStartDate] = useState("");
+  const [managerEndDate, setManagerEndDate] = useState("");
+  const [managerRentDraft, setManagerRentDraft] = useState("0");
+  const [managerDepositRequiredDraft, setManagerDepositRequiredDraft] = useState("0");
   const [depositAmountDraft, setDepositAmountDraft] = useState("0");
   const [depositDateDraft, setDepositDateDraft] = useState(todayDate());
   const [drawerError, setDrawerError] = useState("");
@@ -465,6 +475,10 @@ function ManagerLeasesPage() {
     setManagerTermsDraft(selectedLease.manager_terms ?? "");
     setTenantTermsDraft(selectedLease.tenant_terms ?? "");
     setManagerInitials("");
+    setManagerStartDate(selectedLease.start_date?.slice(0, 10) ?? "");
+    setManagerEndDate(selectedLease.end_date?.slice(0, 10) ?? "");
+    setManagerRentDraft(String(selectedLease.monthly_rent));
+    setManagerDepositRequiredDraft(String(depositRequired(selectedLease)));
     setDepositAmountDraft(String(depositPaid(selectedLease)));
     setDepositDateDraft(
       selectedLease.deposit?.payment_date?.slice(0, 10) ?? todayDate()
@@ -481,7 +495,8 @@ function ManagerLeasesPage() {
   const counts = useMemo(
     () => ({
       all: views.length,
-      upcoming: views.filter((lease) => lease.computed === "upcoming").length,
+      pending: views.filter((lease) => lease.status === "pending").length,
+      upcoming: views.filter((lease) => lease.computed === "upcoming" && lease.status !== "pending").length,
       active: views.filter((lease) => lease.computed === "active").length,
       notice: views.filter((lease) => lease.computed === "notice").length,
       expiring: views.filter((lease) => lease.computed === "expiring").length,
@@ -494,7 +509,7 @@ function ManagerLeasesPage() {
     const needle = query.trim().toLowerCase();
 
     return views.filter((lease) => {
-      if (filter !== "all" && lease.computed !== filter) return false;
+      if (filter !== "all" && (filter === "pending" ? lease.status !== "pending" : lease.computed !== filter)) return false;
       if (!needle) return true;
 
       return [
@@ -582,14 +597,17 @@ function ManagerLeasesPage() {
     }
 
     try {
-      const updated = await patchLease(
-        lease.id,
-        {
-          deposit_paid_amount: required,
-          deposit_payment_date: todayDate(),
-        },
-        "Deposit marked as fully received."
-      );
+      const payload = await apiRequest(`/leases/${lease.id}/deposit`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          amount_paid: required,
+          payment_date: todayDate(),
+        }),
+      });
+      const updated = parseLeaseUpdate(payload);
+      if (updated) syncLease(updated);
+      await load();
+      setDrawerNotice("Deposit marked as fully received.");
 
       if (updated && selectedLeaseId === lease.id) {
         setDepositAmountDraft(String(depositPaid(updated)));
@@ -610,7 +628,18 @@ function ManagerLeasesPage() {
 
     const body: Record<string, unknown> = {};
     if (managerTermsChanged) body.manager_terms = managerTermsDraft;
-    if (tenantTermsChanged) body.tenant_terms = tenantTermsDraft;
+    if (selectedLease && managerStartDate !== (selectedLease.start_date?.slice(0, 10) ?? "")) {
+      body.start_date = managerStartDate || null;
+    }
+    if (selectedLease && managerEndDate !== (selectedLease.end_date?.slice(0, 10) ?? "")) {
+      body.end_date = managerEndDate || null;
+    }
+    if (selectedLease && Number(managerRentDraft) !== selectedLease.monthly_rent) {
+      body.monthly_rent = Number(managerRentDraft);
+    }
+    if (selectedLease && Number(managerDepositRequiredDraft) !== depositRequired(selectedLease)) {
+      body.deposit_amount = Number(managerDepositRequiredDraft);
+    }
     if (Object.keys(body).length === 0) {
       setDrawerNotice("No agreement text changes to save.");
       setDrawerError("");
@@ -630,6 +659,10 @@ function ManagerLeasesPage() {
       if (updated) {
         setManagerTermsDraft(updated.manager_terms ?? "");
         setTenantTermsDraft(updated.tenant_terms ?? "");
+        setManagerStartDate(updated.start_date?.slice(0, 10) ?? "");
+        setManagerEndDate(updated.end_date?.slice(0, 10) ?? "");
+        setManagerRentDraft(String(updated.monthly_rent));
+        setManagerDepositRequiredDraft(String(depositRequired(updated)));
       }
     } catch (cause) {
       setDrawerError(
@@ -679,16 +712,16 @@ function ManagerLeasesPage() {
     setDrawerNotice("");
 
     try {
-      const updated = await patchLease(
-        selectedLease.id,
-        {
-          deposit_paid_amount: depositAmountNumber,
-          deposit_payment_date: depositDateDraft,
-        },
-        depositAmountNumber >= depositRequired(selectedLease)
-          ? "Deposit marked as fully received."
-          : "Deposit payment recorded."
-      );
+      const payload = await apiRequest(`/leases/${selectedLease.id}/deposit`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          amount_paid: depositAmountNumber,
+          payment_date: depositDateDraft,
+        }),
+      });
+      const updated = parseLeaseUpdate(payload);
+      if (updated) syncLease(updated);
+      await load();
       if (updated) {
         setDepositAmountDraft(String(depositPaid(updated)));
         setDepositDateDraft(updated.deposit?.payment_date?.slice(0, 10) ?? depositDateDraft);
@@ -1172,9 +1205,9 @@ function ManagerLeasesPage() {
                         placeholder="Agreement terms visible to the manager…"
                       />
                       <p className="ls-copy-card__hint">
-                        {selectedLease.manager_signed_at && managerTermsChanged
-                          ? "Editing this text will clear the manager signature and require re-signing."
-                          : "This copy can be edited before the manager signs it."}
+                        {selectedLease.manager_signed_at
+                          ? "The manager signature has locked this lease."
+                          : "Editing manager-controlled details before signing may require the tenant to review and sign the new version."}
                       </p>
                     </div>
 
@@ -1203,7 +1236,7 @@ function ManagerLeasesPage() {
                         type="button"
                         className="mg-btn mg-btn--primary"
                         onClick={() => void signManagerCopy()}
-                        disabled={managerInitials.trim().length === 0 || signingManager}
+                        disabled={managerInitials.trim().length === 0 || signingManager || !selectedLease.tenant_signed_at || Boolean(selectedLease.manager_signed_at)}
                       >
                         <FileSignature />
                         {signingManager ? "Signing…" : "Confirm signature"}
@@ -1240,13 +1273,11 @@ function ManagerLeasesPage() {
                         id="lease-tenant-terms"
                         className="mg-textarea"
                         value={tenantTermsDraft}
-                        onChange={(event) => setTenantTermsDraft(event.target.value)}
+                        readOnly
                         placeholder="Agreement terms visible to the tenant…"
                       />
                       <p className="ls-copy-card__hint">
-                        {selectedLease.tenant_signed_at && tenantTermsChanged
-                          ? "Editing this text will clear the tenant signature and require the tenant to sign again."
-                          : "Managers can edit this copy too, but tenant signatures reset when wording changes."}
+                        This is the tenant side of the canonical agreement. The tenant owns these terms and signs them; manager edits to authoritative lease details trigger a fresh tenant review.
                       </p>
                     </div>
 
