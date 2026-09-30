@@ -39,15 +39,6 @@ class LeaseProvisioner
                 abort(403, 'You do not have access to this tenant.');
             }
 
-            $hasExistingLease = Leases::where('unit_id', $unit->id)
-                ->whereNotIn('status', ['ended', 'terminated'])
-                ->exists();
-            if ($hasExistingLease) {
-                throw ValidationException::withMessages([
-                    'unit_id' => 'This unit already has an active or pending tenancy.',
-                ]);
-            }
-
             $requestedStart = CarbonImmutable::parse($data['requested_move_in_date'])->toDateString();
             $requestedEnd = !empty($data['requested_move_out_date'])
                 ? CarbonImmutable::parse($data['requested_move_out_date'])->toDateString()
@@ -58,6 +49,8 @@ class LeaseProvisioner
                     'requested_move_out_date' => 'The requested end date must be on or after the requested start date.',
                 ]);
             }
+
+            $this->assertNoOverlap($unit, $requestedStart, $requestedEnd);
 
             $agreement = $this->buildPendingAgreementTemplate(
                 $organizationId,
@@ -324,6 +317,28 @@ class LeaseProvisioner
         });
     }
 
+    private function dateRangesOverlap(
+        ?string $existingStart,
+        ?string $existingEnd,
+        string $newStart,
+        ?string $newEnd
+    ): bool {
+        if ($existingStart === null) {
+            return false;
+        }
+
+        // Lease end dates are treated as checkout dates: a new tenancy may
+        // start on the same calendar day the previous tenancy ends.
+        if ($newEnd !== null && $existingStart >= $newEnd) {
+            return false;
+        }
+        if ($existingEnd !== null && $existingEnd <= $newStart) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function statusForDates(
         string $startDate,
         ?string $endDate,
@@ -347,16 +362,25 @@ class LeaseProvisioner
         ?string $endDate,
         ?int $exceptLeaseId = null
     ): void {
-        $query = Leases::where('unit_id', $unit->id)
+        $leases = Leases::where('unit_id', $unit->id)
             ->whereNotIn('status', ['ended', 'terminated'])
-            ->when($exceptLeaseId, fn ($leases) => $leases->where('id', '<>', $exceptLeaseId))
-            ->whereDate('start_date', '<=', $endDate ?? '9999-12-31')
-            ->where(function ($leases) use ($startDate) {
-                $leases->whereNull('end_date')
-                    ->orWhereDate('end_date', '>=', $startDate);
-            });
+            ->when($exceptLeaseId, fn ($query) => $query->where('id', '<>', $exceptLeaseId))
+            ->get();
 
-        if ($query->exists()) {
+        foreach ($leases as $existing) {
+            $existingStart = $existing->start_date?->toDateString()
+                ?? $existing->requested_move_in_date?->toDateString();
+            $existingEnd = $existing->end_date?->toDateString()
+                ?? $existing->requested_move_out_date?->toDateString();
+
+            if ($this->dateRangesOverlap($existingStart, $existingEnd, $startDate, $endDate)) {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'This unit is already reserved or occupied for part of those dates.',
+                ]);
+            }
+        }
+
+        return;
             throw ValidationException::withMessages([
                 'unit_id' => 'This unit is already booked for part of those dates.',
             ]);
