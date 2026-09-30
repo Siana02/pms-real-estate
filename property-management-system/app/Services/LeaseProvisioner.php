@@ -213,6 +213,111 @@ class LeaseProvisioner
         });
     }
 
+    /**
+     * Convert a self-registration's pending lease into the manager-confirmed
+     * canonical lease without creating a duplicate record.
+     */
+    public function confirmPending(Leases $lease, array $data, int $organizationId, Tenant $tenant): Leases
+    {
+        return DB::transaction(function () use ($lease, $data, $organizationId, $tenant) {
+            if ($lease->status !== 'pending') {
+                throw ValidationException::withMessages([
+                    'lease' => 'This lease is no longer pending manager confirmation.',
+                ]);
+            }
+
+            $property = Property::where('organization_id', $organizationId)
+                ->findOrFail($data['property_id']);
+            $unit = Unit::where('property_id', $property->id)
+                ->whereKey($data['unit_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $startDate = CarbonImmutable::parse($data['start_date'])->toDateString();
+            $endDate = !empty($data['end_date'])
+                ? CarbonImmutable::parse($data['end_date'])->toDateString()
+                : null;
+
+            if ($endDate !== null && $endDate < $startDate) {
+                throw ValidationException::withMessages([
+                    'end_date' => 'The lease end date must be on or after the start date.',
+                ]);
+            }
+
+            $this->assertNoOverlap($unit, $startDate, $endDate, $lease->id);
+
+            $monthlyRent = $data['monthly_rent'] ?? $unit->monthly_rent;
+            $depositAmount = $data['deposit_amount'] ?? 0;
+            $agreement = $this->buildAgreementTemplate(
+                $organizationId,
+                $property,
+                $unit,
+                $tenant,
+                $monthlyRent,
+                $startDate,
+                $endDate,
+                $depositAmount
+            );
+
+            $authoritativeChanged =
+                $lease->property_id !== $property->id ||
+                $lease->unit_id !== $unit->id ||
+                $lease->start_date?->toDateString() !== $startDate ||
+                $lease->end_date?->toDateString() !== $endDate ||
+                (float) $lease->monthly_rent !== (float) $monthlyRent ||
+                (float) $lease->deposit_amount !== (float) $depositAmount;
+
+            $lease->update([
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'monthly_rent' => $monthlyRent,
+                'deposit_amount' => $depositAmount,
+                'status' => $this->statusForDates($startDate, $endDate),
+                'manager_terms' => $agreement,
+                ...($authoritativeChanged ? [
+                    'tenant_signature' => null,
+                    'tenant_signed_at' => null,
+                ] : []),
+            ]);
+
+            $amountRequired = (float) $depositAmount;
+            $amountPaid = (float) ($data['deposit_paid_amount'] ?? 0);
+            if ($amountPaid > $amountRequired) {
+                throw ValidationException::withMessages([
+                    'deposit_paid_amount' => 'The amount paid cannot exceed the required deposit.',
+                ]);
+            }
+
+            $lease->deposit()->updateOrCreate(
+                ['lease_id' => $lease->id],
+                [
+                    'organization_id' => $organizationId,
+                    'tenant_id' => $tenant->id,
+                    'amount_required' => $amountRequired,
+                    'amount_paid' => $amountPaid,
+                    'payment_date' => $amountPaid > 0 ? ($data['deposit_payment_date'] ?? null) : null,
+                    'status' => $amountRequired <= 0
+                        ? 'not_required'
+                        : ($amountPaid >= $amountRequired
+                            ? 'paid'
+                            : ($amountPaid > 0 ? 'partially_paid' : 'unpaid')),
+                ]
+            );
+
+            $tenant->update([
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+                'status' => 'active',
+            ]);
+
+            $this->syncUnitStatus($unit);
+
+            return $lease->fresh()->load(['property', 'unit', 'tenant', 'deposit']);
+        });
+    }
+
     public function statusForDates(
         string $startDate,
         ?string $endDate,
