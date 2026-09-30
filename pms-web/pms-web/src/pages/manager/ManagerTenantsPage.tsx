@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
 import {
@@ -7,6 +8,7 @@ import {
   Check,
   Copy,
   DoorOpen,
+  FileText,
   KeyRound,
   Mail,
   Phone,
@@ -335,8 +337,13 @@ const styles = `
   font-variant-numeric: tabular-nums;
   color: var(--tn-faint);
 }
- 
+
 .tn-chip--on .tn-chip__count { color: #bfdbfe; }
+
+.tn-toolbar__field {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
  
 /* ---------- groups ---------- */
 .tn-groups {
@@ -504,6 +511,52 @@ const styles = `
   border-color: rgba(251, 191, 36, 0.28);
   background: rgba(120, 53, 15, 0.28);
   color: #fde68a;
+}
+
+.tn-cell__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--tn-muted);
+  overflow-wrap: anywhere;
+}
+
+.tn-claim {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.625rem;
+  padding: 0.75rem;
+  border-radius: var(--tn-radius-sm);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(120, 53, 15, 0.2);
+}
+
+.tn-claim__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff7ed;
+}
+
+.tn-claim__text {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #fde68a;
+}
+
+.tn-row__aside {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.tn-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
  
 /* ---------- states ---------- */
@@ -729,9 +782,9 @@ const styles = `
  
 @media (min-width: 720px) {
   .tn-row {
-    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) minmax(0, 0.9fr)
-      minmax(0, 1.1fr);
-    align-items: center;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 0.9fr)
+      minmax(0, 1.25fr) minmax(0, 1.4fr);
+    align-items: start;
     gap: 1rem;
   }
 }
@@ -760,10 +813,14 @@ interface TenantRecord {
   property: { id: number; name: string } | null;
   unit: { id: number; unit_number: string } | null;
   monthly_rent: number;
+  lease_id: number | null;
   lease_status: string | null;
   lease_start: string | null;
   lease_end: string | null;
   deposit_status: string | null;
+  deposit_amount_required: number;
+  deposit_amount_paid: number;
+  tenant_marked_paid_at: string | null;
   open_maintenance_requests: number;
   has_login?: boolean;
 }
@@ -876,10 +933,17 @@ function parseTenants(payload: unknown): TenantRecord[] {
       property: namedRef(record.property, "name"),
       unit: unit ? { id: unit.id, unit_number: unit.name } : null,
       monthly_rent: asNumber(record.monthly_rent),
+      lease_id: asNumber(lease.id) || null,
       lease_status: asString(lease.status) || null,
       lease_start: asString(lease.start_date) || null,
       lease_end: asString(lease.end_date) || null,
       deposit_status: asString(deposit.status) || null,
+      deposit_amount_required:
+        deposit.amount_required !== undefined
+          ? asNumber(deposit.amount_required)
+          : asNumber(lease.deposit_amount),
+      deposit_amount_paid: asNumber(deposit.amount_paid),
+      tenant_marked_paid_at: asString(deposit.tenant_marked_paid_at) || null,
       open_maintenance_requests: asNumber(record.open_maintenance_requests),
       has_login: record.has_login === true,
     };
@@ -1373,6 +1437,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
 /* ------------------------------------------------------------------ */
  
 function ManagerTenantsPage() {
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -1384,6 +1449,7 @@ function ManagerTenantsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [account, setAccount] = useState<ProvisionedAccount | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmingLeaseId, setConfirmingLeaseId] = useState<number | null>(null);
  
   const currency = useMemo(readCurrency, []);
  
@@ -1497,6 +1563,36 @@ function ManagerTenantsPage() {
       { key: "pending", label: "Pending onboarding", count: counts.pending },
       { key: "inactive", label: "Inactive", count: counts.inactive },
     ];
+
+  function todayDate(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  async function confirmDepositReceipt(tenant: TenantRecord) {
+    if (!tenant.lease_id || tenant.deposit_amount_required <= 0) return;
+
+    setConfirmingLeaseId(tenant.lease_id);
+
+    try {
+      await apiRequest(`/leases/${tenant.lease_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          deposit_paid_amount: tenant.deposit_amount_required,
+          deposit_payment_date: todayDate(),
+        }),
+      });
+      setError("");
+      await load(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not confirm the deposit receipt right now."
+      );
+    } finally {
+      setConfirmingLeaseId(null);
+    }
+  }
  
   return (
     <DashboardLayout>
@@ -1609,19 +1705,21 @@ function ManagerTenantsPage() {
           </section>
  
           <div className="tn-toolbar">
-            <div className="tn-search">
-              <Search />
-              <label className="tn-field__label" htmlFor="tn-search-input" hidden>
+            <div className="tn-toolbar__field">
+              <label className="tn-field__label" htmlFor="tn-search-input">
                 Search tenants
               </label>
-              <input
-                id="tn-search-input"
-                className="tn-input"
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by name, email, phone, property or unit…"
-              />
+              <div className="tn-search">
+                <Search />
+                <input
+                  id="tn-search-input"
+                  className="tn-input"
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Type a name, property, unit, email or phone…"
+                />
+              </div>
             </div>
  
             <div className="tn-filters">
@@ -1724,6 +1822,9 @@ function ManagerTenantsPage() {
                               ? `${tenant.unit.unit_number}`
                               : "Not assigned"}
                           </p>
+                          <p className="tn-cell__sub">
+                            {tenant.property?.name ?? UNASSIGNED}
+                          </p>
                         </div>
  
                         <div className="tn-cell tn-cell--money">
@@ -1742,41 +1843,90 @@ function ManagerTenantsPage() {
                               ? `${tenant.lease_status}${tenant.lease_start ? ` · ${tenant.lease_start}` : ""}${tenant.lease_end ? ` – ${tenant.lease_end}` : ""}`
                               : tenant.status === "pending" ? "Pending manager confirmation" : "No lease"}
                           </p>
+                          {tenant.lease_id && (
+                            <div className="tn-inline-actions" style={{ marginTop: "0.5rem" }}>
+                              <button
+                                type="button"
+                                className="tn-link"
+                                onClick={() => navigate(`/manager/leases?lease=${tenant.lease_id}`)}
+                              >
+                                <FileText />
+                                View lease agreement
+                              </button>
+                            </div>
+                          )}
                         </div>
-
+ 
                         <div className="tn-cell">
                           <p className="tn-cell__label">Deposit</p>
                           <p className="tn-cell__value">
-                            {tenant.deposit_status ?? "—"}
+                            {tenant.deposit_status
+                              ? tenant.deposit_status.replace(/_/g, " ")
+                              : "—"}
                           </p>
+                          {tenant.lease_id ? (
+                            <p className="tn-cell__sub">
+                              Confirmed {formatMoney(tenant.deposit_amount_paid, currency)} of{" "}
+                              {formatMoney(tenant.deposit_amount_required, currency)}
+                            </p>
+                          ) : null}
+                          {tenant.lease_id &&
+                            tenant.tenant_marked_paid_at &&
+                            tenant.deposit_status !== "paid" && (
+                              <div className="tn-claim">
+                                <div>
+                                  <p className="tn-claim__title">
+                                    Tenant says they&apos;ve paid
+                                  </p>
+                                  <p className="tn-claim__text">
+                                    Claimed on {tenant.tenant_marked_paid_at}. Confirm
+                                    receipt once the funds arrive.
+                                  </p>
+                                </div>
+                                <div className="tn-inline-actions">
+                                  <button
+                                    type="button"
+                                    className="tn-btn tn-btn--primary"
+                                    onClick={() => void confirmDepositReceipt(tenant)}
+                                    disabled={confirmingLeaseId === tenant.lease_id}
+                                  >
+                                    {confirmingLeaseId === tenant.lease_id
+                                      ? "Confirming…"
+                                      : "Confirm receipt"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                         </div>
-
-                        <div className="tn-tags">
-                          <span
-                            className={`tn-pill tn-pill--${
-                              tenant.status === "active"
-                                ? "active"
-                                : tenant.status === "pending" ? "warn" : "inactive"
-                            }`}
-                          >
-                            {tenant.status === "pending"
-                              ? "Pending onboarding"
-                              : tenant.status === "active" ? "Active" : "Inactive"}
-                          </span>
-
-                          {tenant.unit === null && tenant.status !== "pending" && (
-                            <span className="tn-pill">
-                              <DoorOpen />
-                              No lease
-                            </span>
-                          )}
  
-                          {tenant.open_maintenance_requests > 0 && (
-                            <span className="tn-pill tn-pill--warn">
-                              <Wrench />
-                              {tenant.open_maintenance_requests} open
+                        <div className="tn-row__aside">
+                          <div className="tn-tags">
+                            <span
+                              className={`tn-pill tn-pill--${
+                                tenant.status === "active"
+                                  ? "active"
+                                  : tenant.status === "pending" ? "warn" : "inactive"
+                              }`}
+                            >
+                              {tenant.status === "pending"
+                                ? "Pending onboarding"
+                                : tenant.status === "active" ? "Active" : "Inactive"}
                             </span>
-                          )}
+
+                            {tenant.unit === null && tenant.status !== "pending" && (
+                              <span className="tn-pill">
+                                <DoorOpen />
+                                No lease
+                              </span>
+                            )}
+
+                            {tenant.open_maintenance_requests > 0 && (
+                              <span className="tn-pill tn-pill--warn">
+                                <Wrench />
+                                {tenant.open_maintenance_requests} open
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </article>
                     ))}
