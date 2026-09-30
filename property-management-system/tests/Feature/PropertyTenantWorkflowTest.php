@@ -375,6 +375,21 @@ class PropertyTenantWorkflowTest extends TestCase
 
         $this->withToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
+                'requested_move_in_date' => now()->addMonths(2)->toDateString(),
+                'requested_move_out_date' => now()->addMonths(14)->toDateString(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.requested_move_in_date', now()->addMonths(2)->toDateString())
+            ->assertJsonPath('data.requested_move_out_date', now()->addMonths(14)->toDateString());
+
+        $this->assertDatabaseHas('leases', [
+            'id' => $leaseId,
+            'requested_move_in_date' => now()->addMonths(2)->toDateString(),
+            'requested_move_out_date' => now()->addMonths(14)->toDateString(),
+        ]);
+
+        $this->withToken($tenantToken)
+            ->patchJson('/api/tenant/lease-agreement', [
                 'tenant_signature' => 'AT',
             ])
             ->assertOk()
