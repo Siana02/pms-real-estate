@@ -33,6 +33,20 @@ const styles = `
   background: linear-gradient(180deg, #f5f9ff, var(--tp-surface) 65%);
 }
 
+.tl-summary__head {
+  display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding-bottom:1rem; border-bottom:1px solid var(--tp-line-soft);
+}
+.tl-summary__title { margin:0; font-size:1.25rem; font-weight:750; letter-spacing:-0.025em; color:var(--tp-ink); }
+.tl-summary__subtitle { margin:0.3rem 0 0; font-size:0.8125rem; color:var(--tp-muted); }
+.tl-date-card { padding:1rem; border:1px solid var(--tp-line); border-radius:var(--tp-r-md); background:var(--tp-surface-sunken); }
+.tl-date-card__head { margin-bottom:0.75rem; }
+.tl-date-card__title { margin:0; font-size:0.9rem; font-weight:700; }
+.tl-date-card__hint { margin:0.25rem 0 0; font-size:0.75rem; color:var(--tp-muted); line-height:1.45; }
+.tl-date-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.75rem; }
+.tl-date-fields > div { display:flex; flex-direction:column; gap:0.35rem; }
+.tl-date-fields input { min-width:0; border-radius:var(--tp-r-sm); border:1px solid var(--tp-line); padding:0.6rem 0.7rem; font:inherit; color:var(--tp-ink); background:var(--tp-surface); }
+@media (max-width:620px) { .tl-date-fields { grid-template-columns:1fr; } }
+
 .tl-summary__row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -399,6 +413,14 @@ function TenantLeasePage() {
         ) : (
           <>
             <section className="tp-card tl-summary" aria-label="Lease summary">
+              <div className="tl-summary__head">
+                <div>
+                  <h2 className="tl-summary__title">Lease agreement</h2>
+                  <p className="tl-summary__subtitle">{agreement.property?.name ?? "Property"} · Unit {agreement.unit?.unit_number ?? "—"}</p>
+                </div>
+                <span className="tl-badge tl-badge--pending"><FileSignature />{agreement.status === "pending" ? "Reservation agreement" : "Digital lease"}</span>
+              </div>
+
               <div
                 className={`tl-badge ${
                   leaseLocked ? "tl-badge--done" : "tl-badge--pending"
@@ -553,27 +575,12 @@ function TenantLeasePage() {
                         : "Not yet signed"}
                     </span>
                   </div>
-                  <div className="tl-sign-row">
-                    <label className="tp-label" htmlFor="requested-start">
-                      Requested lease start
-                    </label>
-                    <input
-                      id="requested-start"
-                      type="date"
-                      value={requestedStart}
-                      onChange={(e) => setRequestedStart(e.target.value)}
-                      disabled={tenantSigned || leaseLocked}
-                    />
-                    <label className="tp-label" htmlFor="requested-end">
-                      Requested lease end
-                    </label>
-                    <input
-                      id="requested-end"
-                      type="date"
-                      value={requestedEnd}
-                      onChange={(e) => setRequestedEnd(e.target.value)}
-                      disabled={tenantSigned || leaseLocked}
-                    />
+                  <div className="tl-date-card">
+                    <div className="tl-date-card__head"><p className="tl-date-card__title">Your requested lease dates</p><p className="tl-date-card__hint">You choose the dates you are requesting. The manager confirms the official lease dates before the final signature.</p></div>
+                    <div className="tl-date-fields">
+                      <div><label className="tp-label" htmlFor="requested-start">Move-in / lease start</label><input id="requested-start" type="date" value={requestedStart} onChange={(e) => setRequestedStart(e.target.value)} disabled={tenantSigned || leaseLocked} /></div>
+                      <div><label className="tp-label" htmlFor="requested-end">Move-out / lease end</label><input id="requested-end" type="date" value={requestedEnd} onChange={(e) => setRequestedEnd(e.target.value)} disabled={tenantSigned || leaseLocked} /></div>
+                    </div>
                   </div>
                   <textarea
                     value={tenantTerms}
