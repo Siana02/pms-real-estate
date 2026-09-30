@@ -16,6 +16,8 @@ class Leases extends Model
         'unit_id',
         'tenant_id',
         'start_date',
+        'requested_move_in_date',
+        'requested_move_out_date',
         'end_date',
         'monthly_rent',
         'deposit_amount',
@@ -38,6 +40,8 @@ class Leases extends Model
 
     protected $casts = [
         'start_date' => 'date',
+        'requested_move_in_date' => 'date',
+        'requested_move_out_date' => 'date',
         'end_date' => 'date',
         'monthly_rent' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
@@ -88,8 +92,12 @@ class Leases extends Model
         }
 
         $today = CarbonImmutable::today()->toDateString();
-        $startDate = CarbonImmutable::parse($this->attributes['start_date'])->toDateString();
+        $startDate = $this->attributes['start_date'] ?? null;
         $endDate = $this->attributes['end_date'] ?? null;
+
+        if ($value === 'pending') {
+            return 'pending';
+        }
 
         if ($endDate && CarbonImmutable::parse($endDate)->toDateString() < $today) {
             return 'ended';
@@ -97,6 +105,10 @@ class Leases extends Model
 
         if ($value === 'notice') {
             return 'notice';
+        }
+
+        if ($startDate === null) {
+            return 'pending';
         }
 
         return $startDate > $today ? 'upcoming' : 'active';
