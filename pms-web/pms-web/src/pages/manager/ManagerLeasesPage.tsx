@@ -941,10 +941,10 @@ function ManagerLeasesPage() {
                           <td data-label="Deposit">
                             <div className="ls-deposit-meta">
                               <span className="mg-strong">
-                                {formatMoney(required, currency)}
+                                {formatMoney(required, currency)} required
                               </span>
                               <span className="mg-sub">
-                                {titleCase(depositStatus(lease))} · Confirmed{" "}
+                                {titleCase(depositStatus(lease))} · Received{" "}
                                 {formatMoney(paid, currency)}
                               </span>
                             </div>
@@ -1025,11 +1025,10 @@ function ManagerLeasesPage() {
               <div className="mg-drawer__head">
                 <div>
                   <h2 className="mg-drawer__title" id="lease-agreement-title">
-                    {selectedLease.tenant?.name ?? "Lease"} · {selectedLease.unit?.unit_number ?? "—"}
+                    {selectedLease.tenant?.name ?? "Unassigned"} · {selectedLease.unit?.unit_number ?? "—"}
                   </h2>
                   <p className="mg-drawer__sub">
-                    {selectedLease.property?.name ?? "No property"} · {formatDate(selectedLease.start_date)} →{" "}
-                    {formatDate(selectedLease.end_date)}
+                    {selectedLease.property?.name ?? "No property"} · Unit {selectedLease.unit?.unit_number ?? "—"}
                   </p>
                 </div>
                 <button
@@ -1056,6 +1055,51 @@ function ManagerLeasesPage() {
                     <span>{drawerNotice}</span>
                   </div>
                 )}
+
+                <section className="ls-summary-card" aria-label="Lease assignment">
+                  <div className="ls-section-head">
+                    <div>
+                      <p className="ls-summary-card__label">Assignment &amp; occupancy</p>
+                      <p className="ls-summary-card__hint">
+                        A tenant can be assigned/reserved before their official start date. The previous tenant can remain active until their end date.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ls-form-grid">
+                    <div>
+                      <p className="ls-summary-card__label">Tenant</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.name ?? "Unassigned"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Property</p>
+                      <p className="ls-summary-card__value">{selectedLease.property?.name ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Unit</p>
+                      <p className="ls-summary-card__value">{selectedLease.unit?.unit_number ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Lease status</p>
+                      <p className="ls-summary-card__value">
+                        {selectedLease.status === "pending"
+                          ? "Reserved / pending"
+                          : titleCase(selectedLease.status)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Official lease start</p>
+                      <p className="ls-summary-card__value">
+                        {selectedLease.start_date ? formatDate(selectedLease.start_date) : "Not confirmed"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Official lease end</p>
+                      <p className="ls-summary-card__value">
+                        {selectedLease.end_date ? formatDate(selectedLease.end_date) : "Open-ended"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
 
                 <section className="ls-summary-grid" aria-label="Lease agreement summary">
                   <article className="ls-summary-card">
