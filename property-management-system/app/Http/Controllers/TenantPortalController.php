@@ -27,7 +27,7 @@ class TenantPortalController extends Controller
     public function overview(Request $request): JsonResponse
     {
         $tenant = $this->currentTenant($request);
-        $lease = $this->activeLease($tenant);
+        $lease = $this->latestLease($tenant);
         $unit = $lease?->unit_id ? Unit::find($lease->unit_id) : null;
         $property = $lease?->property_id ? Property::find($lease->property_id) : null;
         $organization = Organization::find($tenant->organization_id);
@@ -325,22 +325,79 @@ class TenantPortalController extends Controller
         $lease = $this->latestLease($tenant);
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
+        abort_if(
+            $lease->manager_signed_at !== null,
+            422,
+            'This lease is locked because the manager has signed the final version.'
+        );
 
         $validated = $request->validate([
+            'requested_move_in_date' => ['nullable', 'date'],
+            'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
             'tenant_terms' => 'nullable|string',
             'tenant_signature' => 'nullable|string|max:20',
         ]);
 
-        $updates = [];
-        if (array_key_exists('tenant_terms', $validated)
-            && $validated['tenant_terms'] !== $lease->tenant_terms) {
-            $updates['tenant_terms'] = $validated['tenant_terms'];
-            // Editing the wording after signing invalidates the signature.
-            $updates['tenant_signature'] = null;
-            $updates['tenant_signed_at'] = null;
+        $hasContentChange =
+            (array_key_exists('requested_move_in_date', $validated)
+                && ($validated['requested_move_in_date']
+                    ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString()
+                    : null) !== $lease->requested_move_in_date?->toDateString()) ||
+            (array_key_exists('requested_move_out_date', $validated)
+                && ($validated['requested_move_out_date']
+                    ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
+                    : null) !== $lease->requested_move_out_date?->toDateString()) ||
+            (array_key_exists('tenant_terms', $validated)
+                && $validated['tenant_terms'] !== $lease->tenant_terms);
+
+        abort_if(
+            $lease->tenant_signed_at !== null && $hasContentChange,
+            422,
+            'You have already signed this version. The manager must review it before any further changes can be made.'
+        );
+
+        $signing = ! empty($validated['tenant_signature']);
+
+        if ($signing) {
+            abort_if(
+                $lease->tenant_signed_at !== null,
+                422,
+                'You have already signed this agreement.'
+            );
+
+            abort_if(
+                $lease->manager_signed_at !== null,
+                422,
+                'The manager has already signed the final version.'
+            );
+
+            abort_if(
+                empty($validated['requested_move_in_date'])
+                    && $lease->requested_move_in_date === null,
+                422,
+                'Enter your requested lease start date before signing.'
+            );
         }
 
-        if (! empty($validated['tenant_signature'])) {
+        $updates = [];
+
+        if (array_key_exists('requested_move_in_date', $validated)) {
+            $updates['requested_move_in_date'] = $validated['requested_move_in_date']
+                ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString()
+                : null;
+        }
+
+        if (array_key_exists('requested_move_out_date', $validated)) {
+            $updates['requested_move_out_date'] = $validated['requested_move_out_date']
+                ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
+                : null;
+        }
+
+        if (array_key_exists('tenant_terms', $validated)) {
+            $updates['tenant_terms'] = $validated['tenant_terms'];
+        }
+
+        if ($signing) {
             $updates['tenant_signature'] = trim($validated['tenant_signature']);
             $updates['tenant_signed_at'] = CarbonImmutable::now();
         }
@@ -351,7 +408,9 @@ class TenantPortalController extends Controller
         }
 
         return response()->json([
-            'message' => 'Lease agreement updated.',
+            'message' => $signing
+                ? 'Your side of the lease has been signed and sent to the manager for final review.'
+                : 'Your lease information was updated.',
             'data' => $this->agreementPayload($lease),
         ]);
     }
@@ -447,15 +506,54 @@ class TenantPortalController extends Controller
             return null;
         }
 
+        $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization']);
         $deposit = $lease->deposit;
+        $status = $lease->manager_signed_at !== null
+            ? 'locked'
+            : ($lease->tenant_signed_at !== null
+                ? 'awaiting_manager_signature'
+                : 'awaiting_tenant_signature');
 
         return [
             'lease_id' => $lease->id,
             'status' => $lease->status,
-            'start_date' => (string) $lease->start_date,
-            'end_date' => $lease->end_date ? (string) $lease->end_date : null,
+            'agreement_status' => $status,
+            'start_date' => $lease->start_date?->toDateString(),
+            'end_date' => $lease->end_date?->toDateString(),
+            'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
+            'requested_move_out_date' => $lease->requested_move_out_date?->toDateString(),
             'monthly_rent' => $lease->monthly_rent,
             'deposit_amount' => $lease->deposit_amount,
+            'rent_due_day' => 5,
+            'organization' => $lease->tenant?->organization ? [
+                'id' => $lease->tenant->organization->id,
+                'name' => $lease->tenant->organization->name,
+            ] : null,
+            'property' => $lease->property ? [
+                'id' => $lease->property->id,
+                'name' => $lease->property->name,
+                'property_type' => $lease->property->property_type,
+                'address' => $lease->property->address,
+                'city' => $lease->property->city,
+                'country' => $lease->property->country,
+            ] : null,
+            'unit' => $lease->unit ? [
+                'id' => $lease->unit->id,
+                'unit_number' => $lease->unit->unit_number,
+                'unit_type' => $lease->unit->unit_type,
+                'default_rent' => $lease->unit->monthly_rent,
+            ] : null,
+            'tenant' => $lease->tenant ? [
+                'id' => $lease->tenant->id,
+                'name' => trim($lease->tenant->first_name . ' ' . $lease->tenant->last_name),
+                'email' => $lease->tenant->email,
+                'phone' => $lease->tenant->phone,
+                'national_id' => $lease->tenant->national_id,
+                'employer_name' => $lease->tenant->employer_name,
+                'employer_phone' => $lease->tenant->employer_phone,
+                'next_of_kin_name' => $lease->tenant->next_of_kin_name,
+                'next_of_kin_phone' => $lease->tenant->next_of_kin_phone,
+            ] : null,
             'manager_terms' => $lease->manager_terms,
             'tenant_terms' => $lease->tenant_terms,
             'manager_signature' => $lease->manager_signature,
@@ -468,6 +566,7 @@ class TenantPortalController extends Controller
                 'amount_paid' => $deposit->amount_paid,
                 'status' => $deposit->status,
                 'tenant_marked_paid_at' => $deposit->tenant_marked_paid_at?->toDateTimeString(),
+                'payment_date' => $deposit->payment_date?->toDateString(),
             ] : null,
         ];
     }
@@ -560,7 +659,10 @@ class TenantPortalController extends Controller
             ->sum(fn (Payment $payment) => (float) $payment->amount);
 
         $balance = max($monthlyRent - $paidThisMonth, 0);
-        $dueDate = $now->endOfMonth()->toDateString();
+        $dueDay = 5;
+        $dueDate = $now->day <= $dueDay
+            ? $now->copy()->day($dueDay)
+            : $now->addMonthNoOverflow()->day($dueDay);
 
         return [
             'amount_due' => $balance,
@@ -582,7 +684,7 @@ class TenantPortalController extends Controller
             return 'partial';
         }
 
-        return $now->isLastOfMonth() ? 'overdue' : 'pending';
+        return $now->day >= 6 ? 'overdue' : 'pending';
     }
 
     /** @return array<string, mixed> */
