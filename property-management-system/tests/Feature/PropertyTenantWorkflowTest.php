@@ -492,6 +492,43 @@ class PropertyTenantWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('user.role', 'admin');
     }
 
+    public function test_self_registered_pending_lease_is_visible_in_manager_lease_register(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'requested_move_out_date' => now()->addYear()->toDateString(),
+            'name' => 'Visible Tenant',
+            'email' => 'visible@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Lease Manager',
+            'username' => 'lease-register-manager',
+            'email' => 'lease-register-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+
+        $this->withToken($manager->createToken('lease-register')->plainTextToken)
+            ->getJson('/api/leases')
+            ->assertOk()
+            ->assertJsonFragment([
+                'status' => 'pending',
+                'tenant_id' => Tenant::where('email', 'visible@example.test')->value('id'),
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+            ]);
+    }
+
     public function test_manager_can_confirm_a_pending_registration_without_duplicating_its_tenant(): void
     {
         [$organization, $property, $unit] = $this->createPropertyInventory();
