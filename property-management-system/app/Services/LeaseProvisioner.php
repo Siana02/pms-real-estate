@@ -149,7 +149,7 @@ class LeaseProvisioner
                 $data['monthly_rent'],
                 $startDate,
                 $endDate,
-                $data['deposit_amount'] ?? 0
+                $data['deposit_amount'] ?? $unit->monthly_rent
             );
 
             $lease = Leases::create([
@@ -160,14 +160,14 @@ class LeaseProvisioner
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'monthly_rent' => $data['monthly_rent'],
-                'deposit_amount' => $data['deposit_amount'] ?? 0,
+                'deposit_amount' => $data['deposit_amount'] ?? $unit->monthly_rent,
                 'status' => $status,
                 'notes' => $data['notes'] ?? null,
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
             ]);
 
-            $amountRequired = (float) ($data['deposit_amount'] ?? 0);
+            $amountRequired = (float) ($data['deposit_amount'] ?? $unit->monthly_rent);
             $amountPaid = (float) ($data['deposit_paid_amount'] ?? (
                 filter_var($data['deposit_paid'] ?? false, FILTER_VALIDATE_BOOL)
                     ? $amountRequired
