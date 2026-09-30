@@ -986,7 +986,7 @@ function ManagerLeasesPage() {
                             <div className="ls-inline-actions">
                               <span className={badgeClass(lease.computed)}>
                                 {lease.status === "pending"
-                                  ? "Pending review"
+                                  ? (lease.tenant ? "Reserved / pending" : "Pending assignment")
                                   : lease.computed === "expiring"
                                     ? "Expiring soon"
                                     : titleCase(lease.computed)}
