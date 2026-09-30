@@ -74,27 +74,24 @@ public function usernameAvailable(Request $request)
 
                 $unit = Unit::whereKey($validated['unit_id'])
                     ->where('property_id', $validated['property_id'])
-                    ->where('status', 'vacant')
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                $today = CarbonImmutable::today()->toDateString();
-                $hasLease = $unit->leases()
-                    ->whereNotIn('status', ['ended', 'terminated'])
-                    ->where(fn ($query) => $query
-                        ->whereNull('end_date')
-                        ->orWhereDate('end_date', '>=', $today))
-                    ->exists();
-
-                $hasPendingRegistration = Tenant::where('unit_id', $unit->id)
-                    ->where('status', 'pending')
-                    ->when($tenant, fn ($query) => $query->where('id', '<>', $tenant->id))
-                    ->exists();
-
                 abort_if(
-                    $hasLease || $hasPendingRegistration,
+                    $unit->status === 'maintenance',
                     422,
-                    'This unit is no longer available. Please choose another unit.'
+                    'This unit is under maintenance and cannot be requested.'
+                );
+
+                // Availability is date-based. A future tenant may reserve a unit
+                // that is currently occupied, provided their requested dates do
+                // not overlap an existing reservation/tenancy.
+                app(LeaseProvisioner::class)->assertNoOverlap(
+                    $unit,
+                    CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString(),
+                    !empty($validated['requested_move_out_date'])
+                        ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
+                        : null
                 );
 
                 $nameParts = preg_split('/\s+/', trim($validated['name']), 2);
