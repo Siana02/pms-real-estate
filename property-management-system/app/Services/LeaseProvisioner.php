@@ -424,7 +424,7 @@ class LeaseProvisioner
             '5. The agreement becomes locked after the manager signs the final reviewed version.',
         ];
 
-        return implode("\\n", $lines);
+        return implode("\n", $lines);
     }
 
     public function buildAgreementTemplate(
