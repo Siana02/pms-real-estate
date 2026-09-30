@@ -41,6 +41,18 @@ const styles = `
 
 .tl-summary__row dt { margin: 0; }
 .tl-summary__row dd { margin: 0.25rem 0 0; font-weight: 700; }
+.tl-hero { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.tl-hero__eyebrow { margin:0 0 .35rem; font-size:.7rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--tp-muted); }
+.tl-hero__title { margin:0; font-size:clamp(1.35rem,3vw,1.8rem); letter-spacing:-.03em; color:var(--tp-ink); }
+.tl-hero__meta { margin:.35rem 0 0; color:var(--tp-muted); font-size:.875rem; }
+.tl-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+.tl-detail { padding:.85rem; border-radius:var(--tp-r-md); background:var(--tp-surface-sunken); border:1px solid var(--tp-line); }
+.tl-detail__label { margin:0; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--tp-muted); }
+.tl-detail__value { margin:.3rem 0 0; font-size:.9rem; font-weight:700; color:var(--tp-ink); overflow-wrap:anywhere; }
+.tl-prefill { padding:1rem; border:1px solid #d8e5fb; border-radius:var(--tp-r-md); background:linear-gradient(180deg,#f8fbff,var(--tp-surface)); }
+.tl-prefill__title { margin:0; font-size:.95rem; font-weight:750; }
+.tl-prefill__text { margin:.3rem 0 .9rem; color:var(--tp-muted); font-size:.78rem; line-height:1.5; }
+@media (max-width:620px) { .tl-detail-grid { grid-template-columns:1fr; } }
 
 .tl-badge {
   display: inline-flex;
@@ -183,6 +195,7 @@ interface Agreement {
   tenant_signed_at: string | null;
   agreement_finalized: boolean;
   deposit: DepositInfo | null;
+  tenant: { id:number; name:string; email:string|null; phone:string|null; national_id:string|null; employer_name:string|null; employer_phone:string|null; next_of_kin_name:string|null; next_of_kin_phone:string|null } | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -399,10 +412,27 @@ function TenantLeasePage() {
         ) : (
           <>
             <section className="tp-card tl-summary" aria-label="Lease summary">
+              <div className="tl-hero">
+                <div>
+                  <p className="tl-hero__eyebrow">Your tenancy</p>
+                  <h2 className="tl-hero__title">Lease agreement</h2>
+                  <p className="tl-hero__meta">{agreement.property?.name ?? "Property"} · Unit {agreement.unit?.unit_number ?? "—"}{agreement.unit?.unit_type ? ` · ${agreement.unit.unit_type}` : ""}</p>
+                </div>
+                <span className={`tl-badge ${leaseLocked ? "tl-badge--done" : "tl-badge--pending"}`}>
+                  {leaseLocked ? <ShieldCheck /> : <Clock />}
+                  {leaseLocked ? "Lease locked" : awaitingManager ? "Awaiting manager signature" : agreement.status === "pending" ? "Awaiting manager confirmation" : "Ready for your review"}
+                </span>
+              </div>
+              <div className="tl-detail-grid">
+                <div className="tl-detail"><p className="tl-detail__label">Organization</p><p className="tl-detail__value">{agreement.organization?.name ?? "—"}</p></div>
+                <div className="tl-detail"><p className="tl-detail__label">Tenant</p><p className="tl-detail__value">{agreement.tenant?.name ?? "—"}</p></div>
+                <div className="tl-detail"><p className="tl-detail__label">Property</p><p className="tl-detail__value">{agreement.property?.name ?? "—"}</p></div>
+                <div className="tl-detail"><p className="tl-detail__label">Unit</p><p className="tl-detail__value">{agreement.unit?.unit_number ?? "—"}</p></div>
+                <div className="tl-detail"><p className="tl-detail__label">Monthly rent</p><p className="tl-detail__value">KSh {Number(agreement.monthly_rent ?? 0).toLocaleString()}</p></div>
+                <div className="tl-detail"><p className="tl-detail__label">Security deposit</p><p className="tl-detail__value">KSh {Number(agreement.deposit_amount ?? 0).toLocaleString()}</p></div>
+              </div>
               <div
-                className={`tl-badge ${
-                  leaseLocked ? "tl-badge--done" : "tl-badge--pending"
-                }`}
+                className={`tl-badge ${leaseLocked ? "tl-badge--done" : "tl-badge--pending"}`}
               >
                 {leaseLocked ? <ShieldCheck /> : <Clock />}
                 {leaseLocked
@@ -451,6 +481,16 @@ function TenantLeasePage() {
                 </div>
               </dl>
 
+              <div className="tl-prefill">
+                <p className="tl-prefill__title">Your lease information is prefilled</p>
+                <p className="tl-prefill__text">Your account details, property, unit, rent, deposit and requested dates are already attached to this lease. Review them before signing.</p>
+                <div className="tl-detail-grid">
+                  <div className="tl-detail"><p className="tl-detail__label">Email</p><p className="tl-detail__value">{agreement.tenant?.email ?? "—"}</p></div>
+                  <div className="tl-detail"><p className="tl-detail__label">Phone</p><p className="tl-detail__value">{agreement.tenant?.phone ?? "—"}</p></div>
+                  <div className="tl-detail"><p className="tl-detail__label">National ID</p><p className="tl-detail__value">{agreement.tenant?.national_id ?? "—"}</p></div>
+                  <div className="tl-detail"><p className="tl-detail__label">Employer</p><p className="tl-detail__value">{agreement.tenant?.employer_name ?? "—"}</p></div>
+                </div>
+              </div>
               <p className="tl-hint">
                 Property, unit, rent, official dates and deposit terms come from
                 the organization's lease record. You can provide your requested
