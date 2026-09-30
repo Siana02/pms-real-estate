@@ -87,6 +87,8 @@ class LeaseProvisioner
                 'status' => 'unpaid',
             ]);
 
+            $this->syncUnitStatus($unit);
+
             return $lease->load(['property', 'unit', 'tenant', 'deposit']);
         });
     }
