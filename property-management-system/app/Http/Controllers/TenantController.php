@@ -66,6 +66,10 @@ public function store(Request $request)
         'email' => 'nullable|email|max:255',
         'phone' => 'required|string|max:50',
         'national_id' => 'nullable|string|max:100',
+        'employer_name' => 'nullable|string|max:255',
+        'employer_phone' => 'nullable|string|max:50',
+        'next_of_kin_name' => 'nullable|string|max:255',
+        'next_of_kin_phone' => 'nullable|string|max:50',
         'status' => 'nullable|in:active,inactive',
         'notes' => 'nullable|string',
         'create_login' => 'nullable|boolean',
@@ -253,6 +257,10 @@ public function store(Request $request)
             'email' => 'nullable|email|max:255',
             'phone' => 'sometimes|required|string|max:50',
             'national_id' => 'nullable|string|max:100',
+            'employer_name' => 'nullable|string|max:255',
+            'employer_phone' => 'nullable|string|max:50',
+            'next_of_kin_name' => 'nullable|string|max:255',
+            'next_of_kin_phone' => 'nullable|string|max:50',
             'status' => 'nullable|in:active,inactive',
             'notes' => 'nullable|string',
         ]);
@@ -315,6 +323,7 @@ public function store(Request $request)
         $activeLease = $leases->firstWhere('status', 'active');
         $displayLease = $activeLease
             ?? $leases->firstWhere('status', 'upcoming')
+            ?? $leases->firstWhere('status', 'pending')
             ?? $leases->firstWhere('status', 'notice');
         $unit = $displayLease
             ? $context['units']->get($displayLease->unit_id)
@@ -338,6 +347,10 @@ public function store(Request $request)
             'email' => $tenant->email,
             'phone' => $tenant->phone,
             'national_id' => $tenant->national_id,
+            'employer_name' => $tenant->employer_name,
+            'employer_phone' => $tenant->employer_phone,
+            'next_of_kin_name' => $tenant->next_of_kin_name,
+            'next_of_kin_phone' => $tenant->next_of_kin_phone,
             'status' => $tenant->status,
             'notes' => $tenant->notes,
             'created_at' => $tenant->created_at,
