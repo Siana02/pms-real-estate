@@ -45,7 +45,17 @@ interface DepositRecord {
 
 interface LeaseRecord {
   id: number;
-  tenant: { id: number; name: string } | null;
+  tenant: {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    national_id: string | null;
+    employer_name: string | null;
+    employer_phone: string | null;
+    next_of_kin_name: string | null;
+    next_of_kin_phone: string | null;
+  } | null;
   property: { id: number; name: string } | null;
   unit: { id: number; unit_number: string } | null;
   start_date: string | null;
@@ -273,6 +283,7 @@ function todayDate(): string {
 }
 
 function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
+  const tenantRecord = toRecord(record.tenant);
   const unit = toRecord(record.unit);
   const depositRecord = toRecord(record.deposit);
   const unitNumber = asString(unit.unit_number);
@@ -281,7 +292,25 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
 
   return {
     id: asNumber(record.id),
-    tenant: namedRef(record.tenant, "name"),
+    tenant: Object.keys(tenantRecord).length > 0
+      ? {
+          id: asNumber(tenantRecord.id),
+          name:
+            asString(tenantRecord.name) ||
+            [asString(tenantRecord.first_name), asString(tenantRecord.last_name)]
+              .filter(Boolean)
+              .join(" ")
+              .trim() ||
+            "Unnamed tenant",
+          email: asString(tenantRecord.email) || null,
+          phone: asString(tenantRecord.phone) || null,
+          national_id: asString(tenantRecord.national_id) || null,
+          employer_name: asString(tenantRecord.employer_name) || null,
+          employer_phone: asString(tenantRecord.employer_phone) || null,
+          next_of_kin_name: asString(tenantRecord.next_of_kin_name) || null,
+          next_of_kin_phone: asString(tenantRecord.next_of_kin_phone) || null,
+        }
+      : null,
     property: namedRef(record.property, "name"),
     unit: unitNumber
       ? { id: asNumber(unit.id), unit_number: unitNumber }
@@ -1097,6 +1126,51 @@ function ManagerLeasesPage() {
                       <p className="ls-summary-card__value">
                         {selectedLease.end_date ? formatDate(selectedLease.end_date) : "Open-ended"}
                       </p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="ls-summary-card" aria-label="Tenant details">
+                  <div className="ls-section-head">
+                    <div>
+                      <p className="ls-summary-card__label">Tenant details</p>
+                      <p className="ls-summary-card__hint">
+                        The tenant attached to this lease is the same tenant who signed or is reviewing this canonical agreement.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ls-form-grid">
+                    <div>
+                      <p className="ls-summary-card__label">Full name</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.name ?? "Unassigned"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Email</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.email ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Phone</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.phone ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">National ID</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.national_id ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Employer</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.employer_name ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Employer phone</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.employer_phone ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Next of kin</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.next_of_kin_name ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Next of kin phone</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.next_of_kin_phone ?? "—"}</p>
                     </div>
                   </div>
                 </section>
