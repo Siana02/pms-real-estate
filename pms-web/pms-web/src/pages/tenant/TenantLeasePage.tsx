@@ -205,14 +205,77 @@ interface Agreement {
 
 function asAgreement(payload: unknown): Agreement | null {
   if (!payload || typeof payload !== "object") return null;
+
   const record = payload as Record<string, unknown>;
-  const source =
+  const firstData =
     record.data && typeof record.data === "object"
       ? (record.data as Record<string, unknown>)
       : record;
+  const source =
+    firstData.data && typeof firstData.data === "object"
+      ? (firstData.data as Record<string, unknown>)
+      : firstData;
 
   if (!source || Object.keys(source).length === 0) return null;
-  return source as unknown as Agreement;
+
+  const objectOrNull = (value: unknown) =>
+    value && typeof value === "object" ? value as Record<string, unknown> : null;
+
+  const organization = objectOrNull(source.organization);
+  const property = objectOrNull(source.property);
+  const unit = objectOrNull(source.unit);
+  const tenant = objectOrNull(source.tenant);
+  const deposit = objectOrNull(source.deposit);
+
+  // Normalize the exact fields rendered by this page. Laravel numeric fields
+  // may arrive as strings, while some older API responses may omit a field.
+  // Keep nulls as null rather than turning missing values into misleading
+  // zeroes; the UI can then distinguish missing data from a real KSh 0 value.
+  return {
+    ...source,
+    organization: organization
+      ? { id: Number(organization.id), name: String(organization.name ?? "") }
+      : null,
+    property: property
+      ? {
+          id: Number(property.id),
+          name: String(property.name ?? ""),
+          address: property.address == null ? null : String(property.address),
+          city: property.city == null ? null : String(property.city),
+        }
+      : null,
+    unit: unit
+      ? {
+          id: Number(unit.id),
+          unit_number: String(unit.unit_number ?? ""),
+          unit_type: unit.unit_type == null ? null : String(unit.unit_type),
+          default_rent: unit.default_rent == null ? null : unit.default_rent as number | string,
+        }
+      : null,
+    monthly_rent: source.monthly_rent == null ? null : source.monthly_rent as number | string,
+    deposit_amount: source.deposit_amount == null ? null : source.deposit_amount as number | string,
+    deposit: deposit
+      ? {
+          amount_required: deposit.amount_required == null ? null : deposit.amount_required as number | string,
+          amount_paid: deposit.amount_paid == null ? null : deposit.amount_paid as number | string,
+          status: deposit.status == null ? null : String(deposit.status),
+          tenant_marked_paid_at: deposit.tenant_marked_paid_at == null ? null : String(deposit.tenant_marked_paid_at),
+        }
+      : null,
+    tenant: tenant
+      ? {
+          id: Number(tenant.id),
+          name: String(tenant.name ?? ""),
+          email: tenant.email == null ? null : String(tenant.email),
+          phone: tenant.phone == null ? null : String(tenant.phone),
+          national_id: tenant.national_id == null ? null : String(tenant.national_id),
+          employer_name: tenant.employer_name == null ? null : String(tenant.employer_name),
+          employer_phone: tenant.employer_phone == null ? null : String(tenant.employer_phone),
+          next_of_kin_name: tenant.next_of_kin_name == null ? null : String(tenant.next_of_kin_name),
+          next_of_kin_phone: tenant.next_of_kin_phone == null ? null : String(tenant.next_of_kin_phone),
+        }
+      : null,
+  } as Agreement;
 }
 
 function longDateTime(value: string | null): string {
