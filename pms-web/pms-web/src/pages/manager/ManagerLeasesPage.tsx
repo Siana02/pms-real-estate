@@ -351,7 +351,15 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
 }
 
 function parseLeases(payload: unknown): LeaseRecord[] {
-  return rows(payload).map(parseLeaseRecord);
+  const parsed = rows(payload);
+  if (parsed.length > 0) return parsed.map(parseLeaseRecord);
+
+  // Keep the register resilient if an API response is wrapped as
+  // { leases: [...] } by a proxy/versioned endpoint.
+  const wrapped = toRecord(payload).leases;
+  return Array.isArray(wrapped)
+    ? wrapped.map(toRecord).map(parseLeaseRecord)
+    : [];
 }
 
 function parseLeaseUpdate(payload: unknown): LeaseRecord | null {
@@ -543,8 +551,12 @@ function ManagerLeasesPage() {
 
       return [
         lease.tenant?.name ?? "",
+        lease.tenant?.email ?? "",
+        lease.tenant?.phone ?? "",
+        lease.tenant?.national_id ?? "",
         lease.property?.name ?? "",
         lease.unit?.unit_number ?? "",
+        lease.status ?? "",
       ]
         .join(" ")
         .toLowerCase()
