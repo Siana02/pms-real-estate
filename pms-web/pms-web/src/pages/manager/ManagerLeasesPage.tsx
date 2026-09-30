@@ -1030,9 +1030,11 @@ function ManagerLeasesPage() {
                             </span>
                           </td>
                           <td data-label="Term" className="mg-nowrap">
-                            {formatDate(lease.start_date)} → {formatDate(lease.end_date)}
+                            {lease.start_date ? formatDate(lease.start_date) : formatDate(lease.requested_move_in_date)}
+                            {" → "}
+                            {lease.end_date ? formatDate(lease.end_date) : formatDate(lease.requested_move_out_date)}
                             <span className="mg-sub">
-                              Ends {relativeDays(lease.end_date)}
+                              {lease.start_date ? ("Ends " + relativeDays(lease.end_date)) : "Tenant-requested dates · awaiting manager confirmation"}
                             </span>
                           </td>
                           <td data-label="Rent" className="mg-num">
