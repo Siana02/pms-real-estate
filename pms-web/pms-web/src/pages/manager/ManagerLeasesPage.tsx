@@ -91,6 +91,49 @@ const leaseStyles = `
   min-width: 0;
 }
 
+.ls-page-intro {
+  max-width: 48rem;
+}
+
+.ls-table-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ls-table-secondary {
+  color: var(--pms-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.ls-drawer-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pms-faint);
+}
+
+.ls-drawer-kicker svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.ls-section-head {
+  padding-bottom: 0.125rem;
+}
+
+@media (max-width: 719px) {
+  .ls-inline-actions {
+    justify-content: flex-start;
+  }
+}
+
 .ls-toolbar-field .mg-label {
   display: block;
   margin-bottom: 0.5rem;
@@ -543,8 +586,13 @@ function ManagerLeasesPage() {
 
       return [
         lease.tenant?.name ?? "",
+        lease.tenant?.email ?? "",
+        lease.tenant?.phone ?? "",
+        lease.tenant?.national_id ?? "",
         lease.property?.name ?? "",
         lease.unit?.unit_number ?? "",
+        lease.status ?? "",
+        lease.computed ?? "",
       ]
         .join(" ")
         .toLowerCase()
@@ -808,6 +856,11 @@ function ManagerLeasesPage() {
 
           <section className="mg-stats" aria-label="Lease summary">
             <article className="mg-stat">
+              <p className="mg-stat__label">Needs review</p>
+              <p className="mg-stat__value">{formatNumber(views.filter((lease) => lease.status === "pending").length)}</p>
+              <p className="mg-stat__hint mg-stat__hint--warn">Tenant reservations</p>
+            </article>
+            <article className="mg-stat">
               <p className="mg-stat__label">Active leases</p>
               <p className="mg-stat__value">{formatNumber(counts.active)}</p>
             </article>
@@ -853,7 +906,7 @@ function ManagerLeasesPage() {
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Type a tenant, property or unit number…"
+                  placeholder="Search tenant, phone, email, property or unit…"
                 />
               </div>
             </div>
@@ -940,8 +993,15 @@ function ManagerLeasesPage() {
                               </span>
                               <div>
                                 <span className="mg-strong">
-                                  {lease.tenant?.name ?? "Unassigned"}
+                                  {lease.tenant?.name ?? "⚠ Tenant not linked"}
                                 </span>
+                                {lease.tenant?.phone || lease.tenant?.email ? (
+                                  <span className="mg-sub">
+                                    {[lease.tenant.phone, lease.tenant.email].filter(Boolean).join(" · ")}
+                                  </span>
+                                ) : (
+                                  <span className="mg-sub">Contact details not provided</span>
+                                )}
                                 {lease.balance > 0 && (
                                   <span className="mg-sub">
                                     {formatMoney(lease.balance, currency)} outstanding
@@ -956,6 +1016,9 @@ function ManagerLeasesPage() {
                             </span>
                             <span className="mg-sub">
                               {lease.property?.name ?? "No property"}
+                            </span>
+                            <span className="mg-sub">
+                              {lease.unit ? "Unit assigned" : "Unit not linked"}
                             </span>
                           </td>
                           <td data-label="Term" className="mg-nowrap">
