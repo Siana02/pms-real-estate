@@ -256,6 +256,8 @@ function TenantLeasePage() {
 
   const [requestedStart, setRequestedStart] = useState("");
   const [requestedEnd, setRequestedEnd] = useState("");
+  const [lockedEndDate, setLockedEndDate] = useState("");
+  const [savingEndDate, setSavingEndDate] = useState(false);
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [employerName, setEmployerName] = useState("");
@@ -278,6 +280,7 @@ function TenantLeasePage() {
       setAgreement(parsed);
       setRequestedStart(parsed?.requested_move_in_date ?? "");
       setRequestedEnd(parsed?.requested_move_out_date ?? "");
+      setLockedEndDate(parsed?.end_date ?? "");
       setPhone(parsed?.tenant?.phone ?? "");
       setNationalId(parsed?.tenant?.national_id ?? "");
       setEmployerName(parsed?.tenant?.employer_name ?? "");
@@ -437,6 +440,29 @@ function TenantLeasePage() {
     link.download = `lease-agreement-${agreement.lease_id}.doc`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleLockedEndDate(e: FormEvent) {
+    e.preventDefault();
+    if (!agreement || !leaseLocked) return;
+    setSavingEndDate(true);
+    setDetailsMessage("");
+    try {
+      const response = await apiRequest("/tenant/lease-agreement/end-date", {
+        method: "PATCH",
+        body: JSON.stringify({ end_date: lockedEndDate || null }),
+      });
+      const parsed = asAgreement(response);
+      if (parsed) {
+        setAgreement(parsed);
+        setLockedEndDate(parsed.end_date ?? "");
+      }
+      setDetailsMessage("Lease end date updated. The signed contract document remains unchanged.");
+    } catch (caught) {
+      setDetailsMessage(caught instanceof Error ? caught.message : "Couldn't update the lease end date.");
+    } finally {
+      setSavingEndDate(false);
+    }
   }
 
   const deposit = agreement?.deposit;
@@ -676,6 +702,23 @@ function TenantLeasePage() {
                 </form>
               )}
             </section>
+
+            {leaseLocked && (
+              <section className="tp-card">
+                <div className="tl-copy__head">
+                  <div>
+                    <h3 style={{margin:0}}>Lease end date</h3>
+                    <p className="tl-hint">This is the only lease field you can edit after final signing. The signed agreement document stays unchanged.</p>
+                  </div>
+                </div>
+                <form onSubmit={handleLockedEndDate} className="tl-sign-row" style={{marginTop:".85rem"}}>
+                  <input type="date" value={lockedEndDate} onChange={e=>setLockedEndDate(e.target.value)} />
+                  <button type="submit" className="tp-btn tp-btn--quiet" disabled={savingEndDate || lockedEndDate === (agreement.end_date ?? "")}>
+                    {savingEndDate ? <Loader2 className="tl-spin" /> : null} Save end date
+                  </button>
+                </form>
+              </section>
+            )}
 
             <div className="tl-grid">
               <article className="tp-card tl-copy">
