@@ -1233,6 +1233,7 @@ function ManagerLeasesPage() {
                         className="mg-textarea"
                         value={managerTermsDraft}
                         onChange={(event) => setManagerTermsDraft(event.target.value)}
+                        disabled={Boolean(selectedLease.manager_signed_at)}
                         placeholder="Agreement terms visible to the manager…"
                       />
                       <p className="ls-copy-card__hint">
@@ -1330,7 +1331,7 @@ function ManagerLeasesPage() {
                   type="button"
                   className="mg-btn mg-btn--primary"
                   onClick={() => void saveAgreementTerms()}
-                  disabled={savingTerms || (!managerTermsChanged && !tenantTermsChanged)}
+                  disabled={savingTerms || Boolean(selectedLease.manager_signed_at) || (!managerTermsChanged && managerStartDate === (selectedLease.start_date?.slice(0, 10) ?? "") && managerEndDate === (selectedLease.end_date?.slice(0, 10) ?? "") && Number(managerRentDraft) === selectedLease.monthly_rent && Number(managerDepositRequiredDraft) === depositRequired(selectedLease))}
                 >
                   {savingTerms ? "Saving…" : "Save agreement text"}
                 </button>
