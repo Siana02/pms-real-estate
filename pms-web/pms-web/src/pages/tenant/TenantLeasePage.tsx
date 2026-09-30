@@ -365,6 +365,7 @@ function TenantLeasePage() {
 
   const deposit = agreement?.deposit;
   const depositConfirmed = deposit?.status === "paid";
+  const depositRequired = Number(deposit?.amount_required ?? 0) > 0;
   const depositTenantMarked = Boolean(deposit?.tenant_marked_paid_at);
 
   return (
@@ -468,11 +469,13 @@ function TenantLeasePage() {
                     Security deposit
                   </p>
                   <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem" }}>
-                    {depositConfirmed
-                      ? "Confirmed as received by your property manager."
-                      : depositTenantMarked
-                        ? "You've marked this as paid — waiting for your manager to confirm."
-                        : "Not yet confirmed as paid."}
+                    {!depositRequired
+                      ? "No security deposit is required for this lease."
+                      : depositConfirmed
+                        ? "Confirmed as received by your property manager."
+                        : depositTenantMarked
+                          ? "You've marked this as paid — waiting for your manager to confirm."
+                          : "Not yet confirmed as paid."}
                   </p>
                   {depositMessage && (
                     <p className="tl-hint" role="status">
@@ -480,7 +483,7 @@ function TenantLeasePage() {
                     </p>
                   )}
                 </div>
-                {!depositConfirmed && !depositTenantMarked && (
+                {depositRequired && !depositConfirmed && !depositTenantMarked && (
                   <button
                     type="button"
                     className="tp-btn tp-btn--primary"
