@@ -211,14 +211,94 @@ interface Agreement {
 
 function asAgreement(payload: unknown): Agreement | null {
   if (!payload || typeof payload !== "object") return null;
+
   const record = payload as Record<string, unknown>;
-  const source =
+  const data =
     record.data && typeof record.data === "object"
       ? (record.data as Record<string, unknown>)
       : record;
 
+  // Laravel endpoints return the lease inside { data: ... }. Normalize the
+  // response here instead of relying on a TypeScript cast, so the page always
+  // reads the actual API fields even if a response wrapper/version changes.
+  const source =
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : data;
+
   if (!source || Object.keys(source).length === 0) return null;
-  return source as unknown as Agreement;
+
+  const organization =
+    source.organization && typeof source.organization === "object"
+      ? source.organization as Record<string, unknown>
+      : null;
+  const property =
+    source.property && typeof source.property === "object"
+      ? source.property as Record<string, unknown>
+      : null;
+  const unit =
+    source.unit && typeof source.unit === "object"
+      ? source.unit as Record<string, unknown>
+      : null;
+  const tenant =
+    source.tenant && typeof source.tenant === "object"
+      ? source.tenant as Record<string, unknown>
+      : null;
+  const deposit =
+    source.deposit && typeof source.deposit === "object"
+      ? source.deposit as Record<string, unknown>
+      : null;
+
+  return {
+    ...source,
+    organization: organization
+      ? { id: Number(organization.id), name: String(organization.name ?? "") }
+      : null,
+    property: property
+      ? {
+          id: Number(property.id),
+          name: String(property.name ?? ""),
+          address: property.address == null ? null : String(property.address),
+          city: property.city == null ? null : String(property.city),
+        }
+      : null,
+    unit: unit
+      ? {
+          id: Number(unit.id),
+          unit_number: String(unit.unit_number ?? ""),
+          unit_type: unit.unit_type == null ? null : String(unit.unit_type),
+          default_rent: unit.default_rent == null ? null : unit.default_rent as number | string,
+        }
+      : null,
+    monthly_rent: source.monthly_rent == null ? null : source.monthly_rent as number | string,
+    deposit_amount: source.deposit_amount == null ? null : source.deposit_amount as number | string,
+    deposit: deposit
+      ? {
+          amount_required: deposit.amount_required == null ? null : deposit.amount_required as number | string,
+          amount_paid: deposit.amount_paid == null ? null : deposit.amount_paid as number | string,
+          status: deposit.status == null ? null : String(deposit.status),
+          tenant_marked_paid_at: deposit.tenant_marked_paid_at == null
+            ? null
+            : String(deposit.tenant_marked_paid_at),
+        }
+      : null,
+    tenant: tenant
+      ? {
+          id: Number(tenant.id),
+          name: String(tenant.name ?? ""),
+          email: tenant.email == null ? null : String(tenant.email),
+          phone: tenant.phone == null ? null : String(tenant.phone),
+          national_id: tenant.national_id == null ? null : String(tenant.national_id),
+          employer_name: tenant.employer_name == null ? null : String(tenant.employer_name),
+          employer_phone: tenant.employer_phone == null ? null : String(tenant.employer_phone),
+          next_of_kin_name: tenant.next_of_kin_name == null ? null : String(tenant.next_of_kin_name),
+          next_of_kin_phone: tenant.next_of_kin_phone == null ? null : String(tenant.next_of_kin_phone),
+        }
+      : null,
+    contract_text: source.contract_text == null ? null : String(source.contract_text),
+    manager_terms: source.manager_terms == null ? null : String(source.manager_terms),
+    tenant_terms: source.tenant_terms == null ? null : String(source.tenant_terms),
+  } as Agreement;
 }
 
 function longDateTime(value: string | null): string {
