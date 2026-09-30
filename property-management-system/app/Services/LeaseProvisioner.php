@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Deposit;
 use App\Models\Leases;
+use App\Models\Organization;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -56,6 +57,17 @@ class LeaseProvisioner
                 $data['status'] ?? null
             );
 
+            $agreement = $this->buildAgreementTemplate(
+                $organizationId,
+                $property,
+                $unit,
+                $tenant,
+                $data['monthly_rent'],
+                $startDate,
+                $endDate,
+                $data['deposit_amount'] ?? 0
+            );
+
             $lease = Leases::create([
                 'organization_id' => $organizationId,
                 'property_id' => $property->id,
@@ -67,6 +79,8 @@ class LeaseProvisioner
                 'deposit_amount' => $data['deposit_amount'] ?? 0,
                 'status' => $status,
                 'notes' => $data['notes'] ?? null,
+                'manager_terms' => $agreement,
+                'tenant_terms' => $agreement,
             ]);
 
             $amountRequired = (float) ($data['deposit_amount'] ?? 0);
@@ -172,5 +186,51 @@ class LeaseProvisioner
         $unit->update([
             'status' => $occupied ? 'occupied' : ($reserved ? 'reserved' : 'vacant'),
         ]);
+    }
+
+    /**
+     * Auto-populated lease agreement text, generated once when a lease is
+     * provisioned (manager onboarding or a manager confirming a
+     * self-registration). Both the manager's and the tenant's copies start
+     * identical; each side edits their own copy from there and signs with
+     * their initials.
+     */
+    public function buildAgreementTemplate(
+        int $organizationId,
+        Property $property,
+        Unit $unit,
+        Tenant $tenant,
+        float|string $monthlyRent,
+        string $startDate,
+        ?string $endDate,
+        float|string $depositAmount = 0
+    ): string {
+        $organization = Organization::find($organizationId);
+        $tenantName = trim("{$tenant->first_name} {$tenant->last_name}");
+
+        $lines = [
+            'RESIDENTIAL LEASE AGREEMENT',
+            '',
+            "Landlord/Organization: {$organization?->name}",
+            "Property: {$property->name}",
+            "Unit: {$unit->unit_number}" . ($unit->unit_type ? " ({$unit->unit_type})" : ''),
+            "Tenant: {$tenantName}",
+            'Monthly rent: ' . number_format((float) $monthlyRent, 2),
+            'Security deposit: ' . number_format((float) $depositAmount, 2),
+            "Lease start date: {$startDate}",
+            'Lease end date: ' . ($endDate ?: 'Open-ended (not yet known)'),
+            '',
+            'Terms:',
+            '1. Rent is due on the 1st of each calendar month.',
+            '2. The security deposit is refundable, subject to the condition of the unit at move-out.',
+            '3. Either party must give written notice before ending this tenancy, per the notice period agreed with the manager.',
+            '4. The tenant is responsible for reporting maintenance issues promptly through the tenant portal.',
+            '',
+            'This agreement is provisionally generated from the details above. Either party may propose edits to their '
+                . 'own copy below; it is only officially binding once both the manager and the tenant have signed with '
+                . 'their initials.',
+        ];
+
+        return implode("\n", $lines);
     }
 }

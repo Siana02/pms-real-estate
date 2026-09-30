@@ -21,6 +21,12 @@ class Leases extends Model
         'deposit_amount',
         'status',
         'notes',
+        'manager_terms',
+        'tenant_terms',
+        'manager_signature',
+        'manager_signed_at',
+        'tenant_signature',
+        'tenant_signed_at',
         'notice_date',
         'intended_move_out_date',
         'notice_period_months',
@@ -35,6 +41,8 @@ class Leases extends Model
         'end_date' => 'date',
         'monthly_rent' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
+        'manager_signed_at' => 'datetime',
+        'tenant_signed_at' => 'datetime',
         'notice_date' => 'date',
         'intended_move_out_date' => 'date',
         'notice_period_months' => 'integer',
@@ -92,5 +100,12 @@ class Leases extends Model
         }
 
         return $startDate > $today ? 'upcoming' : 'active';
+    }
+
+    protected $appends = ['agreement_finalized'];
+
+    public function getAgreementFinalizedAttribute(): bool
+    {
+        return $this->manager_signed_at !== null && $this->tenant_signed_at !== null;
     }
 }

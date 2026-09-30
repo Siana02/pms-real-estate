@@ -401,10 +401,10 @@ const styles = `
   gap: 0.625rem;
   margin-top: 1rem;
 }
-
+ 
 .ap-type {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.625rem;
   padding: 0.875rem;
   border-radius: var(--ap-radius-sm);
@@ -414,21 +414,43 @@ const styles = `
   font-weight: 500;
   color: #cbd5e1;
   text-align: left;
+  min-height: 4.25rem;
   transition: border-color 0.2s ease, background-color 0.2s ease,
     color 0.2s ease, transform 0.2s ease;
 }
-
+ 
 .ap-type:hover {
   border-color: rgba(255, 255, 255, 0.2);
   background: var(--ap-glass-strong);
   transform: translateY(-1px);
 }
-
+ 
 .ap-type svg {
   width: 1.0625rem;
   height: 1.0625rem;
   flex: none;
+  margin-top: 0.125rem;
   color: var(--ap-muted);
+}
+ 
+.ap-type__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+  min-width: 0;
+}
+ 
+.ap-type__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: inherit;
+}
+ 
+.ap-type__hint {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--ap-faint);
+  overflow-wrap: anywhere;
 }
 
 .ap-type--active {
@@ -486,6 +508,28 @@ const styles = `
 .ap-step-btn[disabled] {
   cursor: not-allowed;
   opacity: 0.45;
+}
+ 
+.ap-step-btn--wide {
+  width: auto;
+  height: auto;
+  min-height: 2.75rem;
+  padding: 0.625rem 1rem;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+ 
+.ap-step-btn--wide svg {
+  width: 1rem;
+  height: 1rem;
+}
+ 
+.ap-step-btn--primary {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(90deg, var(--ap-blue) 0%, var(--ap-indigo) 100%);
 }
 
 /* ---------- alerts ---------- */
@@ -679,6 +723,14 @@ const styles = `
   justify-content: space-between;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+ 
+.ap-units-bar--actions {
+  justify-content: flex-start;
+}
+ 
+.ap-units-bar__hint--generate {
+  margin-top: 0.5rem;
 }
 
 .ap-units-bar__hint {
@@ -890,10 +942,14 @@ const styles = `
   .ap-unit__head {
     flex-wrap: wrap;
   }
-
+ 
   .ap-unit__grow {
     order: 3;
     flex: 1 0 100%;
+  }
+ 
+  .ap-types {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1008,10 +1064,30 @@ const initialForm: PropertyForm = {
 };
 
 const PROPERTY_TYPES = [
-  { value: "residential", label: "Residential", icon: Home },
-  { value: "commercial", label: "Commercial", icon: Briefcase },
-  { value: "industrial", label: "Industrial", icon: Factory },
-  { value: "mixed-use", label: "Mixed use", icon: Landmark },
+  {
+    value: "residential",
+    label: "Residential",
+    hint: "Apartments, houses, flats",
+    icon: Home,
+  },
+  {
+    value: "commercial",
+    label: "Commercial",
+    hint: "Offices, retail, shops",
+    icon: Briefcase,
+  },
+  {
+    value: "industrial",
+    label: "Industrial",
+    hint: "Warehouses, factories",
+    icon: Factory,
+  },
+  {
+    value: "mixed-use",
+    label: "Mixed use",
+    hint: "Residential + commercial",
+    icon: Landmark,
+  },
 ];
 
 const DESCRIPTION_MAX = 500;
@@ -1522,10 +1598,14 @@ function AddProperties() {
                   <DoorOpen />
                   Property type
                 </h2>
-
+                <p className="ap-units-bar__hint">
+                  Pick the closest match — it drives how this property is
+                  grouped and filtered across the portal.
+                </p>
+ 
                 <fieldset className="ap-fieldset" aria-label="Property type">
                   <div className="ap-types">
-                    {PROPERTY_TYPES.map(({ value, label, icon: Icon }) => (
+                    {PROPERTY_TYPES.map(({ value, label, hint, icon: Icon }) => (
                       <button
                         key={value}
                         type="button"
@@ -1538,7 +1618,10 @@ function AddProperties() {
                         aria-pressed={form.property_type === value}
                       >
                         <Icon />
-                        {label}
+                        <span className="ap-type__text">
+                          <span className="ap-type__label">{label}</span>
+                          <span className="ap-type__hint">{hint}</span>
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1614,18 +1697,27 @@ function AddProperties() {
                 </div>
 
                 {inventoryError && <p className="ap-error" role="alert"><AlertCircle />{inventoryError}</p>}
-                <div className="ap-units-bar">
+                <div className="ap-units-bar ap-units-bar--actions">
                   <button
                     type="button"
-                    className="ap-step-btn"
+                    className="ap-step-btn ap-step-btn--wide"
                     onClick={() => setInventory((current) => [...current, { unit_type: "", quantity: 1, monthly_rent: 0 }])}
                   >
                     <Plus /> Add unit type
                   </button>
-                  <button type="button" className="ap-step-btn" onClick={applyInventory}>
-                    Generate units
+                  <button
+                    type="button"
+                    className="ap-step-btn ap-step-btn--wide ap-step-btn--primary"
+                    onClick={applyInventory}
+                  >
+                    <DoorOpen /> Generate units
                   </button>
                 </div>
+                <p className="ap-units-bar__hint ap-units-bar__hint--generate">
+                  Generating replaces the individual unit list below with
+                  freshly numbered units for each type above — edit the
+                  results afterwards as needed.
+                </p>
 
                 <h3 className="ap-section__title">Individual units, tenants &amp; leases</h3>
 

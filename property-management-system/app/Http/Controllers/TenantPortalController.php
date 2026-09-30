@@ -299,6 +299,87 @@ class TenantPortalController extends Controller
         ]);
     }
 
+    /**
+     * Fetch the tenant's own copy of the digitally generated lease
+     * agreement, including whichever signatures/terms exist so far.
+     */
+    public function leaseAgreement(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->latestLease($tenant);
+
+        return response()->json([
+            'data' => $this->agreementPayload($lease),
+        ]);
+    }
+
+    /**
+     * Let the tenant edit their own side of the agreement text and/or sign
+     * it with their initials. Tenants who were onboarded by a manager and
+     * tenants who self-registered both use this same endpoint — only the
+     * `tenant_terms` copy is ever writable here, never `manager_terms`.
+     */
+    public function updateLeaseAgreement(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->latestLease($tenant);
+
+        abort_if($lease === null, 404, 'No lease agreement is available yet.');
+
+        $validated = $request->validate([
+            'tenant_terms' => 'nullable|string',
+            'tenant_signature' => 'nullable|string|max:20',
+        ]);
+
+        $updates = [];
+        if (array_key_exists('tenant_terms', $validated)
+            && $validated['tenant_terms'] !== $lease->tenant_terms) {
+            $updates['tenant_terms'] = $validated['tenant_terms'];
+            // Editing the wording after signing invalidates the signature.
+            $updates['tenant_signature'] = null;
+            $updates['tenant_signed_at'] = null;
+        }
+
+        if (! empty($validated['tenant_signature'])) {
+            $updates['tenant_signature'] = trim($validated['tenant_signature']);
+            $updates['tenant_signed_at'] = CarbonImmutable::now();
+        }
+
+        if ($updates !== []) {
+            $lease->update($updates);
+            $lease->refresh();
+        }
+
+        return response()->json([
+            'message' => 'Lease agreement updated.',
+            'data' => $this->agreementPayload($lease),
+        ]);
+    }
+
+    /**
+     * The tenant's own "I paid the deposit" tick. This is intentionally
+     * separate from the manager's authoritative `deposits.status`/
+     * `amount_paid` fields — it only records the tenant's claim so the
+     * manager can see and confirm it, it never marks the deposit as
+     * officially received on its own.
+     */
+    public function markDepositPaid(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->latestLease($tenant);
+
+        abort_if($lease === null || $lease->deposit === null, 404, 'No deposit record is available yet.');
+
+        $lease->deposit->update([
+            'tenant_marked_paid_at' => CarbonImmutable::now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Thanks — your manager has been notified to confirm receipt of your deposit.',
+            'data' => $this->agreementPayload($lease->fresh()),
+        ]);
+    }
+
     /* ----------------------------------------------------------------- */
     /*  helpers                                                           */
     /* ----------------------------------------------------------------- */
@@ -342,6 +423,53 @@ class TenantPortalController extends Controller
                 ->orWhereDate('end_date', '>=', $today))
             ->orderByDesc('start_date')
             ->first();
+    }
+
+    /**
+     * The tenant's most recent non-terminated lease, regardless of whether
+     * its start date has arrived yet. Used for the lease agreement and
+     * deposit endpoints, since a tenant should be able to review and sign
+     * their agreement before move-in day.
+     */
+    private function latestLease(Tenant $tenant): ?Lease
+    {
+        return Lease::where('tenant_id', $tenant->id)
+            ->whereNotIn('status', ['ended', 'terminated'])
+            ->with('deposit')
+            ->orderByDesc('start_date')
+            ->first();
+    }
+
+    /** @return array<string, mixed>|null */
+    private function agreementPayload(?Lease $lease): ?array
+    {
+        if ($lease === null) {
+            return null;
+        }
+
+        $deposit = $lease->deposit;
+
+        return [
+            'lease_id' => $lease->id,
+            'status' => $lease->status,
+            'start_date' => (string) $lease->start_date,
+            'end_date' => $lease->end_date ? (string) $lease->end_date : null,
+            'monthly_rent' => $lease->monthly_rent,
+            'deposit_amount' => $lease->deposit_amount,
+            'manager_terms' => $lease->manager_terms,
+            'tenant_terms' => $lease->tenant_terms,
+            'manager_signature' => $lease->manager_signature,
+            'manager_signed_at' => $lease->manager_signed_at?->toDateTimeString(),
+            'tenant_signature' => $lease->tenant_signature,
+            'tenant_signed_at' => $lease->tenant_signed_at?->toDateTimeString(),
+            'agreement_finalized' => $lease->manager_signed_at !== null && $lease->tenant_signed_at !== null,
+            'deposit' => $deposit ? [
+                'amount_required' => $deposit->amount_required,
+                'amount_paid' => $deposit->amount_paid,
+                'status' => $deposit->status,
+                'tenant_marked_paid_at' => $deposit->tenant_marked_paid_at?->toDateTimeString(),
+            ] : null,
+        ];
     }
 
     /** @return Collection<int, Payment> */

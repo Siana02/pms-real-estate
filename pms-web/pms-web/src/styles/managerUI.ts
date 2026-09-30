@@ -272,6 +272,8 @@ border-color: transparent;
  
 .mg-hint { margin: 0; font-size: 0.75rem; color: var(--pms-faint); }
  
+.mg-optional { font-weight: 400; color: var(--pms-faint); text-transform: none; letter-spacing: normal; }
+ 
 .mg-grid2 { display: grid; grid-template-columns: 1fr; gap: 0.875rem; }
  
 .mg-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
@@ -318,6 +320,13 @@ border-color: transparent;
   gap: 0.75rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--pms-border-soft);
+}
+ 
+.mg-panel__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
  
 .mg-panel__title {

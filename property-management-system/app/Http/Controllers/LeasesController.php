@@ -79,9 +79,20 @@ class LeasesController extends Controller
             'termination_reason' => 'nullable|string|max:255',
             'actual_move_out_date' => 'nullable|date',
             'notes' => 'nullable|string',
+            'manager_terms' => 'nullable|string',
+            'tenant_terms' => 'nullable|string',
+            'manager_signature' => 'nullable|string|max:20',
         ]);
 
-        $lease = DB::transaction(function () use ($validated, $lease, $provisioner) {
+        $signingAsManager = array_key_exists('manager_signature', $validated)
+            && trim((string) $validated['manager_signature']) !== '';
+
+        $lease = DB::transaction(function () use (
+            $validated,
+            $lease,
+            $provisioner,
+            $signingAsManager
+        ) {
             $unit = Unit::whereKey($lease->unit_id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -114,6 +125,28 @@ class LeasesController extends Controller
             $noticeMonths = $validated['notice_period_months']
                 ?? $lease->notice_period_months;
 
+            // Editing the agreement text after it was signed invalidates
+            // the existing signature(s) — the signed party needs to
+            // re-review and re-sign the updated wording.
+            $managerTermsChanged = array_key_exists('manager_terms', $validated)
+                && $validated['manager_terms'] !== $lease->manager_terms;
+            $tenantTermsChanged = array_key_exists('tenant_terms', $validated)
+                && $validated['tenant_terms'] !== $lease->tenant_terms;
+
+            $signatureUpdates = [];
+            if ($managerTermsChanged) {
+                $signatureUpdates['manager_signature'] = null;
+                $signatureUpdates['manager_signed_at'] = null;
+            }
+            if ($tenantTermsChanged) {
+                $signatureUpdates['tenant_signature'] = null;
+                $signatureUpdates['tenant_signed_at'] = null;
+            }
+            if ($signingAsManager) {
+                $signatureUpdates['manager_signature'] = trim($validated['manager_signature']);
+                $signatureUpdates['manager_signed_at'] = CarbonImmutable::now();
+            }
+
             $lease->update([
                 ...$validated,
                 'start_date' => $startDate,
@@ -125,6 +158,7 @@ class LeasesController extends Controller
                         ->addMonthsNoOverflow($noticeMonths)
                         ->toDateString() <= $intendedMoveOutDate
                     : null,
+                ...$signatureUpdates,
             ]);
 
             $deposit = $lease->deposit;

@@ -20,6 +20,7 @@ import TenantDashboardPage from "./pages/tenant/TenantDashboardPage";
 import MyHomePage from "./pages/tenant/MyHomePage";
 import TenantPaymentsPage from "./pages/tenant/TenantPaymentsPage";
 import TenantMaintenancePage from "./pages/tenant/TenantMaintenancePage";
+import TenantLeasePage from "./pages/tenant/TenantLeasePage";
 import { applyTheme, readThemeId } from "./styles/themes";
 
 type Portal = "manager" | "tenant";
@@ -244,6 +245,14 @@ function App() {
           element={
             <RequirePortal portal="tenant">
               <TenantMaintenancePage />
+            </RequirePortal>
+          }
+        />
+        <Route
+          path="/tenant/lease"
+          element={
+            <RequirePortal portal="tenant">
+              <TenantLeasePage />
             </RequirePortal>
           }
         />

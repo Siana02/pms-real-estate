@@ -27,6 +27,12 @@ export function asBoolean(value: unknown): boolean {
 }
  
 export function rows(payload: unknown): Json[] {
+  // Some endpoints wrap collections in `{ data: [...] }`, others (property,
+  // unit, lease, payment, expense, maintenance indexes) return a bare JSON
+  // array. Support both shapes so the manager portal always renders what
+  // the backend actually sends.
+  if (Array.isArray(payload)) return payload.map(toRecord);
+
   const data = toRecord(payload).data;
   return Array.isArray(data) ? data.map(toRecord) : [];
 }
