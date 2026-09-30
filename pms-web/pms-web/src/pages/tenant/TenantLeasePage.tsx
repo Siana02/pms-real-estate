@@ -471,12 +471,17 @@ function TenantLeasePage() {
                   <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem" }}>
                     {!depositRequired
                       ? "No security deposit is required for this lease."
-                      : depositConfirmed
+                      : `Required: KSh ${Number(deposit?.amount_required ?? agreement.deposit_amount ?? 0).toLocaleString()} · Received: KSh ${Number(deposit?.amount_paid ?? 0).toLocaleString()}`}
+                  </p>
+                  {depositRequired && (
+                    <p className="tl-hint">
+                      {depositConfirmed
                         ? "Confirmed as received by your property manager."
                         : depositTenantMarked
                           ? "You've marked this as paid — waiting for your manager to confirm."
                           : "Not yet confirmed as paid."}
-                  </p>
+                    </p>
+                  )}
                   {depositMessage && (
                     <p className="tl-hint" role="status">
                       {depositMessage}
