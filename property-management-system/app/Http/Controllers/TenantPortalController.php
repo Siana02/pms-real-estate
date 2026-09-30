@@ -564,6 +564,7 @@ class TenantPortalController extends Controller
             'lease_id' => $lease->id,
             'status' => $lease->status,
             'agreement_status' => $status,
+            'contract_text' => filled($lease->manager_terms) ? $lease->manager_terms : $lease->tenant_terms,
             'start_date' => $lease->start_date?->toDateString(),
             'end_date' => $lease->end_date?->toDateString(),
             'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
