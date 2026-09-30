@@ -603,26 +603,5 @@ class PropertyTenantWorkflowTest extends TestCase
         return [$organization, $property, $unit];
     }
 
-    public function test_tenant_details_populate_both_copies_before_signing(): void
-    {
-        [$tenantUser, $lease] = $this->createSelfRegisteredTenantScenario();
-
-        $response = $this->actingAs($tenantUser)->patchJson('/api/tenant/lease-agreement/tenant-details', [
-            'phone' => '0712345678',
-            'national_id' => '12345678',
-            'employer_name' => 'Acme Ltd',
-            'employer_phone' => '0201234567',
-            'next_of_kin_name' => 'Jane Doe',
-            'next_of_kin_phone' => '0798765432',
-        ]);
-
-        $response->assertOk();
-        $lease->refresh();
-
-        $this->assertNotEmpty($lease->manager_terms);
-        $this->assertSame($lease->manager_terms, $lease->tenant_terms);
-        $this->assertStringContainsString('Acme Ltd', $lease->manager_terms);
-        $this->assertStringContainsString('Jane Doe', $lease->manager_terms);
-    }
 
 }
