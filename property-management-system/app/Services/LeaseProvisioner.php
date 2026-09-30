@@ -240,7 +240,7 @@ class LeaseProvisioner
             $this->assertNoOverlap($unit, $startDate, $endDate, $lease->id);
 
             $monthlyRent = $data['monthly_rent'] ?? $unit->monthly_rent;
-            $depositAmount = $data['deposit_amount'] ?? 0;
+            $depositAmount = $data['deposit_amount'] ?? $unit->monthly_rent;
             $agreement = $this->buildAgreementTemplate(
                 $organizationId,
                 $property,
@@ -392,7 +392,7 @@ class LeaseProvisioner
         $today = CarbonImmutable::today()->toDateString();
         $leases = $unit->leases()
             ->whereNotIn('status', ['ended', 'terminated'])
-            ->get(['start_date', 'end_date']);
+            ->get(['start_date', 'end_date', 'status']);
 
         $occupied = $leases->contains(fn (Leases $lease) =>
             $lease->start_date !== null &&
@@ -435,6 +435,13 @@ class LeaseProvisioner
             "Property: {$property->name}",
             "Unit: {$unit->unit_number}" . ($unit->unit_type ? " ({$unit->unit_type})" : ''),
             "Tenant: {$tenantName}",
+            "Tenant email: {$tenant->email}",
+            "Tenant phone: {$tenant->phone}",
+            "National ID: {$tenant->national_id}",
+            "Employer: " . ($tenant->employer_name ?: 'Not provided'),
+            "Employer phone: " . ($tenant->employer_phone ?: 'Not provided'),
+            "Next of kin: " . ($tenant->next_of_kin_name ?: 'Not provided'),
+            "Next of kin phone: " . ($tenant->next_of_kin_phone ?: 'Not provided'),
             'Monthly rent (unit default): ' . number_format((float) $monthlyRent, 2),
             'Security deposit: To be confirmed by the property manager',
             "Requested lease start: {$requestedStart}",
@@ -471,6 +478,13 @@ class LeaseProvisioner
             "Property: {$property->name}",
             "Unit: {$unit->unit_number}" . ($unit->unit_type ? " ({$unit->unit_type})" : ''),
             "Tenant: {$tenantName}",
+            "Tenant email: {$tenant->email}",
+            "Tenant phone: {$tenant->phone}",
+            "National ID: {$tenant->national_id}",
+            "Employer: " . ($tenant->employer_name ?: 'Not provided'),
+            "Employer phone: " . ($tenant->employer_phone ?: 'Not provided'),
+            "Next of kin: " . ($tenant->next_of_kin_name ?: 'Not provided'),
+            "Next of kin phone: " . ($tenant->next_of_kin_phone ?: 'Not provided'),
             'Monthly rent: ' . number_format((float) $monthlyRent, 2),
             'Security deposit: ' . number_format((float) $depositAmount, 2),
             "Lease start date: {$startDate}",
