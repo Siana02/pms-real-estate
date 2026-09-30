@@ -52,6 +52,12 @@ const styles = `
 .tl-prefill { padding:1rem; border:1px solid #d8e5fb; border-radius:var(--tp-r-md); background:linear-gradient(180deg,#f8fbff,var(--tp-surface)); }
 .tl-prefill__title { margin:0; font-size:.95rem; font-weight:750; }
 .tl-prefill__text { margin:.3rem 0 .9rem; color:var(--tp-muted); font-size:.78rem; line-height:1.5; }
+.tl-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+.tl-field { display:flex; flex-direction:column; gap:.35rem; }
+.tl-field input { width:100%; box-sizing:border-box; border-radius:var(--tp-r-sm); border:1px solid var(--tp-line); padding:.65rem .7rem; font:inherit; color:var(--tp-ink); background:var(--tp-surface); }
+.tl-contract { white-space:pre-wrap; min-height:18rem; padding:1rem; border:1px solid var(--tp-line); border-radius:var(--tp-r-md); background:var(--tp-surface-sunken); color:var(--tp-ink); font-size:.875rem; line-height:1.65; overflow:auto; }
+.tl-download-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; }
+@media (max-width:620px) { .tl-detail-grid,.tl-form-grid { grid-template-columns:1fr; } }
 @media (max-width:620px) { .tl-detail-grid { grid-template-columns:1fr; } }
 
 .tl-badge {
@@ -189,6 +195,7 @@ interface Agreement {
   deposit_amount: number | string | null;
   manager_terms: string | null;
   tenant_terms: string | null;
+  contract_text: string | null;
   manager_signature: string | null;
   manager_signed_at: string | null;
   tenant_signature: string | null;
@@ -247,11 +254,16 @@ function TenantLeasePage() {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [error, setError] = useState("");
 
-  const [tenantTerms, setTenantTerms] = useState("");
   const [requestedStart, setRequestedStart] = useState("");
   const [requestedEnd, setRequestedEnd] = useState("");
-  const [savingTerms, setSavingTerms] = useState(false);
-  const [termsMessage, setTermsMessage] = useState("");
+  const [phone, setPhone] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [employerName, setEmployerName] = useState("");
+  const [employerPhone, setEmployerPhone] = useState("");
+  const [nextOfKinName, setNextOfKinName] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsMessage, setDetailsMessage] = useState("");
 
   const [initials, setInitials] = useState("");
   const [signing, setSigning] = useState(false);
@@ -264,9 +276,14 @@ function TenantLeasePage() {
       const response = await apiRequest("/tenant/lease-agreement");
       const parsed = asAgreement(response);
       setAgreement(parsed);
-      setTenantTerms(parsed?.tenant_terms ?? "");
       setRequestedStart(parsed?.requested_move_in_date ?? "");
       setRequestedEnd(parsed?.requested_move_out_date ?? "");
+      setPhone(parsed?.tenant?.phone ?? "");
+      setNationalId(parsed?.tenant?.national_id ?? "");
+      setEmployerName(parsed?.tenant?.employer_name ?? "");
+      setEmployerPhone(parsed?.tenant?.employer_phone ?? "");
+      setNextOfKinName(parsed?.tenant?.next_of_kin_name ?? "");
+      setNextOfKinPhone(parsed?.tenant?.next_of_kin_phone ?? "");
       setError("");
     } catch (caught) {
       setError(
@@ -288,42 +305,76 @@ function TenantLeasePage() {
   const leaseLocked = managerSigned;
   const awaitingManager = Boolean(agreement?.tenant_signed_at && !managerSigned);
 
-  const termsChanged = useMemo(
-    () =>
-      (agreement?.tenant_terms ?? "") !== tenantTerms ||
-      (agreement?.requested_move_in_date ?? "") !== requestedStart ||
-      (agreement?.requested_move_out_date ?? "") !== requestedEnd,
-    [agreement?.tenant_terms, agreement?.requested_move_in_date, agreement?.requested_move_out_date, tenantTerms, requestedStart, requestedEnd]
-  );
+  const detailsChanged = useMemo(() => {
+    const tenant = agreement?.tenant;
+    return phone !== (tenant?.phone ?? "") ||
+      nationalId !== (tenant?.national_id ?? "") ||
+      employerName !== (tenant?.employer_name ?? "") ||
+      employerPhone !== (tenant?.employer_phone ?? "") ||
+      nextOfKinName !== (tenant?.next_of_kin_name ?? "") ||
+      nextOfKinPhone !== (tenant?.next_of_kin_phone ?? "");
+  }, [agreement?.tenant, phone, nationalId, employerName, employerPhone, nextOfKinName, nextOfKinPhone]);
 
-  async function handleSaveTerms(e: FormEvent) {
+  const datesChanged =
+    (agreement?.requested_move_in_date ?? "") !== requestedStart ||
+    (agreement?.requested_move_out_date ?? "") !== requestedEnd;
+
+  async function handleSaveDetails(e: FormEvent) {
     e.preventDefault();
     if (!agreement) return;
-    setSavingTerms(true);
-    setTermsMessage("");
+    setSavingDetails(true);
+    setDetailsMessage("");
     try {
-      const response = await apiRequest("/tenant/lease-agreement", {
+      const response = await apiRequest("/tenant/lease-agreement/tenant-details", {
         method: "PATCH",
         body: JSON.stringify({
-        tenant_terms: tenantTerms,
-        requested_move_in_date: requestedStart || null,
-        requested_move_out_date: requestedEnd || null,
-      }),
+          phone,
+          national_id: nationalId,
+          employer_name: employerName,
+          employer_phone: employerPhone,
+          next_of_kin_name: nextOfKinName,
+          next_of_kin_phone: nextOfKinPhone,
+        }),
       });
       const parsed = asAgreement(response);
       if (parsed) {
         setAgreement(parsed);
-        setTenantTerms(parsed.tenant_terms ?? "");
+        setPhone(parsed.tenant?.phone ?? "");
+        setNationalId(parsed.tenant?.national_id ?? "");
+        setEmployerName(parsed.tenant?.employer_name ?? "");
+        setEmployerPhone(parsed.tenant?.employer_phone ?? "");
+        setNextOfKinName(parsed.tenant?.next_of_kin_name ?? "");
+        setNextOfKinPhone(parsed.tenant?.next_of_kin_phone ?? "");
+      }
+      setDetailsMessage("Your details were added to the contract.");
+    } catch (caught) {
+      setDetailsMessage(caught instanceof Error ? caught.message : "Couldn't save your details.");
+    } finally {
+      setSavingDetails(false);
+    }
+  }
+
+  async function handleSaveDates(e: FormEvent) {
+    e.preventDefault();
+    if (!agreement || leaseLocked || tenantSigned) return;
+    setDetailsMessage("");
+    try {
+      const response = await apiRequest("/tenant/lease-agreement", {
+        method: "PATCH",
+        body: JSON.stringify({
+          requested_move_in_date: requestedStart || null,
+          requested_move_out_date: requestedEnd || null,
+        }),
+      });
+      const parsed = asAgreement(response);
+      if (parsed) {
+        setAgreement(parsed);
         setRequestedStart(parsed.requested_move_in_date ?? "");
         setRequestedEnd(parsed.requested_move_out_date ?? "");
       }
-      setTermsMessage("Your copy has been saved.");
+      setDetailsMessage("Requested lease dates saved.");
     } catch (caught) {
-      setTermsMessage(
-        caught instanceof Error ? caught.message : "Couldn't save your changes."
-      );
-    } finally {
-      setSavingTerms(false);
+      setDetailsMessage(caught instanceof Error ? caught.message : "Couldn't save the requested dates.");
     }
   }
 
@@ -340,14 +391,13 @@ function TenantLeasePage() {
       const parsed = asAgreement(response);
       if (parsed) {
         setAgreement(parsed);
-        setTenantTerms(parsed.tenant_terms ?? "");
         setRequestedStart(parsed.requested_move_in_date ?? "");
         setRequestedEnd(parsed.requested_move_out_date ?? "");
       }
       setInitials("");
-      setTermsMessage("Signed — your copy of the agreement is now locked in.");
+      setDetailsMessage("Signed — your lease is now with the manager for final confirmation and signature.");
     } catch (caught) {
-      setTermsMessage(
+      setDetailsMessage(
         caught instanceof Error ? caught.message : "Couldn't record your signature."
       );
     } finally {
@@ -374,6 +424,19 @@ function TenantLeasePage() {
     } finally {
       setMarkingPaid(false);
     }
+  }
+
+  async function handleDownload() {
+    if (!agreement?.contract_text) return;
+    const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Lease Agreement</title><style>body{font-family:Arial,sans-serif;line-height:1.6;margin:48px;color:#222}h1{text-align:center;font-size:22px}pre{white-space:pre-wrap;font:14px Arial}</style></head><body><h1>RESIDENTIAL LEASE AGREEMENT</h1><pre>${esc(agreement.contract_text)}</pre></body></html>`;
+    const blob = new Blob([html], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `lease-agreement-${agreement.lease_id}.doc`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   const deposit = agreement?.deposit;
@@ -547,123 +610,82 @@ function TenantLeasePage() {
               </section>
             )}
 
-            <div className="tl-grid">
-              <article className="tp-card tl-copy">
-                <div className="tl-copy__head">
-                  <h3>Manager's copy</h3>
-                  <span
-                    className={`tl-badge ${
-                      managerSigned ? "tl-badge--done" : "tl-badge--pending"
-                    }`}
-                  >
-                    {managerSigned ? <CheckCircle2 /> : <Clock />}
-                    {managerSigned
-                      ? `Signed ${agreement.manager_signature} · ${longDateTime(
-                          agreement.manager_signed_at
-                        )}`
-                      : "Not yet signed"}
-                  </span>
+            <section className="tp-card tl-prefill">
+              <p className="tl-prefill__title">Complete your lease information</p>
+              <p className="tl-prefill__text">
+                Your organization, property, unit, monthly rent and security deposit are already populated from your registration and the unit record. Enter the tenant details we do not have yet.
+              </p>
+              <form onSubmit={handleSaveDetails}>
+                <div className="tl-form-grid">
+                  <label className="tl-field"><span className="tp-label">Phone number</span><input value={phone} onChange={e=>setPhone(e.target.value)} disabled={tenantSigned || leaseLocked} required /></label>
+                  <label className="tl-field"><span className="tp-label">National ID</span><input value={nationalId} onChange={e=>setNationalId(e.target.value)} disabled={tenantSigned || leaseLocked} required /></label>
+                  <label className="tl-field"><span className="tp-label">Employer</span><input value={employerName} onChange={e=>setEmployerName(e.target.value)} disabled={tenantSigned || leaseLocked} required /></label>
+                  <label className="tl-field"><span className="tp-label">Employer contact</span><input value={employerPhone} onChange={e=>setEmployerPhone(e.target.value)} disabled={tenantSigned || leaseLocked} required /></label>
+                  <label className="tl-field"><span className="tp-label">Next of kin</span><input value={nextOfKinName} onChange={e=>setNextOfKinName(e.target.value)} disabled={tenantSigned || leaseLocked} required /></label>
+                  <label className="tl-field"><span className="tp-label">Next of kin contact</span><input value={nextOfKinPhone} onChange={e=>setNextOfKinPhone(e.target.value)} disabled={tenantSigned || leaseLocked} required /></label>
                 </div>
-                <textarea
-                  value={agreement.manager_terms ?? ""}
-                  disabled
-                  readOnly
-                  aria-label="Manager's copy of the lease agreement (read-only)"
-                />
-                <p className="tl-hint">
-                  This is your property manager's copy — for reference only,
-                  you can't edit it here.
-                </p>
-              </article>
+                <div className="tl-sign-row" style={{marginTop:".85rem"}}>
+                  <button type="submit" className="tp-btn tp-btn--quiet" disabled={!detailsChanged || savingDetails || tenantSigned || leaseLocked}>{savingDetails ? <Loader2 className="tl-spin" /> : null} Save tenant details</button>
+                </div>
+              </form>
+              {detailsMessage && <p className="tl-hint" role="status">{detailsMessage}</p>}
+            </section>
 
-              <article className="tp-card tl-copy">
-                <form onSubmit={handleSaveTerms} className="tl-copy">
-                  <div className="tl-copy__head">
-                    <h3>Your copy</h3>
-                    <span
-                      className={`tl-badge ${
-                        tenantSigned ? "tl-badge--done" : "tl-badge--pending"
-                      }`}
-                    >
-                      {tenantSigned ? <CheckCircle2 /> : <Clock />}
-                      {tenantSigned
-                        ? `Signed ${agreement.tenant_signature} · ${longDateTime(
-                            agreement.tenant_signed_at
-                          )}`
-                        : "Not yet signed"}
-                    </span>
-                  </div>
-                  <div className="tl-sign-row">
-                    <label className="tp-label" htmlFor="requested-start">
-                      Requested lease start
-                    </label>
-                    <input
-                      id="requested-start"
-                      type="date"
-                      value={requestedStart}
-                      onChange={(e) => setRequestedStart(e.target.value)}
-                      disabled={tenantSigned || leaseLocked}
-                    />
-                    <label className="tp-label" htmlFor="requested-end">
-                      Requested lease end
-                    </label>
-                    <input
-                      id="requested-end"
-                      type="date"
-                      value={requestedEnd}
-                      onChange={(e) => setRequestedEnd(e.target.value)}
-                      disabled={tenantSigned || leaseLocked}
-                    />
-                  </div>
-                  <textarea
-                    value={tenantTerms}
-                    onChange={(e) => setTenantTerms(e.target.value)}
-                    disabled={tenantSigned || leaseLocked}
-                    aria-label="Your copy of the lease agreement"
-                  />
-                  <p className="tl-hint">
-                    {tenantSigned
-                      ? "You have signed this version. It is now with the manager for final review."
-                      : "Set your requested dates and review your side of the agreement before signing."}
-                  </p>
-                  <div className="tl-sign-row">
-                    <button
-                      type="submit"
-                      className="tp-btn tp-btn--quiet"
-                      disabled={savingTerms || !termsChanged || tenantSigned || leaseLocked}
-                    >
-                      {savingTerms ? <Loader2 className="tl-spin" /> : null}
-                      Save changes
-                    </button>
-                  </div>
-                </form>
+            <section className="tp-card">
+              <div className="tl-copy__head">
+                <div>
+                  <h3 style={{margin:0}}>Lease terms & conditions</h3>
+                  <p className="tl-hint">This is the main contract. It is generated from the organization, property, unit, rent, deposit and tenant information.</p>
+                </div>
+                {leaseLocked && <button type="button" className="tp-btn tp-btn--primary" onClick={handleDownload}><FileText /> Download signed agreement</button>}
+              </div>
+              <div className="tl-contract">{agreement.contract_text || agreement.manager_terms || agreement.tenant_terms || "Contract will appear here once the lease details are confirmed."}</div>
+            </section>
 
-                <form onSubmit={handleSign} className="tl-sign-row">
-                  <label htmlFor="tenant-initials" className="tp-label">
-                    Sign (initials)
-                  </label>
-                  <input
-                    id="tenant-initials"
-                    value={initials}
-                    onChange={(e) => setInitials(e.target.value)}
-                    maxLength={6}
-                    placeholder="e.g. JM"
-                  />
-                  <button
-                    type="submit"
-                    className="tp-btn tp-btn--primary"
-                    disabled={signing || !initials.trim() || tenantSigned || leaseLocked}
-                  >
-                    {signing ? <Loader2 className="tl-spin" /> : <FileSignature />}
-                    Sign
+            <section className="tp-card">
+              <form onSubmit={handleSaveDates}>
+                <div className="tl-copy__head">
+                  <div>
+                    <h3 style={{margin:0}}>Requested lease dates</h3>
+                    <p className="tl-hint">Before signing, you can provide the dates you are requesting. The manager confirms the official dates.</p>
+                  </div>
+                </div>
+                <div className="tl-form-grid" style={{marginTop:".85rem"}}>
+                  <label className="tl-field"><span className="tp-label">Requested start</span><input type="date" value={requestedStart} onChange={e=>setRequestedStart(e.target.value)} disabled={tenantSigned || leaseLocked} /></label>
+                  <label className="tl-field"><span className="tp-label">Requested end</span><input type="date" value={requestedEnd} onChange={e=>setRequestedEnd(e.target.value)} disabled={tenantSigned || leaseLocked} /></label>
+                </div>
+                {!tenantSigned && !leaseLocked && <button type="submit" className="tp-btn tp-btn--quiet" style={{marginTop:".85rem"}} disabled={!datesChanged}>Save requested dates</button>}
+              </form>
+            </section>
+
+            <section className="tp-card">
+              <div className="tl-copy__head">
+                <div>
+                  <h3 style={{margin:0}}>Signature</h3>
+                  <p className="tl-hint">{tenantSigned ? "Your signature has been recorded and the lease is awaiting the manager's final confirmation and signature." : "After you complete your details and review the contract, sign here to send it to the manager."}</p>
+                </div>
+                {tenantSigned && <span className="tl-badge tl-badge--done"><CheckCircle2 /> Signed {agreement.tenant_signature}</span>}
+              </div>
+              {!tenantSigned && !leaseLocked && (
+                <form onSubmit={handleSign} className="tl-sign-row" style={{marginTop:".85rem"}}>
+                  <label htmlFor="tenant-initials" className="tp-label">Sign with initials</label>
+                  <input id="tenant-initials" value={initials} onChange={e=>setInitials(e.target.value)} maxLength={6} placeholder="e.g. SO" />
+                  <button type="submit" className="tp-btn tp-btn--primary" disabled={signing || !initials.trim() || !detailsChanged && !agreement.tenant?.employer_name || !agreement.tenant?.employer_phone || !agreement.tenant?.next_of_kin_name || !agreement.tenant?.next_of_kin_phone || !agreement.tenant?.national_id || !agreement.tenant?.phone}>
+                    {signing ? <Loader2 className="tl-spin" /> : <FileSignature />} Sign & send to manager
                   </button>
                 </form>
+              )}
+            </section>
 
-                {termsMessage && (
-                  <p className="tl-hint" role="status">
-                    {termsMessage}
-                  </p>
-                )}
+            <div className="tl-grid">
+              <article className="tp-card tl-copy">
+                <div className="tl-copy__head"><h3>Manager's copy</h3><span className={`tl-badge ${managerSigned ? "tl-badge--done" : "tl-badge--pending"}`}>{managerSigned ? <CheckCircle2 /> : <Clock />}{managerSigned ? `Signed ${agreement.manager_signature} · ${longDateTime(agreement.manager_signed_at)}` : "Awaiting manager signature"}</span></div>
+                <div className="tl-contract">{agreement.contract_text || "Contract not yet generated."}</div>
+              </article>
+              <article className="tp-card tl-copy">
+                <div className="tl-copy__head"><h3>Your copy</h3><span className={`tl-badge ${tenantSigned ? "tl-badge--done" : "tl-badge--pending"}`}>{tenantSigned ? <CheckCircle2 /> : <Clock />}{tenantSigned ? `Signed ${agreement.tenant_signature} · ${longDateTime(agreement.tenant_signed_at)}` : "Awaiting your signature"}</span></div>
+                <div className="tl-contract">{agreement.contract_text || "Contract not yet generated."}</div>
+                <p className="tl-hint">Both copies contain the same canonical contract. They differ only by the signature status.</p>
               </article>
             </div>
           </>
