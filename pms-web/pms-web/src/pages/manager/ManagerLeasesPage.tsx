@@ -1092,6 +1092,37 @@ function ManagerLeasesPage() {
                 <section className="ls-summary-card">
                   <div className="ls-section-head">
                     <div>
+                      <p className="ls-summary-card__label">Official lease details</p>
+                      <p className="ls-summary-card__hint">
+                        These manager-controlled values become the official lease record.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ls-form-grid">
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-start-date">Official start date</label>
+                      <input id="manager-start-date" className="mg-input" type="date" value={managerStartDate} onChange={(e) => setManagerStartDate(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                      <p className="mg-hint">Tenant requested {formatDate(selectedLease.requested_move_in_date)}.</p>
+                    </div>
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-end-date">Official end date</label>
+                      <input id="manager-end-date" className="mg-input" type="date" value={managerEndDate} onChange={(e) => setManagerEndDate(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                      <p className="mg-hint">Tenant requested {formatDate(selectedLease.requested_move_out_date)}.</p>
+                    </div>
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-rent">Monthly rent</label>
+                      <input id="manager-rent" className="mg-input" type="number" min="0" step="0.01" value={managerRentDraft} onChange={(e) => setManagerRentDraft(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                    </div>
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-deposit-required">Security deposit required</label>
+                      <input id="manager-deposit-required" className="mg-input" type="number" min="0" step="0.01" value={managerDepositRequiredDraft} onChange={(e) => setManagerDepositRequiredDraft(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="ls-summary-card">
+                  <div className="ls-section-head">
+                    <div>
                       <p className="ls-summary-card__label">Deposit payments</p>
                       <p className="ls-summary-card__hint">
                         Record the total amount you have confirmed receiving so far.
