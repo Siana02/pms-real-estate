@@ -325,78 +325,36 @@ class TenantPortalController extends Controller
         $lease = $this->latestLease($tenant);
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
-        abort_if(
-            $lease->manager_signed_at !== null,
-            422,
-            'This lease is locked because the manager has signed the final version.'
-        );
+        abort_if($lease->manager_signed_at !== null, 422, 'This lease is locked. Only the lease end date can be changed after final signing.');
 
         $validated = $request->validate([
             'requested_move_in_date' => ['nullable', 'date'],
             'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
-            'tenant_terms' => 'nullable|string',
             'tenant_signature' => 'nullable|string|max:20',
         ]);
-
-        $hasContentChange =
-            (array_key_exists('requested_move_in_date', $validated)
-                && ($validated['requested_move_in_date']
-                    ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString()
-                    : null) !== $lease->requested_move_in_date?->toDateString()) ||
-            (array_key_exists('requested_move_out_date', $validated)
-                && ($validated['requested_move_out_date']
-                    ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
-                    : null) !== $lease->requested_move_out_date?->toDateString()) ||
-            (array_key_exists('tenant_terms', $validated)
-                && $validated['tenant_terms'] !== $lease->tenant_terms);
-
-        abort_if(
-            $lease->tenant_signed_at !== null && $hasContentChange,
-            422,
-            'You have already signed this version. The manager must review it before any further changes can be made.'
-        );
 
         $signing = ! empty($validated['tenant_signature']);
 
         if ($signing) {
+            abort_if($lease->tenant_signed_at !== null, 422, 'You have already signed this agreement.');
             abort_if(
-                $lease->tenant_signed_at !== null,
+                blank($tenant->phone) || blank($tenant->national_id) ||
+                blank($tenant->employer_name) || blank($tenant->employer_phone) ||
+                blank($tenant->next_of_kin_name) || blank($tenant->next_of_kin_phone),
                 422,
-                'You have already signed this agreement.'
-            );
-
-            abort_if(
-                $lease->manager_signed_at !== null,
-                422,
-                'The manager has already signed the final version.'
-            );
-
-            abort_if(
-                empty($validated['requested_move_in_date'])
-                    && $lease->requested_move_in_date === null,
-                422,
-                'Enter your requested lease start date before signing.'
+                'Complete your tenant details before signing the lease.'
             );
         }
 
         $updates = [];
-
         if (array_key_exists('requested_move_in_date', $validated)) {
             $updates['requested_move_in_date'] = $validated['requested_move_in_date']
-                ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString()
-                : null;
+                ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString() : null;
         }
-
         if (array_key_exists('requested_move_out_date', $validated)) {
             $updates['requested_move_out_date'] = $validated['requested_move_out_date']
-                ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
-                : null;
+                ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString() : null;
         }
-
-        if (array_key_exists('tenant_terms', $validated)) {
-            $updates['tenant_terms'] = $validated['tenant_terms'];
-        }
-
         if ($signing) {
             $updates['tenant_signature'] = trim($validated['tenant_signature']);
             $updates['tenant_signed_at'] = CarbonImmutable::now();
@@ -409,9 +367,93 @@ class TenantPortalController extends Controller
 
         return response()->json([
             'message' => $signing
-                ? 'Your side of the lease has been signed and sent to the manager for final review.'
+                ? 'Your lease has been signed and forwarded to the manager for confirmation and final signature.'
                 : 'Your lease information was updated.',
             'data' => $this->agreementPayload($lease),
+        ]);
+    }
+
+    /**
+     * Store the tenant-entered details and rebuild the same canonical contract
+     * shown in both manager and tenant copies before either party signs.
+     */
+    public function updateLeaseTenantDetails(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->latestLease($tenant);
+
+        abort_if($lease === null, 404, 'No lease agreement is available yet.');
+        abort_if(
+            $lease->manager_signed_at !== null || $lease->tenant_signed_at !== null,
+            422,
+            'Tenant details cannot be changed after the agreement has been signed.'
+        );
+
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'max:50'],
+            'national_id' => ['required', 'string', 'max:100'],
+            'employer_name' => ['required', 'string', 'max:255'],
+            'employer_phone' => ['required', 'string', 'max:50'],
+            'next_of_kin_name' => ['required', 'string', 'max:255'],
+            'next_of_kin_phone' => ['required', 'string', 'max:50'],
+        ]);
+
+        return DB::transaction(function () use ($tenant, $lease, $validated) {
+            $tenant->update($validated);
+            $tenant->refresh();
+
+            $contract = app(\App\Services\LeaseProvisioner::class)->buildAgreementTemplate(
+                (int) $lease->organization_id,
+                $lease->property()->firstOrFail(),
+                $lease->unit()->firstOrFail(),
+                $tenant,
+                $lease->monthly_rent,
+                $lease->start_date?->toDateString()
+                    ?? $lease->requested_move_in_date?->toDateString()
+                    ?? CarbonImmutable::today()->toDateString(),
+                $lease->end_date?->toDateString() ?? $lease->requested_move_out_date?->toDateString(),
+                $lease->deposit_amount
+            );
+
+            $lease->update([
+                'manager_terms' => $contract,
+                'tenant_terms' => $contract,
+            ]);
+
+            return response()->json([
+                'message' => 'Your tenant details have been added to the lease agreement.',
+                'data' => $this->agreementPayload($lease->fresh()),
+            ]);
+        });
+    }
+
+    /**
+     * The signed contract remains immutable. The lease end date is the one
+     * lifecycle field the tenant may change after final signing.
+     */
+    public function updateLeaseEndDate(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->latestLease($tenant);
+
+        abort_if($lease === null, 404, 'No lease agreement is available yet.');
+        abort_if($lease->manager_signed_at === null, 422, 'The lease must be finally signed before its end date can be changed here.');
+
+        $validated = $request->validate(['end_date' => ['nullable', 'date']]);
+        $endDate = !empty($validated['end_date']) ? CarbonImmutable::parse($validated['end_date'])->toDateString() : null;
+        $startDate = $lease->start_date?->toDateString();
+
+        abort_if($endDate !== null && $startDate !== null && $endDate < $startDate, 422, 'The lease end date must be on or after the lease start date.');
+
+        if ($startDate !== null && $endDate !== null) {
+            app(\App\Services\LeaseProvisioner::class)->assertNoOverlap($lease->unit, $startDate, $endDate, $lease->id);
+        }
+
+        $lease->update(['end_date' => $endDate]);
+
+        return response()->json([
+            'message' => 'Lease end date updated. The signed agreement document remains unchanged.',
+            'data' => $this->agreementPayload($lease->fresh()),
         ]);
     }
 
