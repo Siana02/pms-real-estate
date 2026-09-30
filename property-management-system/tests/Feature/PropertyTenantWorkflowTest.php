@@ -36,6 +36,8 @@ class PropertyTenantWorkflowTest extends TestCase
             'organization_id' => $organization->id,
             'property_id' => $property->id,
             'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'requested_move_out_date' => now()->addYear()->toDateString(),
             'name' => 'Self Registering Tenant',
             'email' => 'self@example.test',
             'password' => 'Password123!',
@@ -49,8 +51,15 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame($unit->id, $tenant->unit_id);
         $this->assertSame('vacant', $unit->fresh()->status);
         $this->assertDatabaseCount('organizations', 1);
-        $this->assertDatabaseCount('leases', 0);
-        $this->assertDatabaseCount('deposits', 0);
+        $this->assertDatabaseCount('leases', 1);
+        $this->assertDatabaseCount('deposits', 1);
+        $lease = $tenant->leases()->with('deposit')->firstOrFail();
+        $this->assertSame('pending', $lease->status);
+        $this->assertNull($lease->start_date);
+        $this->assertSame(now()->addMonth()->toDateString(), $lease->requested_move_in_date->toDateString());
+        $this->assertSame('25000.00', $lease->monthly_rent);
+        $this->assertSame('25000.00', $lease->deposit->amount_required);
+        $this->assertSame('unpaid', $lease->deposit->status);
     }
 
     public function test_registration_rejects_a_property_or_unit_outside_the_selected_relationship(): void
@@ -261,7 +270,207 @@ class PropertyTenantWorkflowTest extends TestCase
 
         $this->withToken($tenantToken)->getJson('/api/tenant/overview')
             ->assertOk()
-            ->assertJsonPath('data.home', null);
+            ->assertJsonPath('data.home.property_name', $property->name)
+            ->assertJsonPath('data.home.unit_number', $unit->unit_number);
+    }
+
+    public function test_future_reservation_can_start_on_current_tenants_end_date(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Reservation Manager',
+            'username' => 'reservation-manager',
+            'email' => 'reservation-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+        $managerToken = $manager->createToken('reservation-manager')->plainTextToken;
+
+        $this->withToken($managerToken)->postJson('/api/tenants', [
+            'first_name' => 'Current',
+            'last_name' => 'Tenant',
+            'email' => 'current@example.test',
+            'phone' => '+254700000001',
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-10-01',
+            'monthly_rent' => 25000,
+            'deposit_amount' => 25000,
+            'create_login' => true,
+        ])->assertCreated();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => '2026-10-01',
+            'requested_move_out_date' => '2027-10-01',
+            'name' => 'Future Tenant',
+            'phone' => '+254700000002',
+            'email' => 'future@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $futureTenant = Tenant::where('email', 'future@example.test')->firstOrFail();
+        $this->assertDatabaseHas('leases', [
+            'tenant_id' => $futureTenant->id,
+            'unit_id' => $unit->id,
+            'status' => 'pending',
+            'requested_move_in_date' => '2026-10-01',
+        ]);
+    }
+
+    public function test_self_registered_lease_is_one_canonical_agreement_and_locks_after_manager_signature(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'requested_move_out_date' => now()->addYear()->toDateString(),
+            'name' => 'Agreement Tenant',
+            'phone' => '+254711111111',
+            'national_id' => '12345678',
+            'employer_name' => 'Example Ltd',
+            'employer_phone' => '+254722222222',
+            'next_of_kin_name' => 'Example Kin',
+            'next_of_kin_phone' => '+254733333333',
+            'email' => 'agreement@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $tenantToken = $registration->json('token');
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Agreement Manager',
+            'username' => 'agreement-manager',
+            'email' => 'agreement-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+        $managerToken = $manager->createToken('agreement-manager')->plainTextToken;
+
+        $tenantAgreement = $this->withToken($tenantToken)
+            ->getJson('/api/tenant/lease-agreement')
+            ->assertOk();
+
+        $leaseId = $tenantAgreement->json('data.lease_id');
+        $this->assertSame($property->name, $tenantAgreement->json('data.property.name'));
+        $this->assertSame($unit->unit_number, $tenantAgreement->json('data.unit.unit_number'));
+
+        $this->withToken($tenantToken)
+            ->patchJson('/api/tenant/lease-agreement', [
+                'tenant_terms' => 'Tenant accepts the current lease terms.',
+            ])
+            ->assertOk();
+
+        $this->withToken($tenantToken)
+            ->patchJson('/api/tenant/lease-agreement', [
+                'tenant_signature' => 'AT',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.agreement_status', 'awaiting_manager_signature');
+
+        $this->withToken($managerToken)
+            ->patchJson('/api/leases/' . $leaseId, [
+                'start_date' => now()->addMonth()->toDateString(),
+                'end_date' => now()->addYear()->toDateString(),
+                'monthly_rent' => 27000,
+                'deposit_amount' => 25000,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('leases', [
+            'id' => $leaseId,
+            'start_date' => now()->addMonth()->toDateString(),
+            'monthly_rent' => 27000,
+            'deposit_amount' => 25000,
+            'tenant_signature' => null,
+        ]);
+
+        $this->withToken($tenantToken)
+            ->patchJson('/api/tenant/lease-agreement', [
+                'tenant_signature' => 'AT',
+            ])
+            ->assertOk();
+
+        $this->withToken($managerToken)
+            ->patchJson('/api/leases/' . $leaseId, [
+                'manager_signature' => 'AM',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.agreement_finalized', true);
+
+        $this->withToken($tenantToken)
+            ->patchJson('/api/tenant/lease-agreement', [
+                'tenant_terms' => 'Attempted post-signature edit.',
+            ])
+            ->assertUnprocessable();
+
+        $this->withToken($managerToken)
+            ->patchJson('/api/leases/' . $leaseId, [
+                'monthly_rent' => 28000,
+            ])
+            ->assertUnprocessable();
+    }
+
+    public function test_manager_deposit_confirmation_is_visible_to_tenant_from_same_deposit_record(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Deposit Manager',
+            'username' => 'deposit-manager',
+            'email' => 'deposit-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+        $managerToken = $manager->createToken('deposit-manager')->plainTextToken;
+
+        $tenantResponse = $this->withToken($managerToken)->postJson('/api/tenants', [
+            'first_name' => 'Deposit',
+            'last_name' => 'Tenant',
+            'email' => 'deposit@example.test',
+            'phone' => '+254744444444',
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'start_date' => now()->addDay()->toDateString(),
+            'monthly_rent' => 25000,
+            'deposit_amount' => 20000,
+            'create_login' => true,
+        ])->assertCreated();
+
+        $tenant = Tenant::where('email', 'deposit@example.test')->firstOrFail();
+        $tenantUser = User::where('tenant_id', $tenant->id)->firstOrFail();
+        $tenantToken = $tenantUser->createToken('deposit-tenant')->plainTextToken;
+        $leaseId = $tenant->leases()->value('id');
+
+        $this->withToken($tenantToken)
+            ->postJson('/api/tenant/deposit/mark-paid')
+            ->assertOk();
+
+        $this->withToken($managerToken)
+            ->patchJson('/api/leases/' . $leaseId . '/deposit', [
+                'amount_paid' => 20000,
+                'payment_date' => now()->toDateString(),
+            ])
+            ->assertOk();
+
+        $this->withToken($tenantToken)
+            ->getJson('/api/tenant/lease-agreement')
+            ->assertOk()
+            ->assertJsonPath('data.deposit.status', 'paid')
+            ->assertJsonPath('data.deposit.amount_paid', '20000.00');
     }
 
     public function test_manager_registration_and_shared_login_remain_available(): void
@@ -291,6 +500,8 @@ class PropertyTenantWorkflowTest extends TestCase
             'organization_id' => $organization->id,
             'property_id' => $property->id,
             'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'requested_move_out_date' => null,
             'name' => 'Pending Tenant',
             'email' => 'pending@example.test',
             'password' => 'Password123!',

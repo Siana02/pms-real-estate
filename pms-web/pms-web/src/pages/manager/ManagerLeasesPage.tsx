@@ -45,11 +45,23 @@ interface DepositRecord {
 
 interface LeaseRecord {
   id: number;
-  tenant: { id: number; name: string } | null;
+  tenant: {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    national_id: string | null;
+    employer_name: string | null;
+    employer_phone: string | null;
+    next_of_kin_name: string | null;
+    next_of_kin_phone: string | null;
+  } | null;
   property: { id: number; name: string } | null;
   unit: { id: number; unit_number: string } | null;
   start_date: string | null;
   end_date: string | null;
+  requested_move_in_date: string | null;
+  requested_move_out_date: string | null;
   monthly_rent: number;
   deposit_amount: number;
   balance: number;
@@ -69,7 +81,7 @@ type LeaseView = LeaseRecord & {
   computed: "upcoming" | "active" | "notice" | "expiring" | "expired";
 };
 
-type LeaseFilter = "all" | LeaseView["computed"];
+type LeaseFilter = "all" | LeaseView["computed"] | "pending";
 
 const EXPIRING_WINDOW_DAYS = 60;
 
@@ -271,6 +283,7 @@ function todayDate(): string {
 }
 
 function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
+  const tenantRecord = toRecord(record.tenant);
   const unit = toRecord(record.unit);
   const depositRecord = toRecord(record.deposit);
   const unitNumber = asString(unit.unit_number);
@@ -279,13 +292,33 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
 
   return {
     id: asNumber(record.id),
-    tenant: namedRef(record.tenant, "name"),
+    tenant: Object.keys(tenantRecord).length > 0
+      ? {
+          id: asNumber(tenantRecord.id),
+          name:
+            asString(tenantRecord.name) ||
+            [asString(tenantRecord.first_name), asString(tenantRecord.last_name)]
+              .filter(Boolean)
+              .join(" ")
+              .trim() ||
+            "Unnamed tenant",
+          email: asString(tenantRecord.email) || null,
+          phone: asString(tenantRecord.phone) || null,
+          national_id: asString(tenantRecord.national_id) || null,
+          employer_name: asString(tenantRecord.employer_name) || null,
+          employer_phone: asString(tenantRecord.employer_phone) || null,
+          next_of_kin_name: asString(tenantRecord.next_of_kin_name) || null,
+          next_of_kin_phone: asString(tenantRecord.next_of_kin_phone) || null,
+        }
+      : null,
     property: namedRef(record.property, "name"),
     unit: unitNumber
       ? { id: asNumber(unit.id), unit_number: unitNumber }
       : null,
     start_date: asString(record.start_date) || null,
     end_date: asString(record.end_date) || null,
+    requested_move_in_date: asString(record.requested_move_in_date) || null,
+    requested_move_out_date: asString(record.requested_move_out_date) || null,
     monthly_rent: asNumber(record.monthly_rent),
     deposit_amount:
       depositRecord.amount_required !== undefined
@@ -333,6 +366,7 @@ function classify(lease: LeaseRecord): LeaseView["computed"] {
   const startDate = lease.start_date?.slice(0, 10) ?? null;
   const endDate = lease.end_date?.slice(0, 10) ?? null;
 
+  if (lease.status === "pending") return "upcoming";
   if (lease.status === "ended" || lease.status === "terminated") {
     return "expired";
   }
@@ -398,6 +432,7 @@ function agreementState(lease: LeaseRecord): {
 
 const FILTERS: { id: LeaseFilter; label: string }[] = [
   { id: "all", label: "All" },
+  { id: "pending", label: "Pending review" },
   { id: "upcoming", label: "Upcoming" },
   { id: "active", label: "Active" },
   { id: "notice", label: "Notice" },
@@ -421,6 +456,10 @@ function ManagerLeasesPage() {
   const [managerTermsDraft, setManagerTermsDraft] = useState("");
   const [tenantTermsDraft, setTenantTermsDraft] = useState("");
   const [managerInitials, setManagerInitials] = useState("");
+  const [managerStartDate, setManagerStartDate] = useState("");
+  const [managerEndDate, setManagerEndDate] = useState("");
+  const [managerRentDraft, setManagerRentDraft] = useState("0");
+  const [managerDepositRequiredDraft, setManagerDepositRequiredDraft] = useState("0");
   const [depositAmountDraft, setDepositAmountDraft] = useState("0");
   const [depositDateDraft, setDepositDateDraft] = useState(todayDate());
   const [drawerError, setDrawerError] = useState("");
@@ -465,6 +504,10 @@ function ManagerLeasesPage() {
     setManagerTermsDraft(selectedLease.manager_terms ?? "");
     setTenantTermsDraft(selectedLease.tenant_terms ?? "");
     setManagerInitials("");
+    setManagerStartDate(selectedLease.start_date?.slice(0, 10) ?? "");
+    setManagerEndDate(selectedLease.end_date?.slice(0, 10) ?? "");
+    setManagerRentDraft(String(selectedLease.monthly_rent));
+    setManagerDepositRequiredDraft(String(depositRequired(selectedLease)));
     setDepositAmountDraft(String(depositPaid(selectedLease)));
     setDepositDateDraft(
       selectedLease.deposit?.payment_date?.slice(0, 10) ?? todayDate()
@@ -481,7 +524,8 @@ function ManagerLeasesPage() {
   const counts = useMemo(
     () => ({
       all: views.length,
-      upcoming: views.filter((lease) => lease.computed === "upcoming").length,
+      pending: views.filter((lease) => lease.status === "pending").length,
+      upcoming: views.filter((lease) => lease.computed === "upcoming" && lease.status !== "pending").length,
       active: views.filter((lease) => lease.computed === "active").length,
       notice: views.filter((lease) => lease.computed === "notice").length,
       expiring: views.filter((lease) => lease.computed === "expiring").length,
@@ -494,7 +538,7 @@ function ManagerLeasesPage() {
     const needle = query.trim().toLowerCase();
 
     return views.filter((lease) => {
-      if (filter !== "all" && lease.computed !== filter) return false;
+      if (filter !== "all" && (filter === "pending" ? lease.status !== "pending" : lease.computed !== filter)) return false;
       if (!needle) return true;
 
       return [
@@ -582,14 +626,17 @@ function ManagerLeasesPage() {
     }
 
     try {
-      const updated = await patchLease(
-        lease.id,
-        {
-          deposit_paid_amount: required,
-          deposit_payment_date: todayDate(),
-        },
-        "Deposit marked as fully received."
-      );
+      const payload = await apiRequest(`/leases/${lease.id}/deposit`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          amount_paid: required,
+          payment_date: todayDate(),
+        }),
+      });
+      const updated = parseLeaseUpdate(payload);
+      if (updated) syncLease(updated);
+      await load();
+      setDrawerNotice("Deposit marked as fully received.");
 
       if (updated && selectedLeaseId === lease.id) {
         setDepositAmountDraft(String(depositPaid(updated)));
@@ -610,7 +657,18 @@ function ManagerLeasesPage() {
 
     const body: Record<string, unknown> = {};
     if (managerTermsChanged) body.manager_terms = managerTermsDraft;
-    if (tenantTermsChanged) body.tenant_terms = tenantTermsDraft;
+    if (selectedLease && managerStartDate !== (selectedLease.start_date?.slice(0, 10) ?? "")) {
+      body.start_date = managerStartDate || null;
+    }
+    if (selectedLease && managerEndDate !== (selectedLease.end_date?.slice(0, 10) ?? "")) {
+      body.end_date = managerEndDate || null;
+    }
+    if (selectedLease && Number(managerRentDraft) !== selectedLease.monthly_rent) {
+      body.monthly_rent = Number(managerRentDraft);
+    }
+    if (selectedLease && Number(managerDepositRequiredDraft) !== depositRequired(selectedLease)) {
+      body.deposit_amount = Number(managerDepositRequiredDraft);
+    }
     if (Object.keys(body).length === 0) {
       setDrawerNotice("No agreement text changes to save.");
       setDrawerError("");
@@ -630,6 +688,10 @@ function ManagerLeasesPage() {
       if (updated) {
         setManagerTermsDraft(updated.manager_terms ?? "");
         setTenantTermsDraft(updated.tenant_terms ?? "");
+        setManagerStartDate(updated.start_date?.slice(0, 10) ?? "");
+        setManagerEndDate(updated.end_date?.slice(0, 10) ?? "");
+        setManagerRentDraft(String(updated.monthly_rent));
+        setManagerDepositRequiredDraft(String(depositRequired(updated)));
       }
     } catch (cause) {
       setDrawerError(
@@ -679,16 +741,16 @@ function ManagerLeasesPage() {
     setDrawerNotice("");
 
     try {
-      const updated = await patchLease(
-        selectedLease.id,
-        {
-          deposit_paid_amount: depositAmountNumber,
-          deposit_payment_date: depositDateDraft,
-        },
-        depositAmountNumber >= depositRequired(selectedLease)
-          ? "Deposit marked as fully received."
-          : "Deposit payment recorded."
-      );
+      const payload = await apiRequest(`/leases/${selectedLease.id}/deposit`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          amount_paid: depositAmountNumber,
+          payment_date: depositDateDraft,
+        }),
+      });
+      const updated = parseLeaseUpdate(payload);
+      if (updated) syncLease(updated);
+      await load();
       if (updated) {
         setDepositAmountDraft(String(depositPaid(updated)));
         setDepositDateDraft(updated.deposit?.payment_date?.slice(0, 10) ?? depositDateDraft);
@@ -908,10 +970,10 @@ function ManagerLeasesPage() {
                           <td data-label="Deposit">
                             <div className="ls-deposit-meta">
                               <span className="mg-strong">
-                                {formatMoney(required, currency)}
+                                {formatMoney(required, currency)} required
                               </span>
                               <span className="mg-sub">
-                                {titleCase(depositStatus(lease))} · Confirmed{" "}
+                                {titleCase(depositStatus(lease))} · Received{" "}
                                 {formatMoney(paid, currency)}
                               </span>
                             </div>
@@ -952,9 +1014,11 @@ function ManagerLeasesPage() {
                           <td data-label="Status">
                             <div className="ls-inline-actions">
                               <span className={badgeClass(lease.computed)}>
-                                {lease.computed === "expiring"
-                                  ? "Expiring soon"
-                                  : titleCase(lease.computed)}
+                                {lease.status === "pending"
+                                  ? (lease.tenant ? "Reserved / pending" : "Pending assignment")
+                                  : lease.computed === "expiring"
+                                    ? "Expiring soon"
+                                    : titleCase(lease.computed)}
                               </span>
                               <button
                                 type="button"
@@ -990,11 +1054,10 @@ function ManagerLeasesPage() {
               <div className="mg-drawer__head">
                 <div>
                   <h2 className="mg-drawer__title" id="lease-agreement-title">
-                    {selectedLease.tenant?.name ?? "Lease"} · {selectedLease.unit?.unit_number ?? "—"}
+                    {selectedLease.tenant?.name ?? "Unassigned"} · {selectedLease.unit?.unit_number ?? "—"}
                   </h2>
                   <p className="mg-drawer__sub">
-                    {selectedLease.property?.name ?? "No property"} · {formatDate(selectedLease.start_date)} →{" "}
-                    {formatDate(selectedLease.end_date)}
+                    {selectedLease.property?.name ?? "No property"} · Unit {selectedLease.unit?.unit_number ?? "—"}
                   </p>
                 </div>
                 <button
@@ -1021,6 +1084,96 @@ function ManagerLeasesPage() {
                     <span>{drawerNotice}</span>
                   </div>
                 )}
+
+                <section className="ls-summary-card" aria-label="Lease assignment">
+                  <div className="ls-section-head">
+                    <div>
+                      <p className="ls-summary-card__label">Assignment &amp; occupancy</p>
+                      <p className="ls-summary-card__hint">
+                        A tenant can be assigned/reserved before their official start date. The previous tenant can remain active until their end date.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ls-form-grid">
+                    <div>
+                      <p className="ls-summary-card__label">Tenant</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.name ?? "Unassigned"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Property</p>
+                      <p className="ls-summary-card__value">{selectedLease.property?.name ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Unit</p>
+                      <p className="ls-summary-card__value">{selectedLease.unit?.unit_number ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Lease status</p>
+                      <p className="ls-summary-card__value">
+                        {selectedLease.status === "pending"
+                          ? "Reserved / pending"
+                          : titleCase(selectedLease.status)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Official lease start</p>
+                      <p className="ls-summary-card__value">
+                        {selectedLease.start_date ? formatDate(selectedLease.start_date) : "Not confirmed"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Official lease end</p>
+                      <p className="ls-summary-card__value">
+                        {selectedLease.end_date ? formatDate(selectedLease.end_date) : "Open-ended"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="ls-summary-card" aria-label="Tenant details">
+                  <div className="ls-section-head">
+                    <div>
+                      <p className="ls-summary-card__label">Tenant details</p>
+                      <p className="ls-summary-card__hint">
+                        The tenant attached to this lease is the same tenant who signed or is reviewing this canonical agreement.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ls-form-grid">
+                    <div>
+                      <p className="ls-summary-card__label">Full name</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.name ?? "Unassigned"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Email</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.email ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Phone</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.phone ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">National ID</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.national_id ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Employer</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.employer_name ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Employer phone</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.employer_phone ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Next of kin</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.next_of_kin_name ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="ls-summary-card__label">Next of kin phone</p>
+                      <p className="ls-summary-card__value">{selectedLease.tenant?.next_of_kin_phone ?? "—"}</p>
+                    </div>
+                  </div>
+                </section>
 
                 <section className="ls-summary-grid" aria-label="Lease agreement summary">
                   <article className="ls-summary-card">
@@ -1054,6 +1207,37 @@ function ManagerLeasesPage() {
                       )}
                     </div>
                   </article>
+                </section>
+
+                <section className="ls-summary-card">
+                  <div className="ls-section-head">
+                    <div>
+                      <p className="ls-summary-card__label">Official lease details</p>
+                      <p className="ls-summary-card__hint">
+                        These manager-controlled values become the official lease record.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="ls-form-grid">
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-start-date">Official start date</label>
+                      <input id="manager-start-date" className="mg-input" type="date" value={managerStartDate} onChange={(e) => setManagerStartDate(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                      <p className="mg-hint">Tenant requested {formatDate(selectedLease.requested_move_in_date)}.</p>
+                    </div>
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-end-date">Official end date</label>
+                      <input id="manager-end-date" className="mg-input" type="date" value={managerEndDate} onChange={(e) => setManagerEndDate(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                      <p className="mg-hint">Tenant requested {formatDate(selectedLease.requested_move_out_date)}.</p>
+                    </div>
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-rent">Monthly rent</label>
+                      <input id="manager-rent" className="mg-input" type="number" min="0" step="0.01" value={managerRentDraft} onChange={(e) => setManagerRentDraft(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                    </div>
+                    <div className="mg-field">
+                      <label className="mg-label" htmlFor="manager-deposit-required">Security deposit required</label>
+                      <input id="manager-deposit-required" className="mg-input" type="number" min="0" step="0.01" value={managerDepositRequiredDraft} onChange={(e) => setManagerDepositRequiredDraft(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                    </div>
+                  </div>
                 </section>
 
                 <section className="ls-summary-card">
@@ -1169,12 +1353,13 @@ function ManagerLeasesPage() {
                         className="mg-textarea"
                         value={managerTermsDraft}
                         onChange={(event) => setManagerTermsDraft(event.target.value)}
+                        disabled={Boolean(selectedLease.manager_signed_at)}
                         placeholder="Agreement terms visible to the manager…"
                       />
                       <p className="ls-copy-card__hint">
-                        {selectedLease.manager_signed_at && managerTermsChanged
-                          ? "Editing this text will clear the manager signature and require re-signing."
-                          : "This copy can be edited before the manager signs it."}
+                        {selectedLease.manager_signed_at
+                          ? "The manager signature has locked this lease."
+                          : "Editing manager-controlled details before signing may require the tenant to review and sign the new version."}
                       </p>
                     </div>
 
@@ -1203,7 +1388,7 @@ function ManagerLeasesPage() {
                         type="button"
                         className="mg-btn mg-btn--primary"
                         onClick={() => void signManagerCopy()}
-                        disabled={managerInitials.trim().length === 0 || signingManager}
+                        disabled={managerInitials.trim().length === 0 || signingManager || !selectedLease.tenant_signed_at || Boolean(selectedLease.manager_signed_at)}
                       >
                         <FileSignature />
                         {signingManager ? "Signing…" : "Confirm signature"}
@@ -1240,13 +1425,11 @@ function ManagerLeasesPage() {
                         id="lease-tenant-terms"
                         className="mg-textarea"
                         value={tenantTermsDraft}
-                        onChange={(event) => setTenantTermsDraft(event.target.value)}
+                        readOnly
                         placeholder="Agreement terms visible to the tenant…"
                       />
                       <p className="ls-copy-card__hint">
-                        {selectedLease.tenant_signed_at && tenantTermsChanged
-                          ? "Editing this text will clear the tenant signature and require the tenant to sign again."
-                          : "Managers can edit this copy too, but tenant signatures reset when wording changes."}
+                        This is the tenant side of the canonical agreement. The tenant owns these terms and signs them; manager edits to authoritative lease details trigger a fresh tenant review.
                       </p>
                     </div>
 
@@ -1268,7 +1451,7 @@ function ManagerLeasesPage() {
                   type="button"
                   className="mg-btn mg-btn--primary"
                   onClick={() => void saveAgreementTerms()}
-                  disabled={savingTerms || (!managerTermsChanged && !tenantTermsChanged)}
+                  disabled={savingTerms || Boolean(selectedLease.manager_signed_at) || (!managerTermsChanged && managerStartDate === (selectedLease.start_date?.slice(0, 10) ?? "") && managerEndDate === (selectedLease.end_date?.slice(0, 10) ?? "") && Number(managerRentDraft) === selectedLease.monthly_rent && Number(managerDepositRequiredDraft) === depositRequired(selectedLease))}
                 >
                   {savingTerms ? "Saving…" : "Save agreement text"}
                 </button>

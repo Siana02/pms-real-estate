@@ -19,6 +19,10 @@ class Tenant extends Model
         'email',
         'phone',
         'national_id',
+        'employer_name',
+        'employer_phone',
+        'next_of_kin_name',
+        'next_of_kin_phone',
         'status',
         'notes',
     ];

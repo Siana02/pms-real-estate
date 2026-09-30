@@ -31,6 +31,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::apiResource('units', UnitController::class);
     Route::apiResource('tenants', TenantController::class);
     Route::apiResource('leases', LeasesController::class);
+    Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
     Route::apiResource('payments', PaymentController::class);
     Route::apiResource('expenses', ExpenseController::class);
     Route::apiResource('maintenance-requests', MaintenanceRequestController::class);

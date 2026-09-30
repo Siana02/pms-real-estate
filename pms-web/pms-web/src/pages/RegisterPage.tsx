@@ -1480,6 +1480,14 @@ function RegisterPage() {
   const [usernameState, setUsernameState] = useState<UsernameState>("idle");
 
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [employerName, setEmployerName] = useState("");
+  const [employerPhone, setEmployerPhone] = useState("");
+  const [nextOfKinName, setNextOfKinName] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
+  const [requestedMoveInDate, setRequestedMoveInDate] = useState("");
+  const [requestedMoveOutDate, setRequestedMoveOutDate] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -1672,6 +1680,9 @@ function RegisterPage() {
     ).slice(0, 25);
   }, [organizations, organizationQuery]);
   const nameValid = name.trim().length >= 2;
+  const phoneValid = role !== "tenant" || phone.trim().length >= 7;
+  const requestedStartValid = role !== "tenant" || requestedMoveInDate.length > 0;
+  const requestedEndValid = role !== "tenant" || !requestedMoveOutDate || requestedMoveOutDate >= requestedMoveInDate;
   const usernameValid =
     USERNAME_PATTERN.test(username.trim()) && usernameState !== "taken";
   const passwordValid = passwordScore === PASSWORD_RULES.length;
@@ -1682,7 +1693,7 @@ function RegisterPage() {
       : orgValid,
     2:
       role === "tenant"
-        ? nameValid && emailValid
+        ? nameValid && emailValid && phoneValid && requestedStartValid && requestedEndValid
         : nameValid && usernameValid && emailValid && usernameState !== "checking",
     3: passwordValid && acceptedTerms,
   };
@@ -1704,6 +1715,11 @@ function RegisterPage() {
       markTouched("name");
       if (role !== "tenant") markTouched("username");
       markTouched("email");
+      if (role === "tenant") {
+        markTouched("phone");
+        markTouched("requestedMoveInDate");
+        markTouched("requestedMoveOutDate");
+      }
     }
     if (stepValid[step]) setStep((current) => Math.min(current + 1, 3));
   }
@@ -2419,6 +2435,116 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                       </p>
                     )}
                   </div>
+
+                  {role === "tenant" && (
+                    <>
+                      <div className="rg-row rg-row--split">
+                        <div>
+                          <label className="rg-label" htmlFor="phone">Phone number</label>
+                          <div className="rg-input-wrap">
+                            <User className="rg-input-icon" />
+                            <input
+                              id="phone"
+                              className="rg-input"
+                              type="tel"
+                              value={phone}
+                              onChange={(event) => setPhone(event.target.value)}
+                              onBlur={() => markTouched("phone")}
+                              placeholder="e.g. 0712 345 678"
+                              aria-invalid={touched.phone && !phoneValid}
+                            />
+                          </div>
+                          {touched.phone && !phoneValid && <p className="rg-help rg-help--error"><AlertCircle />Enter your phone number.</p>}
+                        </div>
+                        <div>
+                          <label className="rg-label" htmlFor="national-id">National ID number</label>
+                          <div className="rg-input-wrap">
+                            <User className="rg-input-icon" />
+                            <input
+                              id="national-id"
+                              className="rg-input"
+                              value={nationalId}
+                              onChange={(event) => setNationalId(event.target.value)}
+                              placeholder="ID number"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rg-row rg-row--split">
+                        <div>
+                          <label className="rg-label" htmlFor="requested-move-in">Requested lease start</label>
+                          <div className="rg-input-wrap">
+                            <Globe2 className="rg-input-icon" />
+                            <input
+                              id="requested-move-in"
+                              className="rg-input"
+                              type="date"
+                              value={requestedMoveInDate}
+                              onChange={(event) => setRequestedMoveInDate(event.target.value)}
+                              onBlur={() => markTouched("requestedMoveInDate")}
+                              aria-invalid={touched.requestedMoveInDate && !requestedStartValid}
+                            />
+                          </div>
+                          <p className="rg-help">Your requested move-in date. The manager confirms the official lease start.</p>
+                        </div>
+                        <div>
+                          <label className="rg-label" htmlFor="requested-move-out">Requested lease end</label>
+                          <div className="rg-input-wrap">
+                            <Globe2 className="rg-input-icon" />
+                            <input
+                              id="requested-move-out"
+                              className="rg-input"
+                              type="date"
+                              min={requestedMoveInDate || undefined}
+                              value={requestedMoveOutDate}
+                              onChange={(event) => setRequestedMoveOutDate(event.target.value)}
+                              onBlur={() => markTouched("requestedMoveOutDate")}
+                            />
+                          </div>
+                          <p className="rg-help">Optional. Leave blank for an open-ended request.</p>
+                        </div>
+                      </div>
+
+                      <div className="rg-row rg-row--split">
+                        <div>
+                          <label className="rg-label" htmlFor="employer-name">Employer name</label>
+                          <div className="rg-input-wrap">
+                            <Building2 className="rg-input-icon" />
+                            <input id="employer-name" className="rg-input" value={employerName} onChange={(event) => setEmployerName(event.target.value)} placeholder="Employer / company" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="rg-label" htmlFor="employer-phone">Employer phone</label>
+                          <div className="rg-input-wrap">
+                            <Building2 className="rg-input-icon" />
+                            <input id="employer-phone" className="rg-input" type="tel" value={employerPhone} onChange={(event) => setEmployerPhone(event.target.value)} placeholder="Work contact number" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rg-row rg-row--split">
+                        <div>
+                          <label className="rg-label" htmlFor="next-of-kin-name">Next of kin</label>
+                          <div className="rg-input-wrap">
+                            <User className="rg-input-icon" />
+                            <input id="next-of-kin-name" className="rg-input" value={nextOfKinName} onChange={(event) => setNextOfKinName(event.target.value)} placeholder="Full name" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="rg-label" htmlFor="next-of-kin-phone">Next of kin phone</label>
+                          <div className="rg-input-wrap">
+                            <User className="rg-input-icon" />
+                            <input id="next-of-kin-phone" className="rg-input" type="tel" value={nextOfKinPhone} onChange={(event) => setNextOfKinPhone(event.target.value)} placeholder="Contact number" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {touched.requestedMoveOutDate && !requestedEndValid && (
+                        <p className="rg-help rg-help--error" role="alert"><AlertCircle />Requested lease end must be on or after the requested start.</p>
+                      )}
+                    </>
+                  )}
                 </fieldset>
               )}
 

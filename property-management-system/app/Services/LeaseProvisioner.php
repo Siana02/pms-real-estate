@@ -14,6 +14,83 @@ use Illuminate\Validation\ValidationException;
 
 class LeaseProvisioner
 {
+    /**
+     * Create the canonical lease/agreement immediately for a tenant who
+     * self-registers. Official dates and manager-controlled financial terms
+     * remain unset/pending until the manager reviews the submission.
+     */
+    public function createPending(array $data, int $organizationId, Tenant $tenant): Leases
+    {
+        return DB::transaction(function () use ($data, $organizationId, $tenant) {
+            $property = Property::where('organization_id', $organizationId)
+                ->findOrFail($data['property_id']);
+            $unit = Unit::where('property_id', $property->id)
+                ->whereKey($data['unit_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($unit->status === 'maintenance') {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'A unit under maintenance cannot be requested.',
+                ]);
+            }
+
+            if ($tenant->organization_id !== $organizationId) {
+                abort(403, 'You do not have access to this tenant.');
+            }
+
+            $requestedStart = CarbonImmutable::parse($data['requested_move_in_date'])->toDateString();
+            $requestedEnd = !empty($data['requested_move_out_date'])
+                ? CarbonImmutable::parse($data['requested_move_out_date'])->toDateString()
+                : null;
+
+            if ($requestedEnd !== null && $requestedEnd < $requestedStart) {
+                throw ValidationException::withMessages([
+                    'requested_move_out_date' => 'The requested end date must be on or after the requested start date.',
+                ]);
+            }
+
+            $this->assertNoOverlap($unit, $requestedStart, $requestedEnd);
+
+            $agreement = $this->buildPendingAgreementTemplate(
+                $organizationId,
+                $property,
+                $unit,
+                $tenant,
+                $unit->monthly_rent,
+                $requestedStart,
+                $requestedEnd
+            );
+
+            $lease = Leases::create([
+                'organization_id' => $organizationId,
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+                'tenant_id' => $tenant->id,
+                'start_date' => null,
+                'requested_move_in_date' => $requestedStart,
+                'requested_move_out_date' => $requestedEnd,
+                'end_date' => null,
+                'monthly_rent' => $unit->monthly_rent,
+                'deposit_amount' => $unit->monthly_rent,
+                'status' => 'pending',
+                'manager_terms' => $agreement,
+                'tenant_terms' => $agreement,
+            ]);
+
+            Deposit::create([
+                'organization_id' => $organizationId,
+                'lease_id' => $lease->id,
+                'tenant_id' => $tenant->id,
+                'amount_required' => $unit->monthly_rent,
+                'amount_paid' => 0,
+                'status' => 'unpaid',
+            ]);
+
+            return $lease->load(['property', 'unit', 'tenant', 'deposit']);
+        });
+    }
+
     public function create(array $data, int $organizationId, Tenant $tenant): Leases
     {
         return DB::transaction(function () use ($data, $organizationId, $tenant) {
@@ -65,7 +142,7 @@ class LeaseProvisioner
                 $data['monthly_rent'],
                 $startDate,
                 $endDate,
-                $data['deposit_amount'] ?? 0
+                $data['deposit_amount'] ?? $unit->monthly_rent
             );
 
             $lease = Leases::create([
@@ -76,14 +153,14 @@ class LeaseProvisioner
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'monthly_rent' => $data['monthly_rent'],
-                'deposit_amount' => $data['deposit_amount'] ?? 0,
+                'deposit_amount' => $data['deposit_amount'] ?? $unit->monthly_rent,
                 'status' => $status,
                 'notes' => $data['notes'] ?? null,
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
             ]);
 
-            $amountRequired = (float) ($data['deposit_amount'] ?? 0);
+            $amountRequired = (float) ($data['deposit_amount'] ?? $unit->monthly_rent);
             $amountPaid = (float) ($data['deposit_paid_amount'] ?? (
                 filter_var($data['deposit_paid'] ?? false, FILTER_VALIDATE_BOOL)
                     ? $amountRequired
@@ -129,6 +206,139 @@ class LeaseProvisioner
         });
     }
 
+    /**
+     * Convert a self-registration's pending lease into the manager-confirmed
+     * canonical lease without creating a duplicate record.
+     */
+    public function confirmPending(Leases $lease, array $data, int $organizationId, Tenant $tenant): Leases
+    {
+        return DB::transaction(function () use ($lease, $data, $organizationId, $tenant) {
+            if ($lease->status !== 'pending') {
+                throw ValidationException::withMessages([
+                    'lease' => 'This lease is no longer pending manager confirmation.',
+                ]);
+            }
+
+            $property = Property::where('organization_id', $organizationId)
+                ->findOrFail($data['property_id']);
+            $unit = Unit::where('property_id', $property->id)
+                ->whereKey($data['unit_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $startDate = CarbonImmutable::parse($data['start_date'])->toDateString();
+            $endDate = !empty($data['end_date'])
+                ? CarbonImmutable::parse($data['end_date'])->toDateString()
+                : null;
+
+            if ($endDate !== null && $endDate < $startDate) {
+                throw ValidationException::withMessages([
+                    'end_date' => 'The lease end date must be on or after the start date.',
+                ]);
+            }
+
+            $this->assertNoOverlap($unit, $startDate, $endDate, $lease->id);
+
+            $monthlyRent = $data['monthly_rent'] ?? $unit->monthly_rent;
+            $depositAmount = $data['deposit_amount'] ?? $unit->monthly_rent;
+            $agreement = $this->buildAgreementTemplate(
+                $organizationId,
+                $property,
+                $unit,
+                $tenant,
+                $monthlyRent,
+                $startDate,
+                $endDate,
+                $depositAmount
+            );
+
+            $authoritativeChanged =
+                $lease->property_id !== $property->id ||
+                $lease->unit_id !== $unit->id ||
+                $lease->start_date?->toDateString() !== $startDate ||
+                $lease->end_date?->toDateString() !== $endDate ||
+                (float) $lease->monthly_rent !== (float) $monthlyRent ||
+                (float) $lease->deposit_amount !== (float) $depositAmount;
+
+            $tenantTerms = $lease->tenant_terms;
+            if ($lease->manager_terms === $lease->tenant_terms) {
+                $tenantTerms = $agreement;
+            }
+
+            $lease->update([
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'monthly_rent' => $monthlyRent,
+                'deposit_amount' => $depositAmount,
+                'status' => $this->statusForDates($startDate, $endDate),
+                'manager_terms' => $agreement,
+                'tenant_terms' => $tenantTerms,
+                ...($authoritativeChanged ? [
+                    'tenant_signature' => null,
+                    'tenant_signed_at' => null,
+                ] : []),
+            ]);
+
+            $amountRequired = (float) $depositAmount;
+            $amountPaid = (float) ($data['deposit_paid_amount'] ?? 0);
+            if ($amountPaid > $amountRequired) {
+                throw ValidationException::withMessages([
+                    'deposit_paid_amount' => 'The amount paid cannot exceed the required deposit.',
+                ]);
+            }
+
+            $lease->deposit()->updateOrCreate(
+                ['lease_id' => $lease->id],
+                [
+                    'organization_id' => $organizationId,
+                    'tenant_id' => $tenant->id,
+                    'amount_required' => $amountRequired,
+                    'amount_paid' => $amountPaid,
+                    'payment_date' => $amountPaid > 0 ? ($data['deposit_payment_date'] ?? null) : null,
+                    'status' => $amountRequired <= 0
+                        ? 'not_required'
+                        : ($amountPaid >= $amountRequired
+                            ? 'paid'
+                            : ($amountPaid > 0 ? 'partially_paid' : 'unpaid')),
+                ]
+            );
+
+            $tenant->update([
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+                'status' => 'active',
+            ]);
+
+            $this->syncUnitStatus($unit);
+
+            return $lease->fresh()->load(['property', 'unit', 'tenant', 'deposit']);
+        });
+    }
+
+    private function dateRangesOverlap(
+        ?string $existingStart,
+        ?string $existingEnd,
+        string $newStart,
+        ?string $newEnd
+    ): bool {
+        if ($existingStart === null) {
+            return false;
+        }
+
+        // Lease end dates are treated as checkout dates: a new tenancy may
+        // start on the same calendar day the previous tenancy ends.
+        if ($newEnd !== null && $existingStart >= $newEnd) {
+            return false;
+        }
+        if ($existingEnd !== null && $existingEnd <= $newStart) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function statusForDates(
         string $startDate,
         ?string $endDate,
@@ -152,16 +362,25 @@ class LeaseProvisioner
         ?string $endDate,
         ?int $exceptLeaseId = null
     ): void {
-        $query = Leases::where('unit_id', $unit->id)
+        $leases = Leases::where('unit_id', $unit->id)
             ->whereNotIn('status', ['ended', 'terminated'])
-            ->when($exceptLeaseId, fn ($leases) => $leases->where('id', '<>', $exceptLeaseId))
-            ->whereDate('start_date', '<=', $endDate ?? '9999-12-31')
-            ->where(function ($leases) use ($startDate) {
-                $leases->whereNull('end_date')
-                    ->orWhereDate('end_date', '>=', $startDate);
-            });
+            ->when($exceptLeaseId, fn ($query) => $query->where('id', '<>', $exceptLeaseId))
+            ->get();
 
-        if ($query->exists()) {
+        foreach ($leases as $existing) {
+            $existingStart = $existing->start_date?->toDateString()
+                ?? $existing->requested_move_in_date?->toDateString();
+            $existingEnd = $existing->end_date?->toDateString()
+                ?? $existing->requested_move_out_date?->toDateString();
+
+            if ($this->dateRangesOverlap($existingStart, $existingEnd, $startDate, $endDate)) {
+                throw ValidationException::withMessages([
+                    'unit_id' => 'This unit is already reserved or occupied for part of those dates.',
+                ]);
+            }
+        }
+
+        return;
             throw ValidationException::withMessages([
                 'unit_id' => 'This unit is already booked for part of those dates.',
             ]);
@@ -173,14 +392,16 @@ class LeaseProvisioner
         $today = CarbonImmutable::today()->toDateString();
         $leases = $unit->leases()
             ->whereNotIn('status', ['ended', 'terminated'])
-            ->get(['start_date', 'end_date']);
+            ->get(['start_date', 'end_date', 'status']);
 
         $occupied = $leases->contains(fn (Leases $lease) =>
+            $lease->start_date !== null &&
             $lease->start_date->toDateString() <= $today &&
             ($lease->end_date === null || $lease->end_date->toDateString() >= $today)
         );
         $reserved = $leases->contains(fn (Leases $lease) =>
-            $lease->start_date->toDateString() > $today
+            $lease->status === 'pending' ||
+            ($lease->start_date !== null && $lease->start_date->toDateString() > $today)
         );
 
         $unit->update([
@@ -195,6 +416,48 @@ class LeaseProvisioner
      * identical; each side edits their own copy from there and signs with
      * their initials.
      */
+    public function buildPendingAgreementTemplate(
+        int $organizationId,
+        Property $property,
+        Unit $unit,
+        Tenant $tenant,
+        float|string $monthlyRent,
+        string $requestedStart,
+        ?string $requestedEnd
+    ): string {
+        $organization = Organization::find($organizationId);
+        $tenantName = trim("{$tenant->first_name} {$tenant->last_name}");
+
+        $lines = [
+            'RESIDENTIAL LEASE AGREEMENT — PENDING MANAGER CONFIRMATION',
+            '',
+            "Landlord/Organization: {$organization?->name}",
+            "Property: {$property->name}",
+            "Unit: {$unit->unit_number}" . ($unit->unit_type ? " ({$unit->unit_type})" : ''),
+            "Tenant: {$tenantName}",
+            "Tenant email: {$tenant->email}",
+            "Tenant phone: {$tenant->phone}",
+            "National ID: {$tenant->national_id}",
+            "Employer: " . ($tenant->employer_name ?: 'Not provided'),
+            "Employer phone: " . ($tenant->employer_phone ?: 'Not provided'),
+            "Next of kin: " . ($tenant->next_of_kin_name ?: 'Not provided'),
+            "Next of kin phone: " . ($tenant->next_of_kin_phone ?: 'Not provided'),
+            'Monthly rent (unit default): ' . number_format((float) $monthlyRent, 2),
+            'Security deposit: To be confirmed by the property manager',
+            "Requested lease start: {$requestedStart}",
+            'Requested lease end: ' . ($requestedEnd ?: 'Open-ended / to be confirmed'),
+            '',
+            'Terms:',
+            '1. Rent is due on the 5th of each calendar month.',
+            '2. The security deposit is refundable, subject to the condition of the unit at move-out.',
+            '3. The property manager confirms the official lease dates, rent, deposit and manager terms before final execution.',
+            '4. The tenant may review and sign their side before the manager completes the final signature.',
+            '5. The agreement becomes locked after the manager signs the final reviewed version.',
+        ];
+
+        return implode("\n", $lines);
+    }
+
     public function buildAgreementTemplate(
         int $organizationId,
         Property $property,
@@ -215,13 +478,20 @@ class LeaseProvisioner
             "Property: {$property->name}",
             "Unit: {$unit->unit_number}" . ($unit->unit_type ? " ({$unit->unit_type})" : ''),
             "Tenant: {$tenantName}",
+            "Tenant email: {$tenant->email}",
+            "Tenant phone: {$tenant->phone}",
+            "National ID: {$tenant->national_id}",
+            "Employer: " . ($tenant->employer_name ?: 'Not provided'),
+            "Employer phone: " . ($tenant->employer_phone ?: 'Not provided'),
+            "Next of kin: " . ($tenant->next_of_kin_name ?: 'Not provided'),
+            "Next of kin phone: " . ($tenant->next_of_kin_phone ?: 'Not provided'),
             'Monthly rent: ' . number_format((float) $monthlyRent, 2),
             'Security deposit: ' . number_format((float) $depositAmount, 2),
             "Lease start date: {$startDate}",
             'Lease end date: ' . ($endDate ?: 'Open-ended (not yet known)'),
             '',
             'Terms:',
-            '1. Rent is due on the 1st of each calendar month.',
+            '1. Rent is due on the 5th of each calendar month. Payments made from the 1st through the 5th are within the due period; unpaid rent is overdue from the 6th.',
             '2. The security deposit is refundable, subject to the condition of the unit at move-out.',
             '3. Either party must give written notice before ending this tenancy, per the notice period agreed with the manager.',
             '4. The tenant is responsible for reporting maintenance issues promptly through the tenant portal.',

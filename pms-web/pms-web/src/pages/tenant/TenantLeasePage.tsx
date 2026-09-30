@@ -166,6 +166,13 @@ interface Agreement {
   status: string | null;
   start_date: string | null;
   end_date: string | null;
+  requested_move_in_date: string | null;
+  requested_move_out_date: string | null;
+  rent_due_day: number;
+  agreement_status: string;
+  organization: { id: number; name: string } | null;
+  property: { id: number; name: string; address: string | null; city: string | null } | null;
+  unit: { id: number; unit_number: string; unit_type: string | null; default_rent: number | string | null } | null;
   monthly_rent: number | string | null;
   deposit_amount: number | string | null;
   manager_terms: string | null;
@@ -228,6 +235,8 @@ function TenantLeasePage() {
   const [error, setError] = useState("");
 
   const [tenantTerms, setTenantTerms] = useState("");
+  const [requestedStart, setRequestedStart] = useState("");
+  const [requestedEnd, setRequestedEnd] = useState("");
   const [savingTerms, setSavingTerms] = useState(false);
   const [termsMessage, setTermsMessage] = useState("");
 
@@ -243,6 +252,8 @@ function TenantLeasePage() {
       const parsed = asAgreement(response);
       setAgreement(parsed);
       setTenantTerms(parsed?.tenant_terms ?? "");
+      setRequestedStart(parsed?.requested_move_in_date ?? "");
+      setRequestedEnd(parsed?.requested_move_out_date ?? "");
       setError("");
     } catch (caught) {
       setError(
@@ -261,10 +272,15 @@ function TenantLeasePage() {
 
   const tenantSigned = Boolean(agreement?.tenant_signed_at);
   const managerSigned = Boolean(agreement?.manager_signed_at);
+  const leaseLocked = managerSigned;
+  const awaitingManager = Boolean(agreement?.tenant_signed_at && !managerSigned);
 
   const termsChanged = useMemo(
-    () => (agreement?.tenant_terms ?? "") !== tenantTerms,
-    [agreement?.tenant_terms, tenantTerms]
+    () =>
+      (agreement?.tenant_terms ?? "") !== tenantTerms ||
+      (agreement?.requested_move_in_date ?? "") !== requestedStart ||
+      (agreement?.requested_move_out_date ?? "") !== requestedEnd,
+    [agreement?.tenant_terms, agreement?.requested_move_in_date, agreement?.requested_move_out_date, tenantTerms, requestedStart, requestedEnd]
   );
 
   async function handleSaveTerms(e: FormEvent) {
@@ -275,12 +291,18 @@ function TenantLeasePage() {
     try {
       const response = await apiRequest("/tenant/lease-agreement", {
         method: "PATCH",
-        body: JSON.stringify({ tenant_terms: tenantTerms }),
+        body: JSON.stringify({
+        tenant_terms: tenantTerms,
+        requested_move_in_date: requestedStart || null,
+        requested_move_out_date: requestedEnd || null,
+      }),
       });
       const parsed = asAgreement(response);
       if (parsed) {
         setAgreement(parsed);
         setTenantTerms(parsed.tenant_terms ?? "");
+        setRequestedStart(parsed.requested_move_in_date ?? "");
+        setRequestedEnd(parsed.requested_move_out_date ?? "");
       }
       setTermsMessage("Your copy has been saved.");
     } catch (caught) {
@@ -294,7 +316,7 @@ function TenantLeasePage() {
 
   async function handleSign(e: FormEvent) {
     e.preventDefault();
-    if (!initials.trim()) return;
+    if (!initials.trim() || !agreement || leaseLocked || tenantSigned) return;
     setSigning(true);
     setTermsMessage("");
     try {
@@ -306,6 +328,8 @@ function TenantLeasePage() {
       if (parsed) {
         setAgreement(parsed);
         setTenantTerms(parsed.tenant_terms ?? "");
+        setRequestedStart(parsed.requested_move_in_date ?? "");
+        setRequestedEnd(parsed.requested_move_out_date ?? "");
       }
       setInitials("");
       setTermsMessage("Signed — your copy of the agreement is now locked in.");
@@ -341,6 +365,7 @@ function TenantLeasePage() {
 
   const deposit = agreement?.deposit;
   const depositConfirmed = deposit?.status === "paid";
+  const depositRequired = Number(deposit?.amount_required ?? 0) > 0;
   const depositTenantMarked = Boolean(deposit?.tenant_marked_paid_at);
 
   return (
@@ -376,31 +401,61 @@ function TenantLeasePage() {
             <section className="tp-card tl-summary" aria-label="Lease summary">
               <div
                 className={`tl-badge ${
-                  agreement.agreement_finalized ? "tl-badge--done" : "tl-badge--pending"
+                  leaseLocked ? "tl-badge--done" : "tl-badge--pending"
                 }`}
               >
-                {agreement.agreement_finalized ? <ShieldCheck /> : <Clock />}
-                {agreement.agreement_finalized
-                  ? "Agreement fully executed by both parties"
-                  : "Awaiting signatures to finalize"}
+                {leaseLocked ? <ShieldCheck /> : <Clock />}
+                {leaseLocked
+                  ? "Lease locked — final manager signature recorded"
+                  : awaitingManager
+                    ? "Your side is signed — awaiting manager review and signature"
+                    : agreement.status === "pending"
+                      ? "Pending manager confirmation"
+                      : "Ready for your review and signature"}
               </div>
 
               <dl className="tl-summary__row">
                 <div>
-                  <dt className="tp-label">Lease start</dt>
-                  <dd>{longDate(agreement.start_date)}</dd>
+                  <dt className="tp-label">Organization</dt>
+                  <dd>{agreement.organization?.name ?? "—"}</dd>
                 </div>
                 <div>
-                  <dt className="tp-label">Lease end</dt>
+                  <dt className="tp-label">Property / unit</dt>
+                  <dd>
+                    {agreement.property?.name ?? "—"} · {agreement.unit?.unit_number ?? "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="tp-label">Official lease start</dt>
+                  <dd>{agreement.start_date ? longDate(agreement.start_date) : "Not confirmed"}</dd>
+                </div>
+                <div>
+                  <dt className="tp-label">Official lease end</dt>
                   <dd>{longDate(agreement.end_date)}</dd>
+                </div>
+                <div>
+                  <dt className="tp-label">Requested start</dt>
+                  <dd>{longDate(agreement.requested_move_in_date)}</dd>
+                </div>
+                <div>
+                  <dt className="tp-label">Requested end</dt>
+                  <dd>{longDate(agreement.requested_move_out_date)}</dd>
+                </div>
+                <div>
+                  <dt className="tp-label">Monthly rent</dt>
+                  <dd>KSh {Number(agreement.monthly_rent ?? 0).toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt className="tp-label">Rent due</dt>
+                  <dd>{agreement.rent_due_day}th of each month</dd>
                 </div>
               </dl>
 
               <p className="tl-hint">
-                This agreement was auto-generated from your lease details.
-                You can propose edits to your own copy below and sign it
-                with your initials. It only becomes officially binding once
-                both you and your property manager have signed.
+                Property, unit, rent, official dates and deposit terms come from
+                the organization's lease record. You can provide your requested
+                dates and your side of the agreement before signing. Once the
+                manager signs the final version, this lease is locked.
               </p>
             </section>
 
@@ -414,19 +469,26 @@ function TenantLeasePage() {
                     Security deposit
                   </p>
                   <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem" }}>
-                    {depositConfirmed
-                      ? "Confirmed as received by your property manager."
-                      : depositTenantMarked
-                        ? "You've marked this as paid — waiting for your manager to confirm."
-                        : "Not yet confirmed as paid."}
+                    {!depositRequired
+                      ? "No security deposit is required for this lease."
+                      : `Required: KSh ${Number(deposit?.amount_required ?? agreement.deposit_amount ?? 0).toLocaleString()} · Received: KSh ${Number(deposit?.amount_paid ?? 0).toLocaleString()}`}
                   </p>
+                  {depositRequired && (
+                    <p className="tl-hint">
+                      {depositConfirmed
+                        ? "Confirmed as received by your property manager."
+                        : depositTenantMarked
+                          ? "You've marked this as paid — waiting for your manager to confirm."
+                          : "Not yet confirmed as paid."}
+                    </p>
+                  )}
                   {depositMessage && (
                     <p className="tl-hint" role="status">
                       {depositMessage}
                     </p>
                   )}
                 </div>
-                {!depositConfirmed && !depositTenantMarked && (
+                {depositRequired && !depositConfirmed && !depositTenantMarked && (
                   <button
                     type="button"
                     className="tp-btn tp-btn--primary"
@@ -491,20 +553,44 @@ function TenantLeasePage() {
                         : "Not yet signed"}
                     </span>
                   </div>
+                  <div className="tl-sign-row">
+                    <label className="tp-label" htmlFor="requested-start">
+                      Requested lease start
+                    </label>
+                    <input
+                      id="requested-start"
+                      type="date"
+                      value={requestedStart}
+                      onChange={(e) => setRequestedStart(e.target.value)}
+                      disabled={tenantSigned || leaseLocked}
+                    />
+                    <label className="tp-label" htmlFor="requested-end">
+                      Requested lease end
+                    </label>
+                    <input
+                      id="requested-end"
+                      type="date"
+                      value={requestedEnd}
+                      onChange={(e) => setRequestedEnd(e.target.value)}
+                      disabled={tenantSigned || leaseLocked}
+                    />
+                  </div>
                   <textarea
                     value={tenantTerms}
                     onChange={(e) => setTenantTerms(e.target.value)}
+                    disabled={tenantSigned || leaseLocked}
                     aria-label="Your copy of the lease agreement"
                   />
                   <p className="tl-hint">
-                    Edit the wording if needed, then save. Note: editing after
-                    you've signed will require you to sign again.
+                    {tenantSigned
+                      ? "You have signed this version. It is now with the manager for final review."
+                      : "Set your requested dates and review your side of the agreement before signing."}
                   </p>
                   <div className="tl-sign-row">
                     <button
                       type="submit"
                       className="tp-btn tp-btn--quiet"
-                      disabled={savingTerms || !termsChanged}
+                      disabled={savingTerms || !termsChanged || tenantSigned || leaseLocked}
                     >
                       {savingTerms ? <Loader2 className="tl-spin" /> : null}
                       Save changes
@@ -526,7 +612,7 @@ function TenantLeasePage() {
                   <button
                     type="submit"
                     className="tp-btn tp-btn--primary"
-                    disabled={signing || !initials.trim()}
+                    disabled={signing || !initials.trim() || tenantSigned || leaseLocked}
                   >
                     {signing ? <Loader2 className="tl-spin" /> : <FileSignature />}
                     Sign
