@@ -49,7 +49,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame('pending', $tenant->status);
         $this->assertSame($property->id, $tenant->property_id);
         $this->assertSame($unit->id, $tenant->unit_id);
-        $this->assertSame('vacant', $unit->fresh()->status);
+        $this->assertSame('reserved', $unit->fresh()->status);
         $this->assertDatabaseCount('organizations', 1);
         $this->assertDatabaseCount('leases', 1);
         $this->assertDatabaseCount('deposits', 1);
