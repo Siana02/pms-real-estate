@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -1447,6 +1448,7 @@ const PASSWORD_RULES = [
 /* ------------------------------------------------------------------ */
 
 function RegisterPage() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   const [role, setRole] = useState<"manager" | "tenant">("manager");
@@ -2590,7 +2592,9 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 
             <p className="rg-card__foot">
               Already have an account?{" "}
-              <button type="button">Sign in</button>
+              <button type="button" onClick={() => navigate("/login")}>
+                Sign in
+              </button>
             </p>
 
             <p className="rg-secure">

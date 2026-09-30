@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   ArrowRight,
@@ -916,6 +917,7 @@ const STATS = [
 /* ------------------------------------------------------------------ */
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -1255,7 +1257,10 @@ function LoginPage() {
             </form>
 
             <p className="lg-card__foot">
-              Don&apos;t have an account? <button type="button">Create an account</button>
+              Don&apos;t have an account?{" "}
+              <button type="button" onClick={() => navigate("/register")}>
+                Create an account
+              </button>
             </p>
 
             <p className="lg-secure">
