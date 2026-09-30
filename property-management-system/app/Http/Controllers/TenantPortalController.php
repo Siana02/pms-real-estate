@@ -428,6 +428,7 @@ class TenantPortalController extends Controller
         $lease = $this->latestLease($tenant);
 
         abort_if($lease === null || $lease->deposit === null, 404, 'No deposit record is available yet.');
+        abort_if((float) $lease->deposit->amount_required <= 0, 422, 'No security deposit is required for this lease.');
 
         $lease->deposit->update([
             'tenant_marked_paid_at' => CarbonImmutable::now(),
