@@ -177,6 +177,28 @@ class LeasesController extends Controller
 
             $tenantSignatureReset = $authoritativeChanged && $lease->tenant_signed_at !== null;
 
+            $managerTerms = $validated['manager_terms'] ?? $lease->manager_terms;
+            $tenantTerms = $lease->tenant_terms;
+
+            if (
+                $authoritativeChanged &&
+                ! array_key_exists('manager_terms', $validated) &&
+                $lease->manager_terms === $lease->tenant_terms
+            ) {
+                $generatedAgreement = $provisioner->buildAgreementTemplate(
+                    $organizationId,
+                    $property,
+                    $unit,
+                    $lease->tenant,
+                    $validated['monthly_rent'] ?? $lease->monthly_rent,
+                    $startDate ?? $lease->requested_move_in_date?->toDateString() ?? CarbonImmutable::today()->toDateString(),
+                    $endDate,
+                    $validated['deposit_amount'] ?? $lease->deposit_amount
+                );
+                $managerTerms = $generatedAgreement;
+                $tenantTerms = $generatedAgreement;
+            }
+
             $status = $startDate === null
                 ? 'pending'
                 : $provisioner->statusForDates(
