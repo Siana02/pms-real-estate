@@ -77,23 +77,35 @@ function statusBadge(status: string): string {
  
 interface AddUnitDrawerProps {
   properties: { id: number; name: string }[];
+  lockedPropertyId: number | null;
   onClose: () => void;
   onCreated: () => void;
 }
  
-function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
+function AddUnitDrawer({
+  properties,
+  lockedPropertyId,
+  onClose,
+  onCreated,
+}: AddUnitDrawerProps) {
   const [propertyId, setPropertyId] = useState(
-    properties.length > 0 ? String(properties[0].id) : ""
+    lockedPropertyId
+      ? String(lockedPropertyId)
+      : properties.length > 0
+      ? String(properties[0].id)
+      : ""
   );
   const [unitNumber, setUnitNumber] = useState("");
   const [unitType, setUnitType] = useState("");
-  const [bedrooms, setBedrooms] = useState("1");
-  const [bathrooms, setBathrooms] = useState("1");
   const [rent, setRent] = useState("");
-  const [deposit, setDeposit] = useState("");
+  const [description, setDescription] = useState("");
   const [status, setStatus] = useState("vacant");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+ 
+  const lockedProperty = lockedPropertyId
+    ? properties.find((property) => property.id === lockedPropertyId) ?? null
+    : null;
  
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -121,10 +133,8 @@ function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
           property_id: Number(propertyId),
           unit_number: unitNumber.trim(),
           unit_type: unitType.trim() || null,
-          bedrooms: Number(bedrooms) || 0,
-          bathrooms: Number(bathrooms) || 0,
           monthly_rent: Number(rent),
-          deposit_amount: Number(deposit) || 0,
+          description: description.trim() || null,
           status,
         }),
       });
@@ -150,10 +160,12 @@ function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
       <div className="mg-drawer__panel">
         <div className="mg-drawer__head">
           <div>
-            <h2 className="mg-drawer__title">Add a unit</h2>
+            <h2 className="mg-drawer__title">
+              {lockedProperty ? `Add a unit to ${lockedProperty.name}` : "Add a unit"}
+            </h2>
             <p className="mg-drawer__sub">
-              Units belong to a property and carry the rent a lease is written
-              against.
+              Units always belong to a property and carry the rent a lease is
+              written against.
             </p>
           </div>
           <button
@@ -178,18 +190,32 @@ function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
             <label className="mg-label" htmlFor="un-property">
               Property
             </label>
-            <select
-              id="un-property"
-              className="mg-select"
-              value={propertyId}
-              onChange={(event) => setPropertyId(event.target.value)}
-            >
-              {properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
+            {lockedProperty ? (
+              <input
+                id="un-property"
+                className="mg-input"
+                value={lockedProperty.name}
+                disabled
+                readOnly
+              />
+            ) : (
+              <select
+                id="un-property"
+                className="mg-select"
+                value={propertyId}
+                onChange={(event) => setPropertyId(event.target.value)}
+              >
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="mg-hint">
+              Every unit must sit under an existing property — add a
+              property first if you don&apos;t see it listed.
+            </p>
           </div>
  
           <div className="mg-grid2">
@@ -204,6 +230,7 @@ function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
                 onChange={(event) => setUnitNumber(event.target.value)}
                 placeholder="e.g. B4"
               />
+              <p className="mg-hint">How this unit is labelled on-site.</p>
             </div>
  
             <div className="mg-field">
@@ -215,38 +242,9 @@ function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
                 className="mg-input"
                 value={unitType}
                 onChange={(event) => setUnitType(event.target.value)}
-                placeholder="e.g. 2 bedroom"
+                placeholder="e.g. One bedroom"
               />
-            </div>
-          </div>
- 
-          <div className="mg-grid2">
-            <div className="mg-field">
-              <label className="mg-label" htmlFor="un-beds">
-                Bedrooms
-              </label>
-              <input
-                id="un-beds"
-                className="mg-input"
-                type="number"
-                min="0"
-                value={bedrooms}
-                onChange={(event) => setBedrooms(event.target.value)}
-              />
-            </div>
- 
-            <div className="mg-field">
-              <label className="mg-label" htmlFor="un-baths">
-                Bathrooms
-              </label>
-              <input
-                id="un-baths"
-                className="mg-input"
-                type="number"
-                min="0"
-                value={bathrooms}
-                onChange={(event) => setBathrooms(event.target.value)}
-              />
+              <p className="mg-hint">Used to group similar units together.</p>
             </div>
           </div>
  
@@ -264,38 +262,43 @@ function AddUnitDrawer({ properties, onClose, onCreated }: AddUnitDrawerProps) {
                 onChange={(event) => setRent(event.target.value)}
                 placeholder="45000"
               />
+              <p className="mg-hint">
+                The default rent a lease on this unit will use.
+              </p>
             </div>
  
             <div className="mg-field">
-              <label className="mg-label" htmlFor="un-deposit">
-                Deposit
+              <label className="mg-label" htmlFor="un-status">
+                Status
               </label>
-              <input
-                id="un-deposit"
-                className="mg-input"
-                type="number"
-                min="0"
-                value={deposit}
-                onChange={(event) => setDeposit(event.target.value)}
-                placeholder="90000"
-              />
+              <select
+                id="un-status"
+                className="mg-select"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                <option value="vacant">Vacant</option>
+                <option value="occupied">Occupied</option>
+                <option value="maintenance">Under maintenance</option>
+              </select>
+              <p className="mg-hint">
+                Occupied units still need a lease — add that from Tenants.
+              </p>
             </div>
           </div>
  
           <div className="mg-field">
-            <label className="mg-label" htmlFor="un-status">
-              Status
+            <label className="mg-label" htmlFor="un-description">
+              Notes <span className="mg-optional">(optional)</span>
             </label>
-            <select
-              id="un-status"
-              className="mg-select"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
-              <option value="vacant">Vacant</option>
-              <option value="occupied">Occupied</option>
-              <option value="maintenance">Under maintenance</option>
-            </select>
+            <textarea
+              id="un-description"
+              className="mg-textarea"
+              rows={2}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Anything worth remembering about this unit…"
+            />
           </div>
         </div>
  
@@ -328,11 +331,15 @@ function ManagerUnitsPage() {
   const currency = useMemo(readCurrency, []);
  
   const [units, setUnits] = useState<UnitRecord[]>([]);
+  const [properties, setProperties] = useState<{ id: number; name: string }[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [drawer, setDrawer] = useState(false);
+  const [drawerPropertyId, setDrawerPropertyId] = useState<number | null>(null);
  
   const propertyFilter = params.get("property") ?? "";
  
@@ -341,8 +348,20 @@ function ManagerUnitsPage() {
     setError("");
  
     try {
-      const payload = await apiRequest("/units");
-      setUnits(parseUnits(payload));
+      // Properties are fetched independently of units so a property with
+      // zero units yet still shows up (and can immediately receive one) —
+      // deriving the list from `units` alone hid brand-new properties.
+      const [unitsPayload, propertiesPayload] = await Promise.all([
+        apiRequest("/units"),
+        apiRequest("/properties"),
+      ]);
+      setUnits(parseUnits(unitsPayload));
+      setProperties(
+        rows(propertiesPayload).map((record) => ({
+          id: asNumber(record.id),
+          name: asString(record.name) || "Untitled property",
+        }))
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load units.");
     } finally {
@@ -354,13 +373,10 @@ function ManagerUnitsPage() {
     void load();
   }, [load]);
  
-  const properties = useMemo(() => {
-    const map = new Map<number, string>();
-    units.forEach((unit) => {
-      if (unit.property) map.set(unit.property.id, unit.property.name);
-    });
-    return Array.from(map, ([id, name]) => ({ id, name }));
-  }, [units]);
+  function openAddUnit(propertyId: number | null) {
+    setDrawerPropertyId(propertyId);
+    setDrawer(true);
+  }
  
   const activeProperty = useMemo(() => {
     if (!propertyFilter) return null;
@@ -389,6 +405,17 @@ function ManagerUnitsPage() {
         .includes(needle);
     });
   }, [units, query, status, propertyFilter]);
+ 
+  const propertyGroups = useMemo(() => {
+    const scoped = propertyFilter
+      ? properties.filter((property) => String(property.id) === propertyFilter)
+      : properties;
+ 
+    return scoped.map((property) => ({
+      property,
+      units: visible.filter((unit) => unit.property?.id === property.id),
+    }));
+  }, [properties, propertyFilter, visible]);
  
   const counts = useMemo(
     () => ({
@@ -452,15 +479,27 @@ function ManagerUnitsPage() {
                 Refresh
               </button>
  
-              <button
-                type="button"
-                className="mg-btn mg-btn--primary"
-                onClick={() => setDrawer(true)}
-                disabled={properties.length === 0}
-              >
-                <Plus />
-                Add unit
-              </button>
+              {properties.length === 0 ? (
+                <button
+                  type="button"
+                  className="mg-btn mg-btn--primary"
+                  onClick={() => navigate("/manager/properties/add")}
+                >
+                  <Building2 />
+                  Add a property first
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="mg-btn mg-btn--primary"
+                  onClick={() =>
+                    openAddUnit(activeProperty ? activeProperty.id : null)
+                  }
+                >
+                  <Plus />
+                  {activeProperty ? `Add unit to ${activeProperty.name}` : "Add unit"}
+                </button>
+              )}
             </div>
           </header>
  
@@ -554,18 +593,28 @@ function ManagerUnitsPage() {
             </div>
           </div>
  
-          <section className="mg-panel">
-            <div className="mg-panel__head">
-              <h2 className="mg-panel__title">
-                <DoorOpen />
-                {activeProperty ? activeProperty.name : "All units"}
-              </h2>
-              <span className="mg-panel__meta">
-                {visible.length} of {units.length}
-              </span>
-            </div>
- 
-            {loading ? (
+          {properties.length === 0 ? (
+            <section className="mg-panel">
+              <div className="mg-empty">
+                <Building2 />
+                <p className="mg-empty__title">Add a property before adding units</p>
+                <p className="mg-empty__text">
+                  Units always live under a property. Create your first
+                  property, then come back here to build out its unit
+                  inventory.
+                </p>
+                <button
+                  type="button"
+                  className="mg-btn mg-btn--primary"
+                  onClick={() => navigate("/manager/properties/add")}
+                >
+                  <Plus />
+                  Add a property
+                </button>
+              </div>
+            </section>
+          ) : loading ? (
+            <section className="mg-panel">
               <div className="mg-panel__body">
                 {[0, 1, 2, 3].map((key) => (
                   <span
@@ -575,91 +624,116 @@ function ManagerUnitsPage() {
                   />
                 ))}
               </div>
-            ) : visible.length === 0 ? (
-              <div className="mg-empty">
-                <DoorOpen />
-                <p className="mg-empty__title">
-                  {units.length === 0 ? "No units yet" : "No units match"}
-                </p>
-                <p className="mg-empty__text">
-                  {units.length === 0
-                    ? "Add units to a property so tenants can be placed on leases."
-                    : "Adjust the search or status filter to see more units."}
-                </p>
-              </div>
-            ) : (
-              <div className="mg-tablewrap">
-                <table className="mg-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Unit</th>
-                      <th scope="col">Property</th>
-                      <th scope="col">Tenant</th>
-                      <th scope="col">Lease ends</th>
-                      <th scope="col" className="mg-num">
-                        Rent
-                      </th>
-                      <th scope="col">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((unit) => (
-                      <tr key={unit.id}>
-                        <td data-label="Unit">
-                          <span className="mg-strong">{unit.unit_number}</span>
-                          <span className="mg-sub">
-                            {unit.unit_type || "Type not set"}
-                            {unit.size_sqm > 0 ? ` · ${unit.size_sqm} m²` : ""}
-                          </span>
-                        </td>
-                        <td data-label="Property">
-                          {unit.property?.name ?? "—"}
-                        </td>
-                        <td data-label="Tenant">
-                          {unit.tenant ? (
-                            <button
-                              type="button"
-                              className="mg-rowlink"
-                              onClick={() => navigate("/manager/tenants")}
-                            >
-                              {unit.tenant.name}
-                            </button>
-                          ) : (
-                            <span className="mg-sub">Vacant</span>
-                          )}
-                        </td>
-                        <td data-label="Lease ends" className="mg-nowrap">
-                          {formatDate(unit.lease_end_date)}
-                        </td>
-                        <td data-label="Rent" className="mg-num">
-                          {formatMoney(unit.monthly_rent, currency)}
-                        </td>
-                        <td data-label="Status">
-                          <span className={statusBadge(unit.status)}>
-                            {titleCase(unit.status)}
-                          </span>
-                          {unit.open_maintenance_requests > 0 && (
-                            <span
-                              className="mg-badge mg-badge--warn"
-                              style={{ marginLeft: "0.375rem" }}
-                            >
-                              <Wrench />
-                              {unit.open_maintenance_requests} open
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+            </section>
+          ) : (
+            propertyGroups.map(({ property, units: groupUnits }) => (
+              <section className="mg-panel" key={property.id}>
+                <div className="mg-panel__head">
+                  <h2 className="mg-panel__title">
+                    <DoorOpen />
+                    {property.name}
+                  </h2>
+                  <div className="mg-panel__head-actions">
+                    <span className="mg-panel__meta">
+                      {groupUnits.length} unit{groupUnits.length === 1 ? "" : "s"}
+                    </span>
+                    <button
+                      type="button"
+                      className="mg-btn mg-btn--ghost mg-btn--sm"
+                      onClick={() => openAddUnit(property.id)}
+                    >
+                      <Plus />
+                      Add unit
+                    </button>
+                  </div>
+                </div>
+ 
+                {groupUnits.length === 0 ? (
+                  <div className="mg-empty">
+                    <DoorOpen />
+                    <p className="mg-empty__title">
+                      {query || status !== "all"
+                        ? "No units match this filter"
+                        : "No units yet"}
+                    </p>
+                    <p className="mg-empty__text">
+                      {query || status !== "all"
+                        ? "Clear the search or status filter to see this property's units."
+                        : "Add this property's first unit to start tracking rent and leases."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mg-tablewrap">
+                    <table className="mg-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Unit</th>
+                          <th scope="col">Tenant</th>
+                          <th scope="col">Lease ends</th>
+                          <th scope="col" className="mg-num">
+                            Rent
+                          </th>
+                          <th scope="col">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupUnits.map((unit) => (
+                          <tr key={unit.id}>
+                            <td data-label="Unit">
+                              <span className="mg-strong">{unit.unit_number}</span>
+                              <span className="mg-sub">
+                                {unit.unit_type || "Type not set"}
+                                {unit.size_sqm > 0 ? ` · ${unit.size_sqm} m²` : ""}
+                              </span>
+                            </td>
+                            <td data-label="Tenant">
+                              {unit.tenant ? (
+                                <button
+                                  type="button"
+                                  className="mg-rowlink"
+                                  onClick={() => navigate("/manager/tenants")}
+                                >
+                                  {unit.tenant.name}
+                                </button>
+                              ) : (
+                                <span className="mg-sub">Vacant</span>
+                              )}
+                            </td>
+                            <td data-label="Lease ends" className="mg-nowrap">
+                              {formatDate(unit.lease_end_date)}
+                            </td>
+                            <td data-label="Rent" className="mg-num">
+                              {formatMoney(unit.monthly_rent, currency)}
+                            </td>
+                            <td data-label="Status">
+                              <span className={statusBadge(unit.status)}>
+                                {titleCase(unit.status)}
+                              </span>
+                              {unit.open_maintenance_requests > 0 && (
+                                <span
+                                  className="mg-badge mg-badge--warn"
+                                  style={{ marginLeft: "0.375rem" }}
+                                >
+                                  <Wrench />
+                                  {unit.open_maintenance_requests} open
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ))
+          )}
         </div>
  
         {drawer && (
           <AddUnitDrawer
             properties={properties}
+            lockedPropertyId={drawerPropertyId}
             onClose={() => setDrawer(false)}
             onCreated={() => {
               setDrawer(false);
