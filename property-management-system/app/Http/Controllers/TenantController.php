@@ -215,14 +215,30 @@ public function store(Request $request)
         }
 
         if (! empty($tenantData['unit_id'])) {
-            app(LeaseProvisioner::class)->create(
-                $leaseData + [
-                    'property_id' => $tenantData['property_id'],
-                    'unit_id' => $tenantData['unit_id'],
-                ],
-                $organizationId,
-                $tenant
-            );
+            $leasePayload = $leaseData + [
+                'property_id' => $tenantData['property_id'],
+                'unit_id' => $tenantData['unit_id'],
+            ];
+
+            $pendingLease = $tenant->leases()
+                ->where('status', 'pending')
+                ->latest('id')
+                ->first();
+
+            if ($pendingLease) {
+                app(LeaseProvisioner::class)->confirmPending(
+                    $pendingLease,
+                    $leasePayload,
+                    $organizationId,
+                    $tenant
+                );
+            } else {
+                app(LeaseProvisioner::class)->create(
+                    $leasePayload,
+                    $organizationId,
+                    $tenant
+                );
+            }
         }
 
         return $tenant;
