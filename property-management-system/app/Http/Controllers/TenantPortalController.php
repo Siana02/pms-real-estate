@@ -548,6 +548,23 @@ class TenantPortalController extends Controller
 
         $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization']);
         $deposit = $lease->deposit;
+
+        // A self-registered lease already carries these relationships/financial
+        // values, but use the lease's organization and the unit's default rent
+        // as safe fallbacks for older records created before those fields were
+        // populated consistently.
+        $organization = $lease->tenant?->organization ?? $lease->organization;
+        $property = $lease->property ?? $lease->tenant?->property;
+        $unit = $lease->unit ?? $lease->tenant?->unit;
+        $monthlyRent = (float) ($lease->monthly_rent ?? 0);
+        if ($monthlyRent <= 0 && $unit !== null) {
+            $monthlyRent = (float) ($unit->monthly_rent ?? 0);
+        }
+        $depositAmount = (float) ($lease->deposit_amount ?? 0);
+        if ($depositAmount <= 0 && $monthlyRent > 0) {
+            $depositAmount = $monthlyRent;
+        }
+
         $status = $lease->manager_signed_at !== null
             ? 'locked'
             : ($lease->tenant_signed_at !== null
@@ -564,26 +581,26 @@ class TenantPortalController extends Controller
             'end_date' => $lease->end_date?->toDateString(),
             'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
             'requested_move_out_date' => $lease->requested_move_out_date?->toDateString(),
-            'monthly_rent' => $lease->monthly_rent,
-            'deposit_amount' => $lease->deposit_amount,
+            'monthly_rent' => $monthlyRent,
+            'deposit_amount' => $depositAmount,
             'rent_due_day' => 5,
-            'organization' => $lease->tenant?->organization ? [
-                'id' => $lease->tenant->organization->id,
-                'name' => $lease->tenant->organization->name,
+            'organization' => $organization ? [
+                'id' => $organization->id,
+                'name' => $organization->name,
             ] : null,
-            'property' => $lease->property ? [
-                'id' => $lease->property->id,
-                'name' => $lease->property->name,
-                'property_type' => $lease->property->property_type,
-                'address' => $lease->property->address,
-                'city' => $lease->property->city,
-                'country' => $lease->property->country,
+            'property' => $property ? [
+                'id' => $property->id,
+                'name' => $property->name,
+                'property_type' => $property->property_type,
+                'address' => $property->address,
+                'city' => $property->city,
+                'country' => $property->country,
             ] : null,
-            'unit' => $lease->unit ? [
-                'id' => $lease->unit->id,
-                'unit_number' => $lease->unit->unit_number,
-                'unit_type' => $lease->unit->unit_type,
-                'default_rent' => $lease->unit->monthly_rent,
+            'unit' => $unit ? [
+                'id' => $unit->id,
+                'unit_number' => $unit->unit_number,
+                'unit_type' => $unit->unit_type,
+                'default_rent' => $unit->monthly_rent,
             ] : null,
             'tenant' => $lease->tenant ? [
                 'id' => $lease->tenant->id,
