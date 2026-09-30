@@ -1116,8 +1116,12 @@ function ManagerLeasesPage() {
             <div className="mg-drawer__panel">
               <div className="mg-drawer__head">
                 <div>
+                  <span className="ls-drawer-kicker">
+                    <FileText />
+                    Lease record #{selectedLease.id}
+                  </span>
                   <h2 className="mg-drawer__title" id="lease-agreement-title">
-                    {selectedLease.tenant?.name ?? "Unassigned"} · {selectedLease.unit?.unit_number ?? "—"}
+                    {selectedLease.tenant?.name ?? "⚠ Tenant not linked"} · {selectedLease.unit?.unit_number ?? "—"}
                   </h2>
                   <p className="mg-drawer__sub">
                     {selectedLease.property?.name ?? "No property"} · Unit {selectedLease.unit?.unit_number ?? "—"}
