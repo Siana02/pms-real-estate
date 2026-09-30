@@ -547,8 +547,16 @@ function ManagerLeasesPage() {
     setManagerTermsDraft(selectedLease.manager_terms ?? "");
     setTenantTermsDraft(selectedLease.tenant_terms ?? "");
     setManagerInitials("");
-    setManagerStartDate(selectedLease.start_date?.slice(0, 10) ?? "");
-    setManagerEndDate(selectedLease.end_date?.slice(0, 10) ?? "");
+    setManagerStartDate(
+      selectedLease.start_date?.slice(0, 10) ??
+        selectedLease.requested_move_in_date?.slice(0, 10) ??
+        ""
+    );
+    setManagerEndDate(
+      selectedLease.end_date?.slice(0, 10) ??
+        selectedLease.requested_move_out_date?.slice(0, 10) ??
+        ""
+    );
     setManagerRentDraft(String(selectedLease.monthly_rent));
     setManagerDepositRequiredDraft(String(depositRequired(selectedLease)));
     setDepositAmountDraft(String(depositPaid(selectedLease)));
