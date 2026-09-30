@@ -16,8 +16,19 @@ class LeasesController extends Controller
     public function index(Request $request)
     {
         $leases = Leases::where('organization_id', $request->user()->organization_id)
-            ->with(['property', 'unit', 'tenant', 'deposit'])
+            ->with(['property', 'unit', 'tenant', 'deposit.tenant'])
             ->get();
+
+        // A lease is assigned when its canonical lease/deposit record identifies
+        // the tenant, even if an older database row has a missing tenant_id on
+        // the lease itself. This keeps the manager register consistent with the
+        // tenancy/deposit relationship instead of treating a reserved home as
+        // vacant merely because its start date has not arrived.
+        $leases->each(function (Leases $lease): void {
+            if ($lease->tenant === null && $lease->deposit?->tenant !== null) {
+                $lease->setRelation('tenant', $lease->deposit->tenant);
+            }
+        });
 
         return response()->json($leases);
     }
