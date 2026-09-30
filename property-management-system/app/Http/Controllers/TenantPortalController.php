@@ -513,7 +513,9 @@ class TenantPortalController extends Controller
             ? 'locked'
             : ($lease->tenant_signed_at !== null
                 ? 'awaiting_manager_signature'
-                : 'awaiting_tenant_signature');
+                : ($lease->status === 'pending'
+                    ? 'pending_manager_confirmation'
+                    : 'awaiting_tenant_signature'));
 
         return [
             'lease_id' => $lease->id,
