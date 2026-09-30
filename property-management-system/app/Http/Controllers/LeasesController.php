@@ -111,6 +111,12 @@ class LeasesController extends Controller
             'The tenant must sign the current agreement before the manager can sign and lock it.'
         );
 
+        abort_if(
+            $signingAsManager && $lease->start_date === null,
+            422,
+            'Set and confirm the official lease start date before the manager signs the final version.'
+        );
+
         return DB::transaction(function () use (
             $request,
             $validated,
