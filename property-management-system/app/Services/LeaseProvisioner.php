@@ -267,6 +267,11 @@ class LeaseProvisioner
                 (float) $lease->monthly_rent !== (float) $monthlyRent ||
                 (float) $lease->deposit_amount !== (float) $depositAmount;
 
+            $tenantTerms = $lease->tenant_terms;
+            if ($lease->manager_terms === $lease->tenant_terms) {
+                $tenantTerms = $agreement;
+            }
+
             $lease->update([
                 'property_id' => $property->id,
                 'unit_id' => $unit->id,
@@ -276,6 +281,7 @@ class LeaseProvisioner
                 'deposit_amount' => $depositAmount,
                 'status' => $this->statusForDates($startDate, $endDate),
                 'manager_terms' => $agreement,
+                'tenant_terms' => $tenantTerms,
                 ...($authoritativeChanged ? [
                     'tenant_signature' => null,
                     'tenant_signed_at' => null,
