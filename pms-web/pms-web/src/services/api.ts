@@ -75,6 +75,47 @@ const AUTH_SCHEME = "Bearer";
  * - Throws `ApiError` for any non-2xx response so callers can surface the
  *   real backend error message.
  */
+export async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const headers = new Headers({ Accept: "*/*" });
+  const token = getStoredToken();
+  if (token) headers.set("Authorization", `${AUTH_SCHEME} ${token}`);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { headers });
+  } catch {
+    throw new ApiError(
+      "Could not reach the server. Check your connection and try again.",
+      0,
+      null
+    );
+  }
+
+  if (!response.ok) {
+    const rawBody = await response.text();
+    let data: unknown = null;
+    try { data = rawBody ? JSON.parse(rawBody) : null; } catch {}
+    throw new ApiError(
+      extractMessage(data, `Request failed with status ${response.status}.`),
+      response.status,
+      data
+    );
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+  const filename = filenameMatch?.[1] ?? fallbackFilename;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function apiRequest(
   path: string,
   options: RequestInit = {}
