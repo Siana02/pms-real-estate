@@ -303,6 +303,32 @@ const styles = `
 .mh-action>svg{margin-left:auto!important;flex:none!important}
 @media(max-width:1100px){.mh-grid{grid-template-columns:1fr!important}}
 @media(max-width:600px){.mh-financials-split{grid-template-columns:1fr!important}.mh-financials-split>div+div{padding-left:0!important;border-left:0!important;border-top:1px solid #e5edf3!important;padding-top:.8rem!important}.mh-detail-row{gap:1rem!important}.mh-detail-row>strong{white-space:normal!important}}
+
+/* Premium support hub */
+.mh-support-section{margin-top:2rem}
+.mh-support-head{text-align:center;margin:0 auto 1.15rem;max-width:42rem}
+.mh-support-head h2{margin:0;color:#0F172A;font-size:1.45rem;font-weight:700;letter-spacing:-.025em;line-height:1.2}
+.mh-support-head p{margin:.45rem 0 0;color:#7F8C96;font-size:.78rem;line-height:1.5}
+.mh-support-card{position:relative;display:flex;flex-direction:column;gap:1rem;padding:1.35rem 1.45rem!important;border:1px solid #DCEAF5!important;background:linear-gradient(135deg,#fff 0%,#F8FBFF 62%,#EFF6FF 100%)!important;box-shadow:0 18px 45px -32px rgba(15,23,42,.25),0 10px 30px -26px rgba(37,99,235,.3)!important}
+.mh-support-identity{display:flex;align-items:center;gap:.85rem;padding-bottom:1rem;border-bottom:1px solid #E5EDF3}
+.mh-support-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 2.65rem;width:2.65rem;height:2.65rem;border-radius:.75rem;background:#EFF6FF;color:#2563EB;border:1px solid #DBEAFE}
+.mh-support-avatar svg{width:1.15rem;height:1.15rem}
+.mh-contact__name{margin:0;color:#0F172A;font-size:1rem;font-weight:700}
+.mh-contact__role{margin:.2rem 0 0;color:#7F8C96;font-size:.72rem}
+.mh-support-email,.mh-support-phone{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:.65rem 0;border-bottom:1px solid #EDF2F5}
+.mh-support-email>span,.mh-support-phone>span{display:flex;align-items:center;gap:.45rem;color:#7F8C96;font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.mh-support-email svg,.mh-support-phone svg{width:.9rem;height:.9rem;color:#2563EB}
+.mh-support-email a,.mh-support-phone a,.mh-support-email strong{color:#0F172A;font-size:.8rem;font-weight:600;text-align:right;text-decoration:none}
+.mh-support-email a:hover,.mh-support-phone a:hover{color:#2563EB}
+.mh-support-cta{display:flex;align-items:center;justify-content:center;gap:.55rem;align-self:center;min-width:13rem;padding:.7rem 1.15rem;border:1px solid #2563EB;border-radius:999px;background:#fff;color:#1D4ED8;text-decoration:none;font-size:.76rem;font-weight:700;box-shadow:0 10px 24px -20px rgba(37,99,235,.5);transition:transform 180ms ease,box-shadow 180ms ease,background 180ms ease}
+.mh-support-cta svg{width:.95rem;height:.95rem}
+.mh-support-cta svg:last-child{margin-left:.2rem;transition:transform 180ms ease}
+.mh-support-cta:hover,.mh-support-cta:focus-visible{transform:translateY(-2px);background:#EFF6FF;box-shadow:0 14px 28px -20px rgba(37,99,235,.6)}
+.mh-support-cta:hover svg:last-child,.mh-support-cta:focus-visible svg:last-child{transform:translateX(4px)}
+.mh-support-note{display:flex;align-items:flex-start;gap:.55rem;padding:.75rem .85rem;border-radius:.7rem;background:#EFF6FF;color:#62727D;font-size:.72rem;line-height:1.5}
+.mh-support-note svg{flex:none;width:.9rem;height:.9rem;margin-top:.1rem;color:#2563EB}
+.mh-page>.tp-section> .tp-section__sub:last-child{margin-top:.9rem;color:#A0A9AE;font-size:.65rem;font-style:italic}
+@media(max-width:600px){.mh-support-email,.mh-support-phone{align-items:flex-start;flex-direction:column;gap:.35rem}.mh-support-email a,.mh-support-phone a,.mh-support-email strong{text-align:left}.mh-support-cta{width:100%}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -578,76 +604,50 @@ function MyHomePage() {
           </article>
         </div>
 
-        <section className="tp-section" aria-label="Property management">
-          <div className="tp-section__head">
-            <div>
-              <h2 className="tp-section__title">Who looks after this home</h2>
-              <p className="tp-section__sub">
-                Reach your manager directly for anything urgent.
-              </p>
-            </div>
+        <section className="tp-section mh-support-section" aria-label="Property management">
+          <div className="mh-support-head">
+            <h2>Who looks after this home</h2>
+            <p>Reach your manager directly for anything urgent.</p>
           </div>
- 
-          <div className="tp-card mh-panel">
-            <div className="mh-contact">
-              <span className="tp-avatar" aria-hidden="true">
-                <ShieldCheck style={{ width: "1rem", height: "1rem" }} />
-              </span>
+
+          <div className="tp-card mh-support-card">
+            <div className="mh-support-identity">
+              <span className="mh-support-avatar" aria-hidden="true"><Building2 /></span>
               <div>
-                <p className="mh-contact__name">
-                  {home?.manager_name ?? "Property management"}
-                </p>
-                <p className="mh-contact__role">
-                  Manages {home?.property_name ?? "your building"}
-                </p>
+                <p className="mh-contact__name">{home?.manager_name ?? "Property management"}</p>
+                <p className="mh-contact__role">Manages {home?.property_name ?? "your building"}</p>
               </div>
             </div>
- 
-            <div className="mh-contact__links">
-              {home?.manager_phone && (
-                <a
-                  className="tp-btn tp-btn--quiet"
-                  href={`tel:${home.manager_phone}`}
-                >
-                  <Phone />
-                  {home.manager_phone}
-                </a>
+
+            <div className="mh-support-email">
+              <span><Mail /> Email</span>
+              {home?.manager_email ? (
+                <a href={`mailto:${home.manager_email}`}>{home.manager_email}</a>
+              ) : (
+                <strong>Not provided</strong>
               )}
-              {home?.manager_email && (
-                <a
-                  className="tp-btn tp-btn--quiet"
-                  href={`mailto:${home.manager_email}`}
-                >
-                  <Mail />
-                  {home.manager_email}
-                </a>
-              )}
-              <Link
-                to="/tenant/maintenance?action=new"
-                className="tp-btn tp-btn--quiet"
-              >
-                <Wrench />
-                Request Assistance
-              </Link>
             </div>
- 
-            <p className="tp-section__sub">
-              <CheckCircle2
-                aria-hidden="true"
-                style={{
-                  width: "0.875rem",
-                  height: "0.875rem",
-                  verticalAlign: "-2px",
-                  marginRight: "0.375rem",
-                  color: "var(--tp-green)",
-                }}
-              />
-              Maintenance requests are logged and tracked — you&apos;ll see every
-              status change in your portal.
-            </p>
+
+            {home?.manager_phone && (
+              <div className="mh-support-phone">
+                <span><Phone /> Phone</span>
+                <a href={`tel:${home.manager_phone}`}>{home.manager_phone}</a>
+              </div>
+            )}
+
+            <Link to="/tenant/maintenance?action=new" className="mh-support-cta">
+              <Wrench />
+              Request Assistance
+              <ArrowRight />
+            </Link>
+
+            <div className="mh-support-note">
+              <CheckCircle2 />
+              <span>Maintenance requests are logged and tracked — you&apos;ll see every status change in your portal.</span>
+            </div>
           </div>
         </section>
- 
+
         {!loading && !home && (
           <div className="tp-card tp-empty">
             <span className="tp-empty__icon">
