@@ -619,6 +619,9 @@ class TenantPortalController extends Controller
         // The lease stores the contractual snapshot, but if a legacy pending
         // lease has a null/zero amount, populate the portal from the unit.
         $monthlyRent = (float) ($lease->monthly_rent ?? 0);
+        if ($monthlyRent <= 0 && $lease?->unit?->monthly_rent !== null) {
+            $monthlyRent = (float) $lease->unit->monthly_rent;
+        }
         if ($monthlyRent <= 0 && $unit?->monthly_rent !== null) {
             $monthlyRent = (float) $unit->monthly_rent;
         }
@@ -629,22 +632,6 @@ class TenantPortalController extends Controller
         }
 
         $deposit = $lease->deposit;
-
-        // A self-registered lease already carries these relationships/financial
-        // values, but use the lease's organization and the unit's default rent
-        // as safe fallbacks for older records created before those fields were
-        // populated consistently.
-        $organization = $lease->tenant?->organization ?? $lease->organization;
-        $property = $lease->property ?? $lease->tenant?->property;
-        $unit = $lease->unit ?? $lease->tenant?->unit;
-        $monthlyRent = (float) ($lease->monthly_rent ?? 0);
-        if ($monthlyRent <= 0 && $unit !== null) {
-            $monthlyRent = (float) ($unit->monthly_rent ?? 0);
-        }
-        $depositAmount = (float) ($lease->deposit_amount ?? 0);
-        if ($depositAmount <= 0 && $monthlyRent > 0) {
-            $depositAmount = $monthlyRent;
-        }
 
         $status = $lease->manager_signed_at !== null
             ? 'locked'
@@ -765,13 +752,31 @@ class TenantPortalController extends Controller
             return null;
         }
 
+        $lease->loadMissing(['unit', 'deposit']);
+
+        // A pending self-registration already has a canonical lease, but
+        // older pending records may have incomplete financial snapshots.
+        // The unit remains the source of truth for the displayed monthly rent
+        // until the manager confirms the official lease terms.
+        $monthlyRent = (float) ($lease->monthly_rent ?? 0);
+        if ($monthlyRent <= 0 && $lease->unit?->monthly_rent !== null) {
+            $monthlyRent = (float) $lease->unit->monthly_rent;
+        }
+
+        $depositAmount = (float) ($lease->deposit_amount ?? 0);
+        if ($depositAmount <= 0 && $monthlyRent > 0) {
+            $depositAmount = $monthlyRent;
+        }
+
         return [
             'id' => $lease->id,
             'status' => $lease->status,
             'start_date' => $lease->start_date?->toDateString(),
             'end_date' => $lease->end_date?->toDateString(),
-            'monthly_rent' => $lease->monthly_rent,
-            'deposit_amount' => $lease->deposit_amount,
+            'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
+            'requested_move_out_date' => $lease->requested_move_out_date?->toDateString(),
+            'monthly_rent' => $monthlyRent,
+            'deposit_amount' => $depositAmount,
             'notes' => $lease->notes,
         ];
     }
