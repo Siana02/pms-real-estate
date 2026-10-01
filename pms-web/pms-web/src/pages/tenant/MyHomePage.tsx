@@ -24,7 +24,7 @@ import {
 /* ------------------------------------------------------------------ */
  
 const styles = `
-.mh-page .tp-page-head { justify-content:center; text-align:center; margin-bottom:1.9rem; }
+.mh-unit-identity strong,.mh-specs strong,.mh-lease-grid>div>strong,.mh-lease-grid>div:nth-child(2)>strong,.mh-lease-grid>div:nth-child(3)>strong{white-space:nowrap}.mh-lease-grid{grid-template-columns:1fr 1fr 2fr 1.5fr}.mh-specs>div{padding:8px 16px}.mh-financials strong{display:flex;flex-direction:column;gap:.15rem;line-height:1.4;white-space:nowrap}.mh-financials strong>span{display:block}.mh-panel__head h2{color:#0f172a}.mh-specs>div{background:linear-gradient(135deg,#f8fbff 0%,#eff6ff 100%);border-color:#dbeafe}.mh-specs strong{color:#1e40af}.mh-status--wait{color:#8a5a00;background:linear-gradient(105deg,#fff7df 0%,#f7edcf 100%);box-shadow:inset 0 0 0 1px rgba(180,128,24,.16),0 0 18px -12px rgba(180,128,24,.58)}.mh-action{background:linear-gradient(105deg,#fff 0%,#f8fbff 55%,#eff6ff 100%);color:#2563eb}.mh-action>svg{color:#2563eb}.mh-action:hover,.mh-action:focus-visible{background:linear-gradient(105deg,#fff 0%,#f1f7ff 55%,#e0edff 100%);color:#1d4ed8}\n.mh-page .tp-page-head { justify-content:center; text-align:center; margin-bottom:1.9rem; }
 .mh-page .tp-page-head__content { width:100%; display:flex; justify-content:center; }
 .mh-page .tp-page-head__copy { width:100%; display:flex; flex-direction:column; align-items:center; }
 .mh-page .tp-page-title { color:#102a43 !important; font-size:clamp(2rem,4vw,2.75rem); font-weight:800; letter-spacing:-.055em; line-height:1.05; }
@@ -485,7 +485,7 @@ function MyHomePage() {
                 }`}>{lease?.status === "active" ? "Active" : lease?.status === "ended" || lease?.status === "terminated" ? "Inactive" : "Pending Active"}</span></strong></div>
                 <div><span>Start date</span><strong>{longDate(lease?.start_date)}</strong></div>
                 <div><span>End date</span><strong>{lease?.end_date ? longDate(lease.end_date) : "Flexible / Month-to-Month"}</strong></div>
-                <div className="mh-financials"><span>Financials</span><strong>Rent: {money(lease?.monthly_rent, currency)} <em>|</em> Deposit: {money(lease?.deposit_amount, currency)}</strong></div>
+                <div className="mh-financials"><span>Financials</span><strong><span>Rent: {money(lease?.monthly_rent, currency)}</span><span>Deposit: {money(lease?.deposit_amount, currency)}</span></strong></div>
               </div>
               {lease?.notes && <p className="tp-section__sub" style={{ lineHeight: 1.6 }}>{lease.notes}</p>}
               <div className="mh-actions">
