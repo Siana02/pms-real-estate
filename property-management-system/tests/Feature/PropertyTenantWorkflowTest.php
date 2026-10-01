@@ -305,6 +305,45 @@ class PropertyTenantWorkflowTest extends TestCase
             ->assertJsonPath('data.home.unit_number', $unit->unit_number);
     }
 
+    public function test_self_registered_tenant_can_log_in_with_generated_username(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'name' => 'Username Tenant',
+            'email' => 'username-tenant@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $username = $registration->json('user.username');
+        $this->assertSame('usernametenant', $username);
+
+        $this->postJson('/api/login', [
+            'login' => $username,
+            'password' => 'Password123!',
+        ])->assertOk()
+            ->assertJsonPath('user.username', $username)
+            ->assertJsonPath('user.role', 'tenant');
+
+        $this->postJson('/api/login', [
+            'login' => strtoupper($username),
+            'password' => 'Password123!',
+        ])->assertOk()
+            ->assertJsonPath('user.username', $username);
+
+        $this->postJson('/api/login', [
+            'username' => $username,
+            'password' => 'Password123!',
+        ])->assertOk()
+            ->assertJsonPath('user.username', $username);
+    }
+
     public function test_future_reservation_can_start_on_current_tenants_end_date(): void
     {
         [$organization, $property, $unit] = $this->createPropertyInventory();
