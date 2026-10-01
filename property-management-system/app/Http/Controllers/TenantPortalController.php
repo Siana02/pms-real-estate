@@ -467,6 +467,7 @@ class TenantPortalController extends Controller
             '<h1>RESIDENTIAL LEASE AGREEMENT</h1>' .
             '<div class="meta">' . e((string) ($organization?->name ?? '')) . ' · ' . e($propertyName) . ' · Unit ' . e($unitNumber) . '</div>' .
             '<div class="agreement">' . nl2br(e($leaseText)) . '</div>' .
+            '<p class="muted"><strong>Current lease end date:</strong> ' . e($lease->end_date?->toDateString() ?? 'Open-ended') . '</p>' .
             '<div class="signatures">' .
             '<section class="signature"><div class="muted">Tenant</div><div class="initials">' . e((string) $lease->tenant_signature) . '</div><div class="stamp">SIGNED</div><p class="muted">' . e((string) $lease->tenant_signed_at) . '</p><p>' . e($tenantName) . '</p></section>' .
             '<section class="signature"><div class="muted">Property Manager / Organization</div><div class="initials">' . e((string) $lease->manager_signature) . '</div><div class="stamp">SIGNED</div><p class="muted">' . e((string) $lease->manager_signed_at) . '</p><p>' . e((string) ($organization?->name ?? '')) . '</p></section>' .
