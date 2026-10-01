@@ -1468,6 +1468,8 @@ function RegisterPage() {
   const [unitsError, setUnitsError] = useState("");
   const [unitId, setUnitId] = useState("");
   const [unitsReload, setUnitsReload] = useState(0);
+  const [unitAvailabilityMessage, setUnitAvailabilityMessage] = useState("");
+  const [unitSuggestions, setUnitSuggestions] = useState<UnitOption[]>([]);
   const [organizationName, setOrganizationName] = useState("");
   const [country, setCountry] = useState(detectCountry);
   const [currency, setCurrency] = useState(() =>
@@ -1604,6 +1606,53 @@ function RegisterPage() {
     };
   }, [role, propertyId, unitsReload]);
 
+  useEffect(() => {
+    if (role !== "tenant" || !propertyId || !unitId || !requestedMoveInDate) {
+      setUnitAvailabilityMessage("");
+      setUnitSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    const query = new URLSearchParams({
+      requested_move_in_date: requestedMoveInDate,
+      unit_id: unitId,
+    });
+
+    apiRequest(`/properties/${encodeURIComponent(propertyId)}/registration-availability?${query.toString()}`)
+      .then((payload) => {
+        if (cancelled) return;
+        const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+        const available = record.available === true;
+        const nextDate = typeof record.next_available_date === "string" ? record.next_available_date : null;
+        const suggestions = Array.isArray(record.suggestions) ? parseUnitOptions(record.suggestions) : [];
+        setUnitSuggestions(suggestions);
+        if (available) {
+          setUnitAvailabilityMessage("");
+        } else {
+          const selected = record.selected_unit && typeof record.selected_unit === "object"
+            ? record.selected_unit as Record<string, unknown>
+            : null;
+          const number = typeof selected?.unit_number === "string" ? selected.unit_number : "This unit";
+          const availabilityText = nextDate
+            ? `The unit ${number} won't be available until ${nextDate}. Select another unit or postpone your move-in date.`
+            : `The unit ${number} is not available for your selected move-in date. Select another unit or postpone your move-in date.`;
+          setUnitAvailabilityMessage(availabilityText);
+          setUnitId("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUnitAvailabilityMessage("We couldn't verify this unit's availability for your move-in date yet. We'll check again when you submit.");
+          setUnitSuggestions([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role, propertyId, unitId, requestedMoveInDate]);
+
   function retryLoadOrganizations() {
     setOrganizationReload((current) => current + 1);
   }
@@ -1681,7 +1730,7 @@ function RegisterPage() {
   }, [organizations, organizationQuery]);
   const nameValid = name.trim().length >= 2;
   const phoneValid = role !== "tenant" || phone.trim().length >= 7;
-  const requestedStartValid = true;
+  const requestedStartValid = role !== "tenant" || Boolean(requestedMoveInDate);
   const requestedEndValid = role !== "tenant" || !requestedMoveOutDate || requestedMoveOutDate >= requestedMoveInDate;
   const usernameValid =
     USERNAME_PATTERN.test(username.trim()) && usernameState !== "taken";
@@ -1789,7 +1838,15 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
               organization_id: Number(organizationId),
               property_id: Number(propertyId),
               unit_id: Number(unitId),
+              requested_move_in_date: requestedMoveInDate,
+              requested_move_out_date: requestedMoveOutDate || null,
               name,
+              phone,
+              national_id: nationalId || null,
+              employer_name: employerName || null,
+              employer_phone: employerPhone || null,
+              next_of_kin_name: nextOfKinName || null,
+              next_of_kin_phone: nextOfKinPhone || null,
               email,
               password,
               password_confirmation: password,
@@ -2160,9 +2217,17 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                             </p>
                           ) : unitsStatus === "loaded" && units.length === 0 ? (
                             <p className="rg-help" role="status">No vacant units are currently available in this property.</p>
+                          ) : unitAvailabilityMessage ? (
+                            <p className="rg-help rg-help--error" role="alert"><AlertCircle />{unitAvailabilityMessage}</p>
                           ) : touched.unitId && !tenantUnitValid ? (
                             <p className="rg-help rg-help--error" role="alert"><AlertCircle />Select an available unit.</p>
                           ) : null}
+                          {unitSuggestions.length > 0 && (
+                            <div className="rg-help" role="status">
+                              Suggestions with the same unit type and a similar rent:
+                              {" "}{unitSuggestions.map((suggestion) => `${suggestion.unit_number} — KSh ${suggestion.monthly_rent.toLocaleString()}`).join(" · ")}
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
@@ -2478,15 +2543,21 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                             <Globe2 className="rg-input-icon" />
                             <input
                               id="requested-move-in"
-                              className="rg-input"
+                              className={`rg-input${touched.requestedMoveInDate && !requestedStartValid ? " rg-input--invalid" : requestedStartValid ? " rg-input--valid" : ""}`}
                               type="date"
+                              min={new Date().toISOString().slice(0, 10)}
                               value={requestedMoveInDate}
                               onChange={(event) => setRequestedMoveInDate(event.target.value)}
                               onBlur={() => markTouched("requestedMoveInDate")}
-                              aria-invalid={false}
+                              aria-required="true"
+                              aria-invalid={touched.requestedMoveInDate && !requestedStartValid}
                             />
                           </div>
-                          <p className="rg-help">Optional. If provided, the manager will review it as your requested lease start.</p>
+                          {touched.requestedMoveInDate && !requestedStartValid ? (
+                            <p className="rg-help rg-help--error"><AlertCircle />Select your expected move-in date.</p>
+                          ) : (
+                            <p className="rg-help">Required. This date is used to check whether the selected unit will be available when you plan to move in.</p>
+                          )}
                         </div>
                         <div>
                           <label className="rg-label" htmlFor="requested-move-out">Requested lease end</label>
