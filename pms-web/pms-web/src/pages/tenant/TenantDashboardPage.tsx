@@ -12,10 +12,15 @@ import {
   CreditCard,
   FileText,
   Home,
+  KeyRound,
   MapPin,
   Megaphone,
   Phone,
   Receipt,
+  Sun,
+  Moon,
+  WalletCards,
+  CalendarDays,
   RefreshCw,
   ShieldCheck,
   Wrench,
@@ -726,6 +731,241 @@ const styles = `
   color: #754c05;
 }
 
+
+/* ---------- welcome introduction ---------- */
+.td-welcome {
+  width: 100%;
+}
+.td-welcome__main {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.td-welcome__copy {
+  min-width: 0;
+}
+.td-welcome__greeting {
+  margin: 0;
+  color: #102a43;
+  font-family: ui-rounded, "Nunito", "Segoe UI", sans-serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  overflow: hidden;
+  white-space: nowrap;
+  animation: td-type-in 0.9s steps(28, end) both, td-welcome-rise 0.55s ease-out both;
+}
+.td-welcome__residence {
+  margin: 0.5rem 0 0;
+  color: #71839a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  animation: td-welcome-rise 0.55s 0.12s ease-out both;
+}
+.td-welcome__tagline {
+  margin: 0.7rem 0 0;
+  color: #5d7087;
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.45;
+  animation: td-welcome-rise 0.55s 0.2s ease-out both;
+}
+.td-welcome__avatar,
+.td-welcome__weather {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+}
+.td-welcome__avatar {
+  margin-left: auto;
+  border: 1px solid #cfe0f5;
+  background: linear-gradient(145deg, #dbeafe, #eff6ff);
+  color: #174ea6;
+  font-size: 0.9rem;
+  font-weight: 800;
+  box-shadow: 0 8px 20px -14px rgba(37, 99, 235, 0.5);
+  animation: td-avatar-in 0.55s 0.25s ease-out both;
+}
+.td-welcome__weather {
+  background: #fff7d6;
+  color: #d08a16;
+  box-shadow: 0 8px 20px -14px rgba(208, 138, 22, 0.6);
+  animation: td-weather-in 0.7s 0.3s ease-out both;
+}
+.td-welcome__weather svg { width: 1.35rem; height: 1.35rem; }
+.td-welcome__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.9rem;
+  animation: td-welcome-rise 0.55s 0.28s ease-out both;
+}
+.td-welcome__stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.38rem 0.65rem;
+  border: 1px solid #e2eaf4;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.72);
+  color: #526a83;
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px -12px rgba(16, 42, 67, 0.3);
+}
+.td-welcome__stats i,
+.td-stat__dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.td-welcome__stats i.tp-pill--good { background: #15803d; }
+.td-welcome__stats i.tp-pill--wait { background: #b45309; }
+.td-welcome__stats i.tp-pill--mute { background: #94a3b8; }
+.td-welcome__stats i.tp-pill--bad { background: #b91c1c; }
+.td-stat__dot--blue { background: #2563eb; }
+.td-stat__dot--grey { background: #94a3b8; }
+
+/* ---------- home card structure ---------- */
+.td-home__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+.td-home__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding-right: 1.25rem;
+}
+.td-home__group--financial {
+  padding-right: 0;
+  padding-left: 1.25rem;
+  border-left: 1px solid #edf2f7;
+}
+.td-home__group-title {
+  margin: 0 0 0.05rem;
+  color: #8292a5;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.td-home__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+.td-home__item > svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.18rem;
+  color: #6c8fbd;
+}
+.td-home__item > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+.td-home__item .tp-label {
+  font-size: 0.64rem;
+}
+.td-home__item strong {
+  color: #243b53;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.td-home__status-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.18rem;
+}
+.td-home__status-icon span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.td-home__status-icon.tp-pill--good span { background: #15803d; }
+.td-home__status-icon.tp-pill--wait span { background: #b45309; }
+.td-home__status-icon.tp-pill--bad span { background: #b91c1c; }
+.td-home__status-icon.tp-pill--mute span { background: #94a3b8; }
+.td-home__actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.35rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #edf2f7;
+}
+.td-home__actions .tp-btn {
+  min-height: 2.2rem;
+  padding-inline: 0.8rem;
+  font-size: 0.78rem;
+}
+
+@keyframes td-welcome-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes td-type-in {
+  from { max-width: 0; }
+  to { max-width: 100%; }
+}
+@keyframes td-avatar-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.88); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes td-weather-in {
+  from { opacity: 0; transform: translateY(-5px) rotate(-10deg) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@media (max-width: 639px) {
+  .td-welcome__greeting {
+    font-size: 1.85rem;
+  }
+  .td-welcome__avatar,
+  .td-welcome__weather {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+  .td-welcome__stats {
+    gap: 0.45rem;
+  }
+  .td-welcome__stats > span {
+    font-size: 0.68rem;
+  }
+  .td-home__columns {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .td-home__group,
+  .td-home__group--financial {
+    padding: 0;
+  }
+  .td-home__group--financial {
+    padding-top: 1rem;
+    border-top: 1px solid #edf2f7;
+    border-left: 0;
+  }
+}
+
 @media (max-width: 639px) {
   .tp-page-head {
     align-items: flex-start;
@@ -1131,14 +1371,61 @@ function TenantDashboardPage() {
     void load();
   }
  
+  const currentGreeting = greeting();
+  const firstName = readTenantFirstName();
+  const isEvening = currentGreeting.toLowerCase().includes("evening");
+  const GreetingIcon = isEvening ? Moon : Sun;
+  const leaseVisualStatus =
+    lease?.status === "active"
+      ? { label: "Active", className: "tp-pill--good" }
+      : lease?.status === "upcoming" || lease?.status === "pending"
+        ? { label: lease.status === "pending" ? "Pending" : "Upcoming", className: "tp-pill--wait" }
+        : lease?.status === "ended"
+          ? { label: "Ended", className: "tp-pill--mute" }
+          : lease?.status === "terminated"
+            ? { label: "Terminated", className: "tp-pill--bad" }
+            : { label: "Inactive", className: "tp-pill--mute" };
+
   return (
     <TenantDashboardLayout
-      title={`${greeting()}, ${readTenantFirstName()}`}
-      subtitle={
-        residence
-          ? `${residence} — everything about your home in one place.`
-          : "Everything about your home in one place."
+      title={
+        <div className="td-welcome">
+          <div className="td-welcome__main">
+            <div className="td-welcome__copy">
+              <p className="td-welcome__greeting">
+                {currentGreeting}, {firstName}
+              </p>
+              <p className="td-welcome__residence">
+                {residence || "Your home"}
+              </p>
+            </div>
+            <span className="td-welcome__avatar" aria-hidden="true">
+              {firstName.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="td-welcome__weather" aria-hidden="true">
+              <GreetingIcon />
+            </span>
+          </div>
+          <p className="td-welcome__tagline">
+            Everything about your home in one place.
+          </p>
+          <div className="td-welcome__stats" aria-label="Quick home status">
+            <span>
+              <i className={leaseVisualStatus.className} />
+              Lease: {leaseVisualStatus.label}
+            </span>
+            <span>
+              <i className="td-stat__dot td-stat__dot--blue" />
+              Rent: {rent?.amount_due && toNumber(rent.amount_due) > 0 ? "Due" : "Up to date"}
+            </span>
+            <span>
+              <i className="td-stat__dot td-stat__dot--grey" />
+              Next inspection: —
+            </span>
+          </div>
+        </div>
       }
+      subtitle={undefined}
       unreadNotifications={unread}
       openRequests={openRequests.length}
       actions={
@@ -1296,9 +1583,7 @@ function TenantDashboardPage() {
                     <Phone aria-hidden="true" /> {home.manager_phone}
                   </a>
                 )}
-                <Link to="/tenant/home" className="tp-btn tp-btn--link">
-                  My home
-                </Link>
+                <span className="td-manager__note">Property support</span>
               </div>
             </article>
           )}
