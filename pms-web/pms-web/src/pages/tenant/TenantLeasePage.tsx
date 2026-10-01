@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
 import { apiRequest, downloadFile } from "../../services/api";
 import {
-  BadgeCheck,
+  ArrowRight,\n  BadgeCheck,
   CheckCircle2,
   Clock,
   FileSignature,
@@ -256,6 +256,19 @@ const styles = `
   .tl-summary__timeline{grid-template-columns:1fr!important}
   .tl-summary__timeline dd{white-space:normal!important}
 }
+
+.tl-complete{display:flex!important;flex-direction:column!important;gap:1.1rem!important;padding:1.45rem 1.5rem!important;background:linear-gradient(135deg,#ffffff 0%,#F8FBFF 62%,#EFF6FF 100%)!important;border:1px solid #D9E8F5!important}
+.tl-complete__copy{text-align:center!important}
+.tl-complete__copy h2{margin:0;color:#0F172A;font-size:1.15rem;font-weight:750;letter-spacing:-.02em}
+.tl-complete__copy p{max-width:42rem;margin:.45rem auto 0;color:#64748B;font-size:.78rem;line-height:1.55}
+.tl-complete__download{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:3.25rem;padding:.75rem 1rem;border:1px solid #BFD5E8;border-radius:.75rem;background:linear-gradient(90deg,#fff 0%,#F8FBFF 100%);color:#1D4ED8;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px -22px rgba(37,99,235,.5);transition:transform 180ms ease,box-shadow 180ms ease,background 180ms ease,border-color 180ms ease}
+.tl-complete__download-main{display:flex;align-items:center;gap:.65rem;min-width:0}
+.tl-complete__download-main svg{width:1rem;height:1rem;flex:none}
+.tl-complete__download>svg{width:1rem;height:1rem;flex:none;transition:transform 180ms ease}
+.tl-complete__download:hover:not(:disabled),.tl-complete__download:focus-visible{transform:translateY(-1px);background:linear-gradient(90deg,#fff 0%,#EFF6FF 100%);border-color:#9FC4E4;box-shadow:0 14px 28px -20px rgba(37,99,235,.45)}
+.tl-complete__download:hover:not(:disabled)>svg,.tl-complete__download:focus-visible>svg{transform:translateX(4px)}
+.tl-complete__download:disabled{cursor:wait;opacity:.7}
+@media(prefers-reduced-motion:reduce){.tl-complete__download,.tl-complete__download>svg{transition:none}}
 `;
 
 /* ------------------------------------------------------------------ */
@@ -624,6 +637,7 @@ function TenantLeasePage() {
           </div>
         ) : (
           <>
+            <section className="tp-card tl-summary" aria-label="Lease agreement overview">
               <div className="tl-summary__head">
                 <div className="tl-summary__heading">
                   <h2 className="tl-summary__title">Lease agreement</h2>
@@ -728,14 +742,17 @@ function TenantLeasePage() {
             )}
 
             {downloadReady && (
-              <section className="tl-download" aria-label="Completed signed lease">
-                <div>
-                  <strong>Signed lease complete</strong>
-                  <p className="tl-hint">Both parties have signed and the deposit has been confirmed. Keep an offline copy of the completed agreement.</p>
+              <section className="tp-card tl-complete" aria-label="Completed signed lease">
+                <div className="tl-complete__copy">
+                  <h2>Signed lease complete</h2>
+                  <p>Both parties have signed and the deposit has been confirmed. Keep an offline copy of the completed agreement.</p>
                 </div>
-                <button type="button" className="tp-btn tp-btn--primary" disabled={downloading} onClick={handleDownload}>
-                  {downloading ? <Loader2 className="tl-spin" /> : <FileText />}
-                  Download signed copy
+                <button type="button" className="tl-complete__download" disabled={downloading} onClick={handleDownload}>
+                  <span className="tl-complete__download-main">
+                    {downloading ? <Loader2 className="tl-spin" /> : <FileText />}
+                    <span>Download Signed Lease Copy</span>
+                  </span>
+                  <ArrowRight />
                 </button>
               </section>
             )}
