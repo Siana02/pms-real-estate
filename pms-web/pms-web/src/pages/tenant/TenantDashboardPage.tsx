@@ -591,57 +591,298 @@ const styles = `
   vertical-align: middle;
 }
  
-/* ---------- vacancies ---------- */
+/* ---------- property discovery ---------- */
+.td-discovery-head {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:end;
+  gap:1.5rem;
+  margin-bottom:1rem;
+}
+
+.td-discovery-head__copy { min-width:0; }
+
+.td-discovery-head .tp-section__title {
+  margin:0;
+  color:#20384d;
+  font-family:Georgia, "Times New Roman", serif;
+  font-size:clamp(1.45rem,2.2vw,1.85rem);
+  font-weight:700;
+  letter-spacing:-.035em;
+  line-height:1.12;
+}
+
+.td-discovery-head .tp-section__sub {
+  max-width:38rem;
+  margin:.45rem 0 0;
+  color:#7a8994;
+  font-size:.8rem;
+  line-height:1.55;
+}
+
+.td-discovery-browse {
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  flex:none;
+  padding:.45rem 0 .38rem;
+  border:0;
+  border-bottom:1px solid #b9cddd;
+  background:transparent;
+  color:#486b88;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.035em;
+  text-decoration:none;
+  transition:color 180ms ease,border-color 180ms ease,transform 180ms ease;
+}
+
+.td-discovery-browse svg { width:.8rem; height:.8rem; transition:transform 180ms ease; }
+
+.td-discovery-browse:hover,
+.td-discovery-browse:focus-visible {
+  color:#1f6090;
+  border-bottom-color:#6e9fc4;
+  transform:translateY(-1px);
+}
+
+.td-discovery-browse:hover svg { transform:translateX(3px); }
+
+.td-discovery-browse:focus-visible {
+  outline:2px solid #60a5fa;
+  outline-offset:4px;
+  border-radius:2px;
+}
+
 .td-vacancies {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-  gap: 0.875rem;
+  display:flex;
+  flex-direction:column;
+  gap:.7rem;
 }
- 
+
 .td-vacancy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.9375rem;
-  border-radius: var(--tp-r-md);
-  border: 1px solid var(--tp-line);
-  background: var(--tp-surface);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease,
-    transform 0.18s ease;
+  position:relative;
+  display:grid;
+  grid-template-columns:4.25rem minmax(0,1fr) minmax(9rem,auto) auto;
+  align-items:center;
+  gap:1.15rem;
+  min-height:6.8rem;
+  padding:1rem 1.15rem 1rem 1rem;
+  overflow:hidden;
+  border:1px solid #dfe8ef;
+  border-radius:1.15rem;
+  background:
+    radial-gradient(circle at 7% 50%, rgba(111,157,198,.075), transparent 22%),
+    linear-gradient(100deg,#fff,#fbfcfa);
+  box-shadow:0 7px 24px -20px rgba(16,42,67,.38);
+  transition:transform 300ms cubic-bezier(.22,1,.36,1),box-shadow 300ms ease,border-color 220ms ease;
 }
- 
+
+.td-vacancy::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.55),rgba(255,255,255,0));
+  transform:translateX(-120%);
+  transition:transform 600ms cubic-bezier(.22,1,.36,1);
+}
+
 .td-vacancy:hover {
-  border-color: #c7dbff;
-  box-shadow: var(--tp-shadow-md);
-  transform: translateY(-1px);
+  border-color:#c5d8e7;
+  box-shadow:0 18px 36px -25px rgba(16,42,67,.42),0 0 22px rgba(96,165,250,.055);
+  transform:translateY(-2px);
 }
- 
-.td-vacancy__name { margin: 0; font-size: 0.9375rem; font-weight: 600; }
- 
+
+.td-vacancy:hover::after { transform:translateX(120%); }
+
+.td-vacancy__anchor {
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:4.25rem;
+  height:4.25rem;
+  border:1px solid #d8e5ee;
+  border-radius:1rem;
+  background:linear-gradient(145deg,#f1f7fb,#fff);
+  color:#6588a5;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+.td-vacancy__anchor::before,
+.td-vacancy__anchor::after {
+  content:"";
+  position:absolute;
+  border:1px solid currentColor;
+  opacity:.42;
+}
+
+.td-vacancy__anchor::before {
+  width:1.85rem;
+  height:1.85rem;
+  border-radius:.18rem;
+}
+
+.td-vacancy__anchor::after {
+  width:.62rem;
+  height:.62rem;
+  left:calc(50% - .31rem);
+  bottom:1.05rem;
+  background:#f1f7fb;
+}
+
+.td-vacancy__anchor svg {
+  position:relative;
+  z-index:1;
+  width:1rem;
+  height:1rem;
+  opacity:.82;
+}
+
+.td-vacancy__body,
+.td-vacancy__price,
+.td-vacancy__link { position:relative; z-index:1; }
+
+.td-vacancy__name {
+  margin:0;
+  color:#233b50;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:1.05rem;
+  font-weight:700;
+  letter-spacing:-.02em;
+  line-height:1.2;
+}
+
 .td-vacancy__meta {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--tp-muted);
+  margin:.32rem 0 0;
+  color:#748594;
+  font-size:.74rem;
+  line-height:1.45;
 }
- 
+
+.td-vacancy__context {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:.35rem .55rem;
+  margin-top:.5rem;
+  color:#8a98a3;
+  font-size:.66rem;
+  letter-spacing:.02em;
+}
+
+.td-vacancy__context span + span::before {
+  content:"•";
+  margin-right:.55rem;
+  color:#b5c1c9;
+}
+
+.td-vacancy__badge {
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  margin-top:.48rem;
+  padding:.27rem .55rem;
+  border:1px solid #d8e7dc;
+  border-radius:999px;
+  background:#f4faf5;
+  color:#477054;
+  font-size:.62rem;
+  font-weight:700;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+
+.td-vacancy__badge-dot {
+  width:.34rem;
+  height:.34rem;
+  border-radius:50%;
+  background:#69a879;
+  box-shadow:0 0 0 3px rgba(105,168,121,.1);
+}
+
+.td-vacancy__price {
+  display:flex;
+  align-items:baseline;
+  justify-content:flex-end;
+  gap:.35rem;
+  white-space:nowrap;
+}
+
 .td-vacancy__rent {
-  margin: 0.125rem 0 0;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  margin:0;
+  color:#1d2f3f;
+  font-size:1.22rem;
+  font-weight:750;
+  letter-spacing:-.035em;
 }
- 
+
+.td-vacancy__per {
+  color:#8a969e;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:.72rem;
+  font-style:italic;
+  font-weight:400;
+}
+
 .td-vacancy__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--tp-blue);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.35rem;
+  min-height:2.15rem;
+  padding:.45rem .7rem;
+  border:1px solid #dce7ef;
+  border-radius:.65rem;
+  color:#426b8b;
+  background:rgba(255,255,255,.72);
+  font-size:.68rem;
+  font-weight:700;
+  text-decoration:none;
+  white-space:nowrap;
+  transition:background 180ms ease,border-color 180ms ease,color 180ms ease,transform 180ms ease;
 }
- 
-.td-vacancy__link svg { width: 0.875rem; height: 0.875rem; }
+
+.td-vacancy__link svg { width:.78rem; height:.78rem; transition:transform 180ms ease; }
+
+.td-vacancy__link:hover {
+  border-color:#b9d2e5;
+  background:#fff;
+  color:#1f5f8f;
+  transform:translateY(-1px);
+}
+
+.td-vacancy__link:hover svg { transform:translateX(2px); }
+
+@media (max-width: 760px) {
+  .td-discovery-head { align-items:start; }
+  .td-vacancy {
+    grid-template-columns:3.5rem minmax(0,1fr) auto;
+    gap:.85rem;
+    padding:.9rem;
+  }
+  .td-vacancy__anchor { width:3.5rem; height:3.5rem; }
+  .td-vacancy__price { grid-column:2; justify-content:flex-start; margin-top:-.1rem; }
+  .td-vacancy__link { grid-column:3; grid-row:2; }
+}
+
+@media (max-width: 520px) {
+  .td-discovery-head {
+    grid-template-columns:1fr;
+    gap:.65rem;
+  }
+  .td-discovery-browse { justify-self:start; }
+  .td-vacancy {
+    grid-template-columns:3.1rem minmax(0,1fr);
+    gap:.75rem;
+  }
+  .td-vacancy__anchor { width:3.1rem; height:3.1rem; border-radius:.85rem; }
+  .td-vacancy__price,
+  .td-vacancy__link { grid-column:2; }
+  .td-vacancy__link { justify-self:start; }
+}
  
 /* ---------- loading ---------- */
 .td-skeleton-lead { height: 13rem; }
@@ -2110,40 +2351,58 @@ function TenantDashboardPage() {
         {/* ---------- vacancies ---------- */}
         {vacancies.length > 0 && (
           <section className="tp-section" aria-label="Available properties">
-            <div className="tp-section__head">
-              <div>
-                <h2 className="tp-section__title">Looking for another home?</h2>
+            <div className="td-discovery-head">
+              <div className="td-discovery-head__copy">
+                <h2 className="tp-section__title">Explore Available Units</h2>
                 <p className="tp-section__sub">
-                  {vacancies.length} available{" "}
-                  {vacancies.length === 1 ? "unit" : "units"} from the same
-                  management.
+                  {vacancies.length} premium{" "}
+                  {vacancies.length === 1 ? "space" : "spaces"} managed by{" "}
+                  {home?.property_name ?? home?.manager_name ?? "your property manager"}.
                 </p>
               </div>
-              <Link to="/tenant/vacancies" className="tp-btn tp-btn--link">
-                Browse all
+              <Link to="/tenant/vacancies" className="td-discovery-browse">
+                Browse All Units <ArrowRight />
               </Link>
             </div>
  
             <div className="td-vacancies">
               {vacancies.slice(0, 3).map((vacancy) => (
                 <article className="td-vacancy" key={String(vacancy.id)}>
-                  <h3 className="td-vacancy__name">
-                    {vacancy.property_name ?? "Available unit"}
-                  </h3>
-                  <p className="td-vacancy__meta">
-                    {[vacancy.unit_type, vacancy.unit_number, vacancy.city]
-                      .filter(Boolean)
-                      .join(" · ") || "Details on request"}
-                  </p>
-                  <p className="td-vacancy__rent tp-money">
-                    {money(vacancy.monthly_rent, currency)}
-                    <span className="td-vacancy__meta"> /month</span>
-                  </p>
+                  <span className="td-vacancy__anchor" aria-hidden="true">
+                    <Building2 />
+                  </span>
+
+                  <div className="td-vacancy__body">
+                    <h3 className="td-vacancy__name">
+                      {vacancy.property_name ?? "Available unit"}
+                    </h3>
+                    <p className="td-vacancy__meta">
+                      {[vacancy.unit_type, vacancy.unit_number]
+                        .filter(Boolean)
+                        .join(" • ") || "Space details on request"}
+                    </p>
+                    <div className="td-vacancy__context">
+                      {vacancy.city && <span>{vacancy.city}</span>}
+                      <span>Managed residence</span>
+                    </div>
+                    <span className="td-vacancy__badge">
+                      <span className="td-vacancy__badge-dot" aria-hidden="true" />
+                      Available now
+                    </span>
+                  </div>
+
+                  <div className="td-vacancy__price" aria-label="Monthly rent">
+                    <p className="td-vacancy__rent tp-money">
+                      {money(vacancy.monthly_rent, currency)}
+                    </p>
+                    <span className="td-vacancy__per">/ month</span>
+                  </div>
+
                   <Link
                     to={`/tenant/vacancies?unit=${vacancy.id}`}
                     className="td-vacancy__link"
                   >
-                    View property
+                    View space
                     <ChevronRight />
                   </Link>
                 </article>
