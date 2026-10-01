@@ -23,6 +23,14 @@ import {
 /* ------------------------------------------------------------------ */
  
 const styles = `
+.mh-page .tp-page-head { justify-content:center; text-align:center; margin-bottom:1.9rem; }
+.mh-page .tp-page-head__content { width:100%; display:flex; justify-content:center; }
+.mh-page .tp-page-head__copy { width:100%; display:flex; flex-direction:column; align-items:center; }
+.mh-page .tp-page-title { color:#102a43 !important; font-size:clamp(2rem,4vw,2.75rem); font-weight:800; letter-spacing:-.055em; line-height:1.05; }
+.mh-page .tp-page-sub { max-width:42rem; margin:.65rem auto 0; color:#526b85 !important; font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:clamp(.95rem,1.6vw,1.08rem); font-weight:500; line-height:1.45; white-space:nowrap; overflow:hidden; width:fit-content; max-width:100%; border-right:1px solid #8aa7c4; animation:mh-type-in 1.25s steps(70,end) .18s both, mh-caret .8s steps(1,end) .18s 2; }
+@keyframes mh-type-in { from { max-width:0; } to { max-width:42rem; } }
+@keyframes mh-caret { 50% { border-color:transparent; } }
+
 .mh-stack {
   display: flex;
   flex-direction: column;
@@ -204,11 +212,11 @@ const styles = `
 }
 
 /* premium My Home refinement */
-.mh-hero{position:relative;gap:1.5rem;padding:1.5rem;overflow:hidden;border-color:#dce7ef;border-radius:1.35rem;background:radial-gradient(circle at 0% 0%,rgba(103,156,201,.08),transparent 28%),linear-gradient(145deg,#fff,#fbfcfa);box-shadow:0 12px 34px -28px rgba(16,42,67,.4)}
-.mh-hero__top{display:flex;align-items:flex-start;justify-content:space-between;gap:1.25rem}.mh-hero__mark{width:3rem;height:3rem;border:1px solid #d7e4ec;border-radius:1rem;background:linear-gradient(145deg,#f1f7fb,#fff);color:#527a99}.mh-hero__name{color:#20384d;font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.45rem,2.5vw,1.85rem);letter-spacing:-.035em}.mh-hero__where{color:#7a8994;font-size:.78rem}.mh-hero__tags{gap:.4rem;margin-top:.65rem}.mh-hero__tags .tp-pill{padding:.3rem .62rem;font-size:.67rem}.mh-hero__tags .tp-pill::before{width:.36rem;height:.36rem}
+.mh-hero{position:relative;gap:1.5rem;padding:1.5rem;overflow:hidden;border-color:#dce7ef;border-radius:1.35rem;background:radial-gradient(circle at 12% 10%,rgba(100,164,211,.2),transparent 30%),linear-gradient(135deg,#f7fbff 0%,#ffffff 48%,#eef7f7 100%);box-shadow:0 12px 34px -28px rgba(16,42,67,.4);transition:transform 220ms cubic-bezier(.22,1,.36,1),box-shadow 240ms ease,border-color 220ms ease}
+.mh-hero:hover{transform:translateY(-4px) scale(1.008);border-color:#c9ddea;box-shadow:0 22px 46px -28px rgba(37,99,235,.28),0 0 26px -18px rgba(92,160,205,.4)}.mh-hero__top{display:flex;align-items:flex-start;justify-content:space-between;gap:1.25rem}.mh-hero__mark{width:3rem;height:3rem;border:1px solid #d7e4ec;border-radius:1rem;background:linear-gradient(145deg,#f1f7fb,#fff);color:#527a99}.mh-hero__id > div{text-align:center}.mh-hero__where{justify-content:center}.mh-hero__tags{justify-content:center}.mh-hero__name{color:#102a43;font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.45rem,2.5vw,1.85rem);letter-spacing:-.035em}.mh-hero__where{color:#7a8994;font-size:.78rem}.mh-hero__tags{gap:.4rem;margin-top:.65rem}.mh-hero__tags .tp-pill{padding:.3rem .62rem;font-size:.67rem}.mh-hero__tags .tp-pill::before{width:.36rem;height:.36rem}
 .mh-hero__assistance{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;flex:none;min-height:2.3rem;padding:0 .8rem;border:1px solid #b9cede;border-radius:.7rem;background:rgba(255,255,255,.72);color:#456a87;font-size:.7rem;font-weight:700;letter-spacing:.025em;text-decoration:none;transition:transform 180ms ease,box-shadow 220ms ease,border-color 180ms ease,color 180ms ease,background 180ms ease}.mh-hero__assistance svg{width:.9rem;height:.9rem}.mh-hero__assistance:hover{border-color:#8eb3cf;background:#fff;color:#245c83;transform:translateY(-1px);box-shadow:0 10px 22px -16px rgba(37,99,235,.4)}
 .mh-facts{grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;padding-top:1.2rem;border-top:1px solid #e8eef3}.mh-facts>div{position:relative;margin:0;padding:.8rem .75rem;border:1px solid transparent;border-radius:.8rem;transition:background 180ms ease,border-color 180ms ease,box-shadow 220ms ease,transform 180ms ease}.mh-facts>div:hover{border-color:#e1ebf2;background:rgba(239,246,251,.58);box-shadow:0 10px 22px -22px rgba(16,42,67,.45);transform:translateY(-1px)}.mh-facts dt{color:#8a99a4;font-size:.61rem;font-weight:700;letter-spacing:.105em;text-transform:uppercase}.mh-facts dd{margin-top:.38rem;color:#243747;font-size:1.08rem;font-weight:720}.mh-facts dd.mh-fact__soft{color:#81909a;font-family:Georgia,"Times New Roman",serif;font-size:.88rem;font-style:italic;font-weight:400;letter-spacing:0}
-@media(max-width:760px){.mh-hero__top{flex-direction:column}.mh-hero__assistance{align-self:flex-start}.mh-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mh-hero{padding:1.15rem}.mh-facts{gap:.35rem}.mh-facts>div{padding:.7rem .6rem}.mh-facts dd{font-size:.96rem}}@media(prefers-reduced-motion:reduce){.mh-facts>div,.mh-hero__assistance{transition:none}}
+@media(max-width:760px){.mh-page .tp-page-sub{white-space:normal;overflow:visible;width:auto;max-width:36rem;border-right:0;animation:none}.mh-hero__top{flex-direction:column}.mh-hero__assistance{align-self:flex-start}.mh-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mh-hero{padding:1.15rem}.mh-facts{gap:.35rem}.mh-facts>div{padding:.7rem .6rem}.mh-facts dd{font-size:.96rem}}@media(prefers-reduced-motion:reduce){.mh-page .tp-page-sub{animation:none;border-right:0}.mh-facts>div,.mh-hero,.mh-hero__assistance{transition:none}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -354,6 +362,7 @@ function MyHomePage() {
  
   return (
     <TenantDashboardLayout
+      pageClassName="mh-page"
       title="My home"
       subtitle="Everything you need regarding your space, lease agreements, and care requests."
 
