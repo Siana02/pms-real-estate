@@ -259,18 +259,33 @@ public function usernameAvailable(Request $request)
 
    public function login(Request $request)
 {
-    $credentials = $request->validate([
-        'login' => ['required', 'string'],
+    // Accept the canonical "login" field and the legacy/alternate
+    // "username" field so older clients cannot accidentally bypass
+    // username authentication.
+    $validated = $request->validate([
+        'login' => ['nullable', 'string'],
+        'username' => ['nullable', 'string'],
         'password' => ['required', 'string'],
     ]);
 
-    $login = strtolower(trim($credentials['login']));
+    $identity = trim((string) ($validated['login'] ?? $validated['username'] ?? ''));
 
-    $user = User::whereRaw('LOWER(email) = ?', [$login])
-        ->orWhereRaw('LOWER(username) = ?', [$login])
+    if ($identity === '') {
+        return response()->json([
+            'message' => 'Username or email is required.',
+        ], 422);
+    }
+
+    $login = mb_strtolower($identity, 'UTF-8');
+
+    $user = User::query()
+        ->where(function ($query) use ($login) {
+            $query->whereRaw('LOWER(TRIM(email)) = ?', [$login])
+                ->orWhereRaw('LOWER(TRIM(username)) = ?', [$login]);
+        })
         ->first();
 
-    if (!$user || !Hash::check($credentials['password'], $user->password)) {
+    if (!$user || !Hash::check($validated['password'], $user->password)) {
         return response()->json([
             'message' => 'Invalid username/email or password.',
         ], 401);
