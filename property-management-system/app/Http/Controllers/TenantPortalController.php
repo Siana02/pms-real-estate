@@ -611,9 +611,38 @@ class TenantPortalController extends Controller
         // relationships as a fallback so the portal never renders blank tenancy
         // details merely because an older/pending lease row is incomplete.
         $tenant = $lease->tenant;
-        $organization = $tenant?->organization ?? $lease->organization;
-        $property = $lease->property ?? $tenant?->property;
-        $unit = $lease->unit ?? $tenant?->unit;
+
+        // Resolve the canonical tenancy from the lease foreign keys first.
+        // This is important for self-registered/pending leases: the selected
+        // organization, property and unit already exist when registration
+        // succeeds, even if an older Eloquent relationship is not hydrated
+        // or the lease snapshot is incomplete.
+        $organization = $tenant?->organization
+            ?? Organization::find($lease->organization_id);
+
+        $property = $lease->property;
+        if ($property === null && $lease->property_id !== null) {
+            $property = Property::whereKey($lease->property_id)
+                ->where('organization_id', $organization?->id ?? $tenant?->organization_id)
+                ->first();
+        }
+        if ($property === null) {
+            $property = $tenant?->property;
+        }
+
+        $unit = $lease->unit;
+        if ($unit === null && $lease->unit_id !== null) {
+            $unit = Unit::whereKey($lease->unit_id)
+                ->whereHas('property', function ($query) use ($organization) {
+                    if ($organization?->id !== null) {
+                        $query->where('organization_id', $organization->id);
+                    }
+                })
+                ->first();
+        }
+        if ($unit === null) {
+            $unit = $tenant?->unit;
+        }
 
         // Unit rent is the source of truth for a newly requested tenancy.
         // The lease stores the contractual snapshot, but if a legacy pending
@@ -788,6 +817,16 @@ class TenantPortalController extends Controller
             ? $lease->payments()->orderByDesc('payment_date')->orderByDesc('id')->get()
             : collect();
         $monthlyRent = (float) ($lease->monthly_rent ?? 0);
+        if ($monthlyRent <= 0 && $lease?->unit?->monthly_rent !== null) {
+            $monthlyRent = (float) $lease->unit->monthly_rent;
+        }
+        if ($monthlyRent <= 0 && $tenant->unit_id) {
+            $unit = Unit::find($tenant->unit_id);
+            if ($unit?->monthly_rent !== null) {
+                $monthlyRent = (float) $unit->monthly_rent;
+            }
+        }
+
         $now = CarbonImmutable::now();
 
         if ($lease?->status === 'pending') {
