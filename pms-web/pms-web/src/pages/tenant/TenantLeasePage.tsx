@@ -228,9 +228,14 @@ function asAgreement(payload: unknown): Agreement | null {
 
   const record = payload as Record<string, unknown>;
   const data =
+  const firstData =
     record.data && typeof record.data === "object"
       ? (record.data as Record<string, unknown>)
       : record;
+  const source =
+    firstData.data && typeof firstData.data === "object"
+      ? (firstData.data as Record<string, unknown>)
+      : firstData;
 
   // Laravel endpoints return the lease inside { data: ... }. Normalize the
   // response here instead of relying on a TypeScript cast, so the page always
@@ -263,6 +268,19 @@ function asAgreement(payload: unknown): Agreement | null {
       ? source.deposit as Record<string, unknown>
       : null;
 
+  const objectOrNull = (value: unknown) =>
+    value && typeof value === "object" ? value as Record<string, unknown> : null;
+
+  const organization = objectOrNull(source.organization);
+  const property = objectOrNull(source.property);
+  const unit = objectOrNull(source.unit);
+  const tenant = objectOrNull(source.tenant);
+  const deposit = objectOrNull(source.deposit);
+
+  // Normalize the exact fields rendered by this page. Laravel numeric fields
+  // may arrive as strings, while some older API responses may omit a field.
+  // Keep nulls as null rather than turning missing values into misleading
+  // zeroes; the UI can then distinguish missing data from a real KSh 0 value.
   return {
     ...source,
     organization: organization
@@ -294,6 +312,7 @@ function asAgreement(payload: unknown): Agreement | null {
           tenant_marked_paid_at: deposit.tenant_marked_paid_at == null
             ? null
             : String(deposit.tenant_marked_paid_at),
+          tenant_marked_paid_at: deposit.tenant_marked_paid_at == null ? null : String(deposit.tenant_marked_paid_at),
         }
       : null,
     tenant: tenant
