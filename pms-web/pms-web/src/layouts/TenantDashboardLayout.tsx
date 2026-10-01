@@ -737,6 +737,13 @@ const styles = `
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Centered lease page header */
+.tp-content.tl-page .tp-page-head{justify-content:center!important;text-align:center!important;align-items:center!important}
+.tp-content.tl-page .tp-page-head__content{width:100%!important;justify-content:center!important}
+.tp-content.tl-page .tp-page-head__copy{width:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important}
+.tp-content.tl-page .tp-page-title{color:#0F172A!important;font-size:clamp(1.75rem,3vw,2.15rem)!important;font-weight:750!important;letter-spacing:-.035em!important}
+.tp-content.tl-page .tp-page-sub{max-width:34rem!important;margin:.5rem auto 0!important;color:#64748B!important;font-size:.9rem!important}
 `;
  
 /* ------------------------------------------------------------------ */
