@@ -563,6 +563,7 @@ function TenantLeasePage() {
     <TenantDashboardLayout
       title="Lease agreement"
       subtitle="Review, edit your copy and sign your digital lease."
+      pageClassName="tl-page"
     >
       <style>{styles}</style>
 
