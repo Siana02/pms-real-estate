@@ -294,6 +294,172 @@ const styles = `
 }
  
 /* ---------- notifications ---------- */
+
+.td-activity-see-all {
+  display:inline-flex;
+  align-items:center;
+  gap:.25rem;
+  color:#7890a7;
+  font-size:.72rem;
+  font-weight:650;
+  text-decoration:none;
+  opacity:.82;
+  transition:color 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+.td-activity-see-all svg { width:.8rem; height:.8rem; transition:transform 180ms ease; }
+.td-activity-see-all:hover { color:#28689c; opacity:1; transform:translateX(1px); }
+.td-activity-see-all:hover svg { transform:translateX(2px); }
+.td-activity-see-all:focus-visible { outline:2px solid #60a5fa; outline-offset:3px; border-radius:4px; }
+
+/* ---------- recent activity empty state ---------- */
+.td-activity-empty {
+  position:relative;
+  overflow:hidden;
+  min-height:15rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:2rem;
+  border-radius:1.35rem;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(244,213,145,.13), transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(126,168,211,.09), transparent 58%),
+    #fff;
+  box-shadow:0 4px 20px rgba(0,0,0,.02);
+  transition:transform 420ms cubic-bezier(.22,1,.36,1), box-shadow 420ms ease, border-color 320ms ease;
+}
+
+.td-activity-empty::before {
+  content:"";
+  position:absolute;
+  inset:14%;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(245,215,157,.08), transparent 68%);
+  filter:blur(18px);
+  pointer-events:none;
+}
+
+.td-activity-empty:hover {
+  transform:perspective(900px) rotateX(.7deg) rotateY(-.7deg) translateY(-4px);
+  box-shadow:0 20px 40px rgba(0,0,0,.055), 0 0 28px rgba(56,189,248,.055);
+}
+
+.td-activity-empty__inner {
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  max-width:38rem;
+  text-align:center;
+}
+
+.td-activity-empty__icon {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:3.75rem;
+  height:3.75rem;
+  margin-bottom:1rem;
+  border:1px solid rgba(255,255,255,.78);
+  border-radius:1.15rem;
+  background:linear-gradient(145deg, rgba(255,255,255,.82), rgba(245,239,221,.54));
+  color:#a98245;
+  box-shadow:0 10px 24px rgba(93,72,38,.07), inset 0 1px 0 rgba(255,255,255,.9);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  animation:td-bell-float 4s ease-in-out infinite;
+  transition:transform 320ms cubic-bezier(.22,1,.36,1), box-shadow 320ms ease;
+}
+
+.td-activity-empty:hover .td-activity-empty__icon {
+  transform:translate(3px,-2px) scale(1.035);
+  box-shadow:0 14px 28px rgba(93,72,38,.09), 0 0 18px rgba(214,176,101,.13);
+}
+
+.td-activity-empty__icon svg { width:1.35rem; height:1.35rem; }
+
+.td-activity-empty__title {
+  margin:0;
+  color:#20384d;
+  font-size:1.22rem;
+  font-weight:720;
+  letter-spacing:-.025em;
+}
+
+.td-activity-empty__text {
+  max-width:31rem;
+  margin:.55rem 0 0;
+  color:#78878a;
+  font-size:.84rem;
+  line-height:1.65;
+}
+
+.td-activity-empty__actions {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:.5rem;
+  margin-top:1.2rem;
+}
+
+.td-activity-pill {
+  display:inline-flex;
+  align-items:center;
+  gap:.3rem;
+  min-height:2rem;
+  padding:.45rem .7rem;
+  border:1px solid #e1e9ef;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  color:#4c6d89;
+  font-size:.7rem;
+  font-weight:650;
+  text-decoration:none;
+  box-shadow:0 4px 12px rgba(16,42,67,.025);
+  transition:transform 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.td-activity-pill svg { width:.75rem; height:.75rem; transition:transform 180ms ease; }
+
+.td-activity-pill:hover {
+  transform:translateY(-1px);
+  border-color:#b9d3e9;
+  background:#fff;
+  color:#245d8d;
+  box-shadow:0 7px 16px rgba(37,99,235,.07), 0 0 12px rgba(56,189,248,.06);
+}
+
+.td-activity-pill:hover svg { transform:translateX(2px); }
+
+.td-activity-pill:focus-visible {
+  outline:2px solid #60a5fa;
+  outline-offset:3px;
+}
+
+@keyframes td-bell-float {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-2px); }
+}
+
+.td-activity-empty + .td-feed { animation:td-activity-in .62s cubic-bezier(.22,1,.36,1) .2s both; }
+
+@keyframes td-activity-in {
+  from { opacity:0; transform:translateY(14px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.td-dashboard-page .tp-section:nth-of-type(3) .td-activity-empty {
+  animation:td-activity-in .7s cubic-bezier(.22,1,.36,1) .2s both;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .td-activity-empty,
+  .td-activity-empty__icon,
+  .td-activity-pill { transition:none; animation:none; }
+  .td-activity-empty:hover { transform:none; }
+}
+
 .td-feed {
   display: flex;
   flex-direction: column;
@@ -1820,23 +1986,37 @@ function TenantDashboardPage() {
                 Payments, repairs and messages from your property manager.
               </p>
             </div>
-            <Link to="/tenant/notifications" className="tp-btn tp-btn--link">
-              See all
+            <Link to="/tenant/notifications" className="td-activity-see-all">
+              See all <ArrowRight />
             </Link>
           </div>
  
           {loading ? (
             <span className="tp-skeleton td-skeleton-tile" />
           ) : notifications.length === 0 ? (
-            <div className="tp-card tp-empty">
-              <span className="tp-empty__icon">
-                <Bell />
-              </span>
-              <h3 className="tp-empty__title">Nothing new</h3>
-              <p className="tp-empty__text">
-                Payment receipts, maintenance updates and announcements from
-                your property manager will appear here.
-              </p>
+            <div className="tp-card td-activity-empty">
+              <div className="td-activity-empty__inner">
+                <span className="td-activity-empty__icon" aria-hidden="true">
+                  <Bell />
+                </span>
+                <h3 className="td-activity-empty__title">All caught up!</h3>
+                <p className="td-activity-empty__text">
+                  Your home is quiet right now. Payment receipts, maintenance
+                  updates and messages will appear here when there is something
+                  new for you.
+                </p>
+                <div className="td-activity-empty__actions" aria-label="Quick actions">
+                  <Link to="/tenant/payments" className="td-activity-pill">
+                    Make a payment <ArrowRight />
+                  </Link>
+                  <Link to="/tenant/maintenance?action=new" className="td-activity-pill">
+                    Request maintenance <ArrowRight />
+                  </Link>
+                  <Link to="/tenant/lease" className="td-activity-pill">
+                    Check lease <ArrowRight />
+                  </Link>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="tp-card">
