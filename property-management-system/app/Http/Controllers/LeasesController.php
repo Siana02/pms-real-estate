@@ -17,6 +17,8 @@ class LeasesController extends Controller
     {
         $leases = Leases::where('organization_id', $request->user()->organization_id)
             ->with(['property', 'unit', 'tenant', 'deposit.tenant'])
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'upcoming' THEN 1 WHEN status = 'active' THEN 2 ELSE 3 END")
+            ->orderByDesc('id')
             ->get();
 
         // A lease is assigned when its canonical lease/deposit record identifies
@@ -186,7 +188,19 @@ class LeasesController extends Controller
                 (array_key_exists('manager_terms', $validated)
                     && $validated['manager_terms'] !== $lease->manager_terms);
 
-            $tenantSignatureReset = $authoritativeChanged && $lease->tenant_signed_at !== null;
+            $isNormalPendingConfirmation =
+                $lease->status === 'pending' &&
+                $lease->tenant_signed_at !== null &&
+                $startDate === $lease->requested_move_in_date?->toDateString() &&
+                $endDate === $lease->requested_move_out_date?->toDateString() &&
+                (float) ($validated['monthly_rent'] ?? $lease->monthly_rent) === (float) $lease->monthly_rent &&
+                (float) ($validated['deposit_amount'] ?? $lease->deposit_amount) === (float) $lease->deposit_amount &&
+                (!array_key_exists('manager_terms', $validated) || $validated['manager_terms'] === $lease->manager_terms);
+
+            $tenantSignatureReset =
+                $authoritativeChanged &&
+                $lease->tenant_signed_at !== null &&
+                ! $isNormalPendingConfirmation;
 
             $managerTerms = $validated['manager_terms'] ?? $lease->manager_terms;
             $tenantTerms = $lease->tenant_terms;

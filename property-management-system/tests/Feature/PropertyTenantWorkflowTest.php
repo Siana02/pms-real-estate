@@ -62,6 +62,37 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame('unpaid', $lease->deposit->status);
     }
 
+    public function test_self_registered_tenant_lease_portal_populates_selected_organization_property_unit_rent_and_deposit(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'name' => 'Portal Tenant',
+            'email' => 'portal-tenant@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $token = $registration->json('token');
+
+        $this->withToken($token)
+            ->getJson('/api/tenant/lease-agreement')
+            ->assertOk()
+            ->assertJsonPath('data.organization.id', $organization->id)
+            ->assertJsonPath('data.organization.name', $organization->name)
+            ->assertJsonPath('data.property.id', $property->id)
+            ->assertJsonPath('data.property.name', $property->name)
+            ->assertJsonPath('data.unit.id', $unit->id)
+            ->assertJsonPath('data.unit.unit_number', $unit->unit_number)
+            ->assertJsonPath('data.monthly_rent', '25000.00')
+            ->assertJsonPath('data.deposit_amount', '25000.00');
+    }
+
     public function test_registration_rejects_a_property_or_unit_outside_the_selected_relationship(): void
     {
         [$organization, $property] = $this->createPropertyInventory();
@@ -507,6 +538,43 @@ class PropertyTenantWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('user.role', 'admin');
     }
 
+    public function test_self_registered_pending_lease_is_visible_in_manager_lease_register(): void
+    {
+        [$organization, $property, $unit] = $this->createPropertyInventory();
+
+        $registration = $this->postJson('/api/register', [
+            'role' => 'tenant',
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'requested_move_in_date' => now()->addMonth()->toDateString(),
+            'requested_move_out_date' => now()->addYear()->toDateString(),
+            'name' => 'Visible Tenant',
+            'email' => 'visible@example.test',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Lease Manager',
+            'username' => 'lease-register-manager',
+            'email' => 'lease-register-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+
+        $this->withToken($manager->createToken('lease-register')->plainTextToken)
+            ->getJson('/api/leases')
+            ->assertOk()
+            ->assertJsonFragment([
+                'status' => 'pending',
+                'tenant_id' => Tenant::where('email', 'visible@example.test')->value('id'),
+                'property_id' => $property->id,
+                'unit_id' => $unit->id,
+            ]);
+    }
+
     public function test_manager_can_confirm_a_pending_registration_without_duplicating_its_tenant(): void
     {
         [$organization, $property, $unit] = $this->createPropertyInventory();
@@ -580,4 +648,6 @@ class PropertyTenantWorkflowTest extends TestCase
 
         return [$organization, $property, $unit];
     }
+
+
 }

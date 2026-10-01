@@ -49,5 +49,7 @@ Route::middleware(['auth:sanctum', 'role:tenant'])->prefix('tenant')->group(func
     Route::post('leases/{lease}/notice', [TenantPortalController::class, 'submitMoveOutNotice']);
     Route::get('lease-agreement', [TenantPortalController::class, 'leaseAgreement']);
     Route::patch('lease-agreement', [TenantPortalController::class, 'updateLeaseAgreement']);
+    Route::patch('lease-agreement/tenant-details', [TenantPortalController::class, 'updateLeaseTenantDetails']);
+    Route::patch('lease-agreement/end-date', [TenantPortalController::class, 'updateLeaseEndDate']);
     Route::post('deposit/mark-paid', [TenantPortalController::class, 'markDepositPaid']);
 });
