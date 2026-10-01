@@ -379,14 +379,9 @@ class TenantPortalController extends Controller
 
         $updates = [];
         if (array_key_exists('requested_move_in_date', $validated)) {
-            $updates['requested_move_in_date'] = $validated['requested_move_in_date']
-                ? CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString() : null;
             $updates['requested_move_in_date'] = $requestedStart;
         }
         if (array_key_exists('requested_move_out_date', $validated)) {
-            $updates['requested_move_out_date'] = $validated['requested_move_out_date']
-                ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString() : null;
-        }
             $updates['requested_move_out_date'] = $requestedEnd;
         }
 
