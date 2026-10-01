@@ -498,10 +498,107 @@ const styles = `
 .td-stack .td-home__data-row > svg { flex:none; width:1rem; height:1rem; margin-top:.12rem; color:#6f95c3; }
 .td-stack .td-home__data-row dt { margin:0; color:#8292a5; font-size:.66rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
 .td-stack .td-home__data-row dd { margin:.18rem 0 0; color:#102a43; font-size:.9rem; font-weight:650; line-height:1.35; }
-.td-stack .td-home__actions { display:flex; justify-content:flex-end; margin-top:.35rem; padding-top:.9rem; border-top:1px solid #edf2f7; }
-.td-stack .td-home__actions .tp-btn { min-height:2.2rem; padding-inline:.8rem; font-size:.78rem; }
-.td-stack .td-home__actions .tp-btn svg { width:.9rem; height:.9rem; }
+.td-stack .td-home__actions { display:flex; justify-content:center; margin-top:.35rem; padding-top:.9rem; border-top:1px solid #edf2f7; }
+.td-stack .td-home__actions .tp-btn { min-height:2.2rem; min-width:11rem; justify-content:center; padding-inline:1rem; font-size:.78rem; }
 .td-stack .td-manager { margin-top:.75rem; }
+
+/* ------------------------------------------------------------------ */
+/*  DASHBOARD BUTTON MICRO-INTERACTIONS — UI ONLY                    */
+/* ------------------------------------------------------------------ */
+
+.td-dashboard-page .tp-btn {
+  --td-btn-glow: rgba(37, 99, 235, 0.24);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 2px;
+  transition:
+    transform 180ms cubic-bezier(.22,1,.36,1),
+    box-shadow 220ms ease,
+    border-color 180ms ease,
+    background-position 420ms ease,
+    letter-spacing 180ms ease;
+}
+
+.td-dashboard-page .tp-btn::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  z-index: -2;
+  background: linear-gradient(115deg, transparent 28%, rgba(255,255,255,.32) 46%, rgba(125,211,252,.34) 52%, transparent 70%);
+  transform: translateX(-55%) rotate(8deg);
+  transition: transform 520ms cubic-bezier(.22,1,.36,1);
+  pointer-events: none;
+}
+
+.td-dashboard-page .tp-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 var(--td-btn-glow), 0 0 0 0 rgba(56,189,248,.08);
+  transition: box-shadow 220ms ease;
+  pointer-events: none;
+}
+
+.td-dashboard-page .tp-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  letter-spacing: .005em;
+  box-shadow: 0 8px 22px -14px rgba(16,42,67,.42), 0 0 14px -5px var(--td-btn-glow);
+}
+
+.td-dashboard-page .tp-btn:hover:not(:disabled)::before {
+  transform: translateX(55%) rotate(8deg);
+}
+
+.td-dashboard-page .tp-btn:hover:not(:disabled)::after {
+  box-shadow: 0 0 0 1px var(--td-btn-glow), 0 0 18px 1px rgba(56,189,248,.12);
+}
+
+.td-dashboard-page .tp-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(.985);
+  letter-spacing: 0;
+  box-shadow: 0 2px 8px -6px rgba(16,42,67,.45), 0 0 10px -5px var(--td-btn-glow);
+}
+
+.td-dashboard-page .tp-btn:active:not(:disabled)::after {
+  box-shadow: 0 0 0 2px rgba(56,189,248,.22), 0 0 24px 4px rgba(56,189,248,.16);
+  transition-duration: 80ms;
+}
+
+.td-dashboard-page .tp-btn:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 3px;
+}
+
+.td-dashboard-page .tp-btn:disabled {
+  cursor:wait;
+  transform:none;
+}
+
+/* A cleaner neon-blue treatment for the main actions. */
+.td-dashboard-page .tp-btn--primary {
+  --td-btn-glow: rgba(37,99,235,.32);
+  border-color: #3b82f6;
+}
+
+.td-dashboard-page .tp-btn--quiet {
+  --td-btn-glow: rgba(56,189,248,.28);
+}
+
+.td-dashboard-page .tp-btn--link {
+  --td-btn-glow: rgba(37,99,235,.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .td-dashboard-page .tp-btn,
+  .td-dashboard-page .tp-btn::before,
+  .td-dashboard-page .tp-btn::after {
+    transition:none;
+  }
+}
+
 
 @media (max-width:639px) {
   .td-dashboard-page .tp-page-head__content { align-items:flex-start; }
