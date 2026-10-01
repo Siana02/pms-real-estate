@@ -830,8 +830,8 @@ function isActive(pathname: string, to: string): boolean {
  
 interface TenantDashboardLayoutProps {
   children: ReactNode;
-  title: string;
-  subtitle?: string;
+  title: ReactNode;
+  subtitle?: ReactNode;
   actions?: ReactNode;
   unreadNotifications?: number;
   openRequests?: number;
