@@ -3,7 +3,8 @@ import type { FormEvent } from "react";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
 import { apiRequest, downloadFile } from "../../services/api";
 import {
-  ArrowRight,\n  BadgeCheck,
+  ArrowRight,
+  BadgeCheck,
   CheckCircle2,
   Clock,
   FileSignature,
