@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
-import { apiRequest } from "../../services/api";
+import { apiRequest, downloadFile } from "../../services/api";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -127,6 +127,66 @@ const styles = `
   font-size: 0.8125rem;
   color: var(--tp-muted);
   line-height: 1.5;
+}
+.tl-signed-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #bbdec9;
+  border-radius: var(--tp-r-md);
+  background: #f2fbf5;
+}
+.tl-signed-mark__initials {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--tp-ink);
+}
+.tl-signed-mark__stamp {
+  width: fit-content;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #17834b;
+  border-radius: 0.35rem;
+  color: #17834b;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.tl-download {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #bbdec9;
+  border-radius: var(--tp-r-md);
+  background: #f2fbf5;
+}
+.tl-end-date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--tp-line);
+  border-radius: var(--tp-r-md);
+  background: var(--tp-surface-sunken);
+}
+.tl-end-date > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.tl-end-date input {
+  min-width: 12rem;
+  border-radius: var(--tp-r-sm);
+  border: 1px solid var(--tp-line);
+  padding: 0.6rem 0.7rem;
+  font: inherit;
+  color: var(--tp-ink);
+  background: var(--tp-surface);
 }
 
 .tl-sign-row {
@@ -322,6 +382,9 @@ function TenantLeasePage() {
 
   const [markingPaid, setMarkingPaid] = useState(false);
   const [depositMessage, setDepositMessage] = useState("");
+  const [savingEndDate, setSavingEndDate] = useState(false);
+  const [endDateMessage, setEndDateMessage] = useState("");
+  const [downloading, setDownloading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -444,6 +507,57 @@ function TenantLeasePage() {
   const depositConfirmed = deposit?.status === "paid";
   const depositRequired = Number(deposit?.amount_required ?? 0) > 0;
   const depositTenantMarked = Boolean(deposit?.tenant_marked_paid_at);
+  const downloadReady = managerSigned && tenantSigned && (!depositRequired || depositConfirmed);
+
+  useEffect(() => {
+    if (!tenantSigned || downloadReady) return;
+    const interval = window.setInterval(() => {
+      void load();
+    }, 10000);
+    return () => window.clearInterval(interval);
+  }, [tenantSigned, downloadReady, load]);
+
+  async function handleSaveEndDate() {
+    if (!agreement || !managerSigned) return;
+    setSavingEndDate(true);
+    setEndDateMessage("");
+    try {
+      const response = await apiRequest("/tenant/lease-agreement/end-date", {
+        method: "PATCH",
+        body: JSON.stringify({ end_date: requestedEnd || null }),
+      });
+      const parsed = asAgreement(response);
+      if (parsed) {
+        setAgreement(parsed);
+        setRequestedEnd(parsed.end_date ?? "");
+      }
+      setEndDateMessage("Lease end date updated.");
+    } catch (caught) {
+      setEndDateMessage(
+        caught instanceof Error ? caught.message : "Couldn't update the lease end date."
+      );
+    } finally {
+      setSavingEndDate(false);
+    }
+  }
+
+  async function handleDownload() {
+    if (!downloadReady) return;
+    setDownloading(true);
+    setEndDateMessage("");
+    try {
+      await downloadFile(
+        "/tenant/lease-agreement/download",
+        "signed-lease-agreement.html"
+      );
+    } catch (caught) {
+      setEndDateMessage(
+        caught instanceof Error ? caught.message : "Couldn't download the signed lease."
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <TenantDashboardLayout
@@ -539,8 +653,9 @@ function TenantLeasePage() {
               <p className="tl-hint">
                 Property, unit, rent, official dates and deposit terms come from
                 the organization's lease record. You can provide your requested
-                dates and your side of the agreement before signing. Once the
-                manager signs the final version, this lease is locked.
+                dates and your side of the agreement before signing. Once you sign,
+                your agreement copy becomes read-only. After the manager signs,
+                only the lease end date remains editable.
               </p>
             </section>
 
@@ -592,6 +707,37 @@ function TenantLeasePage() {
               </section>
             )}
 
+            {tenantSigned && !managerSigned && (
+              <section className="tl-download" aria-label="Manager confirmation status">
+                <div>
+                  <strong>Your signature is locked.</strong>
+                  <p className="tl-hint">Keep checking — the property manager still needs to review and sign the final agreement.</p>
+                </div>
+              </section>
+            )}
+
+            {managerSigned && !downloadReady && (
+              <section className="tl-download" aria-label="Final lease status">
+                <div>
+                  <strong>Manager signature recorded.</strong>
+                  <p className="tl-hint">Your signed agreement is locked. The download will appear once the deposit is confirmed.</p>
+                </div>
+              </section>
+            )}
+
+            {downloadReady && (
+              <section className="tl-download" aria-label="Completed signed lease">
+                <div>
+                  <strong>Signed lease complete</strong>
+                  <p className="tl-hint">Both parties have signed and the deposit has been confirmed. Keep an offline copy of the completed agreement.</p>
+                </div>
+                <button type="button" className="tp-btn tp-btn--primary" disabled={downloading} onClick={handleDownload}>
+                  {downloading ? <Loader2 className="tl-spin" /> : <FileText />}
+                  Download signed copy
+                </button>
+              </section>
+            )}
+
             <div className="tl-grid">
               <article className="tp-card tl-copy">
                 <div className="tl-copy__head">
@@ -615,6 +761,13 @@ function TenantLeasePage() {
                   readOnly
                   aria-label="Manager's copy of the lease agreement (read-only)"
                 />
+                {managerSigned && (
+                  <div className="tl-signed-mark" aria-label="Manager signature">
+                    <span className="tl-signed-mark__initials">{agreement.manager_signature}</span>
+                    <span className="tl-signed-mark__stamp">SIGNED</span>
+                    <span className="tl-hint">{longDateTime(agreement.manager_signed_at)}</span>
+                  </div>
+                )}
                 <p className="tl-hint">
                   This is your property manager's copy — for reference only,
                   you can't edit it here.
@@ -638,19 +791,45 @@ function TenantLeasePage() {
                         : "Not yet signed"}
                     </span>
                   </div>
-                  <div className="tl-date-card">
-                    <div className="tl-date-card__head"><p className="tl-date-card__title">Your requested lease dates</p><p className="tl-date-card__hint">You choose the dates you are requesting. The manager confirms the official lease dates before the final signature.</p></div>
-                    <div className="tl-date-fields">
-                      <div><label className="tp-label" htmlFor="requested-start">Move-in / lease start</label><input id="requested-start" type="date" value={requestedStart} onChange={(e) => setRequestedStart(e.target.value)} disabled={tenantSigned || leaseLocked} /></div>
-                      <div><label className="tp-label" htmlFor="requested-end">Move-out / lease end</label><input id="requested-end" type="date" value={requestedEnd} onChange={(e) => setRequestedEnd(e.target.value)} disabled={tenantSigned || leaseLocked} /></div>
+                  {!tenantSigned && (
+                    <div className="tl-date-card">
+                      <div className="tl-date-card__head"><p className="tl-date-card__title">Your requested lease dates</p><p className="tl-date-card__hint">You choose the dates you are requesting. The manager confirms the official lease dates before the final signature.</p></div>
+                      <div className="tl-date-fields">
+                        <div><label className="tp-label" htmlFor="requested-start">Move-in / lease start</label><input id="requested-start" type="date" value={requestedStart} onChange={(e) => setRequestedStart(e.target.value)} disabled={leaseLocked} /></div>
+                        <div><label className="tp-label" htmlFor="requested-end">Move-out / lease end</label><input id="requested-end" type="date" value={requestedEnd} onChange={(e) => setRequestedEnd(e.target.value)} disabled={leaseLocked} /></div>
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {leaseLocked && (
+                    <div className="tl-end-date">
+                      <div>
+                        <label className="tp-label" htmlFor="final-lease-end">Lease end date</label>
+                        <input
+                          id="final-lease-end"
+                          type="date"
+                          value={agreement.end_date ?? ""}
+                          onChange={(e) => setRequestedEnd(e.target.value)}
+                        />
+                      </div>
+                      <button type="button" className="tp-btn tp-btn--quiet" disabled={savingEndDate} onClick={handleSaveEndDate}>
+                        {savingEndDate ? <Loader2 className="tl-spin" /> : null}
+                        Save end date
+                      </button>
+                    </div>
+                  )}
                   <textarea
                     value={tenantTerms}
                     onChange={(e) => setTenantTerms(e.target.value)}
                     disabled={tenantSigned || leaseLocked}
                     aria-label="Your copy of the lease agreement"
                   />
+                  {tenantSigned && (
+                    <div className="tl-signed-mark" aria-label="Tenant signature">
+                      <span className="tl-signed-mark__initials">{agreement.tenant_signature}</span>
+                      <span className="tl-signed-mark__stamp">SIGNED</span>
+                      <span className="tl-hint">{longDateTime(agreement.tenant_signed_at)}</span>
+                    </div>
+                  )}
                   <p className="tl-hint">
                     {tenantSigned
                       ? "You have signed this version. It is now with the manager for final review."
@@ -668,30 +847,37 @@ function TenantLeasePage() {
                   </div>
                 </form>
 
-                <form onSubmit={handleSign} className="tl-sign-row">
-                  <label htmlFor="tenant-initials" className="tp-label">
-                    Sign (initials)
-                  </label>
-                  <input
-                    id="tenant-initials"
-                    value={initials}
-                    onChange={(e) => setInitials(e.target.value)}
-                    maxLength={6}
-                    placeholder="e.g. JM"
-                  />
-                  <button
-                    type="submit"
-                    className="tp-btn tp-btn--primary"
-                    disabled={signing || !initials.trim() || tenantSigned || leaseLocked}
-                  >
-                    {signing ? <Loader2 className="tl-spin" /> : <FileSignature />}
-                    Sign
-                  </button>
-                </form>
+                {!tenantSigned && (
+                  <form onSubmit={handleSign} className="tl-sign-row">
+                    <label htmlFor="tenant-initials" className="tp-label">
+                      Sign (initials)
+                    </label>
+                    <input
+                      id="tenant-initials"
+                      value={initials}
+                      onChange={(e) => setInitials(e.target.value)}
+                      maxLength={6}
+                      placeholder="e.g. JM"
+                    />
+                    <button
+                      type="submit"
+                      className="tp-btn tp-btn--primary"
+                      disabled={signing || !initials.trim()}
+                    >
+                      {signing ? <Loader2 className="tl-spin" /> : <FileSignature />}
+                      Sign
+                    </button>
+                  </form>
+                )}
 
                 {termsMessage && (
                   <p className="tl-hint" role="status">
                     {termsMessage}
+                  </p>
+                )}
+                {endDateMessage && (
+                  <p className="tl-hint" role="status">
+                    {endDateMessage}
                   </p>
                 )}
               </article>

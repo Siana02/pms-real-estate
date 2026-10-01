@@ -12,6 +12,7 @@ use App\Models\Leases as Lease;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -336,6 +337,7 @@ class TenantPortalController extends Controller
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
         abort_if($lease->manager_signed_at !== null, 422, 'This lease is locked. Only the lease end date can be changed after final signing.');
+        abort_if($lease->tenant_signed_at !== null, 422, 'Your signed copy is locked. Only the lease end date can be changed after signing.');
 
         $validated = $request->validate([
             'requested_move_in_date' => ['nullable', 'date'],
@@ -429,6 +431,55 @@ class TenantPortalController extends Controller
     }
 
     /**
+     * Download the completed lease as a self-contained offline HTML copy.
+     * The document combines the canonical agreement text with both signed
+     * signature blocks, so the tenant can keep a local copy without relying
+     * on the portal being online.
+     */
+    public function downloadLeaseAgreement(Request $request): Response
+    {
+        $tenant = $this->currentTenant($request);
+        $lease = $this->latestLease($tenant);
+
+        abort_if($lease === null, 404, 'No lease agreement is available yet.');
+        abort_if($lease->manager_signed_at === null || $lease->tenant_signed_at === null, 422, 'The lease must be signed by both parties before it can be downloaded.');
+
+        $deposit = $lease->deposit;
+        $depositRequired = (float) ($deposit?->amount_required ?? $lease->deposit_amount ?? 0) > 0;
+        $depositConfirmed = ! $depositRequired || $deposit?->status === 'paid';
+
+        abort_if(! $depositConfirmed, 422, 'The deposit must be confirmed by the property manager before the signed lease can be downloaded.');
+
+        $lease->loadMissing(['organization', 'property', 'unit', 'tenant', 'deposit']);
+        $organization = $lease->organization;
+        $property = $lease->property;
+        $unit = $lease->unit;
+        $leaseText = $lease->manager_terms ?: $lease->tenant_terms ?: '';
+        $tenantName = trim(($lease->tenant?->first_name ?? '') . ' ' . ($lease->tenant?->last_name ?? ''));
+        $propertyName = $property?->name ?? 'Property';
+        $unitNumber = $unit?->unit_number ?? '—';
+        $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '-', trim($tenantName . '-' . $propertyName . '-' . $unitNumber)) ?: 'signed-lease';
+
+        $html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' .
+            '<meta name="viewport" content="width=device-width,initial-scale=1">' .
+            '<title>Signed Residential Lease Agreement</title>' .
+            '<style>body{font-family:Arial,sans-serif;color:#172033;max-width:820px;margin:40px auto;padding:0 24px;line-height:1.55}h1{font-size:24px;margin-bottom:8px}.meta{color:#5b6578;margin-bottom:28px}.agreement{white-space:pre-wrap;border:1px solid #d8dee8;border-radius:10px;padding:24px;background:#fff}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px}.signature{border:1px solid #d8dee8;border-radius:10px;padding:20px}.initials{font-size:28px;font-weight:700;letter-spacing:.08em}.stamp{display:inline-block;margin-top:10px;padding:4px 9px;border:1px solid #17834b;color:#17834b;font-size:12px;font-weight:700;letter-spacing:.08em}.muted{color:#667085;font-size:13px}@media print{body{margin:0}.agreement,.signature{break-inside:avoid}}</style></head><body>' .
+            '<h1>RESIDENTIAL LEASE AGREEMENT</h1>' .
+            '<div class="meta">' . e((string) ($organization?->name ?? '')) . ' · ' . e($propertyName) . ' · Unit ' . e($unitNumber) . '</div>' .
+            '<div class="agreement">' . nl2br(e($leaseText)) . '</div>' .
+            '<p class="muted"><strong>Current lease end date:</strong> ' . e($lease->end_date?->toDateString() ?? 'Open-ended') . '</p>' .
+            '<div class="signatures">' .
+            '<section class="signature"><div class="muted">Tenant</div><div class="initials">' . e((string) $lease->tenant_signature) . '</div><div class="stamp">SIGNED</div><p class="muted">' . e((string) $lease->tenant_signed_at) . '</p><p>' . e($tenantName) . '</p></section>' .
+            '<section class="signature"><div class="muted">Property Manager / Organization</div><div class="initials">' . e((string) $lease->manager_signature) . '</div><div class="stamp">SIGNED</div><p class="muted">' . e((string) $lease->manager_signed_at) . '</p><p>' . e((string) ($organization?->name ?? '')) . '</p></section>' .
+            '</div></body></html>';
+
+        return response($html, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $safeName . '-signed-lease.html"',
+        ]);
+    }
+
+    /**
      * Store the tenant-entered details and rebuild the same canonical contract
      * shown in both manager and tenant copies before either party signs.
      */
@@ -504,10 +555,21 @@ class TenantPortalController extends Controller
             app(\App\Services\LeaseProvisioner::class)->assertNoOverlap($lease->unit, $startDate, $endDate, $lease->id);
         }
 
-        $lease->update(['end_date' => $endDate]);
+        $status = app(\App\Services\LeaseProvisioner::class)->statusForDates(
+            $startDate ?? CarbonImmutable::today()->toDateString(),
+            $endDate,
+            $lease->status
+        );
+
+        $lease->update([
+            'end_date' => $endDate,
+            'status' => $status,
+        ]);
+
+        app(\App\Services\LeaseProvisioner::class)->syncUnitStatus($lease->unit);
 
         return response()->json([
-            'message' => 'Lease end date updated. The signed agreement document remains unchanged.',
+            'message' => 'Lease end date updated. The signed agreement text remains unchanged.',
             'data' => $this->agreementPayload($lease->fresh()),
         ]);
     }

@@ -264,8 +264,10 @@ public function usernameAvailable(Request $request)
         'password' => ['required', 'string'],
     ]);
 
-    $user = User::where('email', $credentials['login'])
-        ->orWhere('username', $credentials['login'])
+    $login = strtolower(trim($credentials['login']));
+
+    $user = User::whereRaw('LOWER(email) = ?', [$login])
+        ->orWhereRaw('LOWER(username) = ?', [$login])
         ->first();
 
     if (!$user || !Hash::check($credentials['password'], $user->password)) {
