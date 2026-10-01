@@ -1833,7 +1833,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const isTenant = role === "tenant";
     const countryName = COUNTRIES.find((c) => c.code === country)?.name || country;
 
-    await apiRequest("/register", {
+    const registrationResponse = (await apiRequest("/register", {
       method: "POST",
       body: JSON.stringify(
         isTenant
@@ -1866,10 +1866,20 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
               password_confirmation: password,
             }
       ),
-    });
+    })) as {
+      user?: {
+        username?: string;
+      };
+    };
 
-    // Success message before redirect
-    setSuccess("Account created successfully — redirecting to login…");
+    const createdUsername = registrationResponse.user?.username?.trim() || "";
+
+    // Tenant accounts receive a generated username from the backend, so show it before login.
+    setSuccess(
+      createdUsername
+        ? `Account created successfully. Your username is "${createdUsername}". Use this username or your email to sign in. Redirecting to login…`
+        : "Account created successfully — redirecting to login…"
+    );
     setError("");
 
     // Clear form data
