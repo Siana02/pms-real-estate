@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
 import { apiRequest } from "../../services/api";
 import {
+  ArrowRight,
   BedDouble,
   Building2,
   CalendarClock,
