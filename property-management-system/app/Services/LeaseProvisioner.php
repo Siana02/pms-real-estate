@@ -387,10 +387,6 @@ class LeaseProvisioner
         }
 
         return;
-            throw ValidationException::withMessages([
-                'unit_id' => 'This unit is already booked for part of those dates.',
-            ]);
-        }
     }
 
     public function syncUnitStatus(Unit $unit): void
