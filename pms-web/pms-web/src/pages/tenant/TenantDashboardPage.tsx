@@ -19,6 +19,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Wrench,
+  CalendarDays,
+  KeyRound,
+  Moon,
+  Sun,
 } from "lucide-react";
  
 /* ------------------------------------------------------------------ */
@@ -437,6 +441,63 @@ const styles = `
   --td-blue: #2563eb;
   gap: 1.5rem;
 }
+.td-dashboard-page .tp-page-head { align-items:center; gap:1.25rem; margin-bottom:1.5rem; padding:.25rem 0 .5rem; animation:td-head-in .65s cubic-bezier(.22,1,.36,1) both; }
+.td-dashboard-page .tp-page-head__content { display:flex; align-items:center; min-width:0; flex:1; gap:.875rem; }
+.td-dashboard-page .tp-page-head__copy { min-width:0; }
+.td-dashboard-page .tp-page-head__visual { display:inline-flex; flex:none; align-items:center; justify-content:center; width:3.75rem; height:3.75rem; border:1px solid #d7e6fb; border-radius:1.2rem; background:linear-gradient(145deg,#edf5ff,#fff); color:#2563eb; box-shadow:0 12px 28px -20px rgba(37,99,235,.55); animation:td-anchor-in .8s .08s cubic-bezier(.22,1,.36,1) both; }
+.td-dashboard-page .tp-page-head__visual svg { width:1.7rem; height:1.7rem; }
+.td-dashboard-page .tp-page-title { margin:0; color:#102a43 !important; font-size:clamp(2rem,4vw,2.8rem); font-weight:800; letter-spacing:-.055em; line-height:1.05; }
+.td-dashboard-page .tp-page-sub { margin-top:.45rem; color:#647991 !important; font-size:.9rem; line-height:1.45; }
+.td-welcome-script { display:block; width:fit-content; max-width:100%; margin:.55rem 0 0; overflow:hidden; color:#45627f; font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive; font-size:clamp(.95rem,1.6vw,1.08rem); font-weight:500; line-height:1.4; white-space:nowrap; animation:td-type-in 1.25s steps(46,end) .28s both,td-caret .8s steps(1,end) .28s 2; border-right:1px solid #8aa7c4; }
+.td-welcome-stats { display:flex; flex-wrap:wrap; gap:.5rem .7rem; margin-top:.8rem; }
+.td-welcome-stat { display:inline-flex; align-items:center; gap:.42rem; min-height:1.8rem; padding:.28rem .65rem; border:1px solid #e0eaf5; border-radius:999px; background:rgba(255,255,255,.72); color:#526b85; font-size:.72rem; font-weight:600; box-shadow:0 5px 16px -14px rgba(16,42,67,.45); animation:td-stat-in .55s cubic-bezier(.22,1,.36,1) both; }
+.td-welcome-stat:nth-child(2) { animation-delay:.1s; }
+.td-welcome-stat__dot { width:.45rem; height:.45rem; border-radius:50%; background:currentColor; box-shadow:0 0 0 3px rgba(100,116,139,.1); }
+.td-welcome-stat--good { color:#15803d; } .td-welcome-stat--wait { color:#a16207; } .td-welcome-stat--info { color:#2563eb; } .td-welcome-stat--mute { color:#64748b; }
+.td-welcome-stat svg { width:.82rem; height:.82rem; flex:none; }
+@keyframes td-head-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes td-anchor-in { from { opacity:0; transform:scale(.82) rotate(-5deg); } to { opacity:1; transform:scale(1) rotate(0); } }
+@keyframes td-type-in { from { max-width:0; } to { max-width:48rem; } }
+@keyframes td-caret { 0%,100% { border-right-color:#8aa7c4; } 50% { border-right-color:transparent; } }
+@keyframes td-stat-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+
+.td-stack > * {
+  animation: td-section-in 0.58s cubic-bezier(.22,1,.36,1) both;
+}
+.td-stack > *:nth-child(2) { animation-delay: .06s; }
+.td-stack > *:nth-child(3) { animation-delay: .12s; }
+.td-stack > *:nth-child(4) { animation-delay: .18s; }
+.td-stack > *:nth-child(5) { animation-delay: .24s; }
+@keyframes td-section-in {
+  from { opacity:0; transform:translateY(12px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.td-stack .td-home__groups { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); margin:0; border-top:1px solid #e7eef7; }
+.td-stack .td-home__group { padding:1rem 1rem .25rem 0; }
+.td-stack .td-home__group--lease { padding-right:0; padding-left:1rem; border-left:1px solid #e7eef7; }
+.td-stack .td-home__group-title { margin:0 0 .8rem; color:#8a9aae; font-size:.66rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.td-stack .td-home__data { display:grid; gap:.75rem; }
+.td-stack .td-home__data-row { display:flex; align-items:flex-start; gap:.65rem; }
+.td-stack .td-home__data-row > svg { flex:none; width:1rem; height:1rem; margin-top:.12rem; color:#6f95c3; }
+.td-stack .td-home__data-row dt { margin:0; color:#8292a5; font-size:.66rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+.td-stack .td-home__data-row dd { margin:.18rem 0 0; color:#102a43; font-size:.9rem; font-weight:650; line-height:1.35; }
+.td-stack .td-home__actions { display:flex; justify-content:flex-end; margin-top:.35rem; padding-top:.9rem; border-top:1px solid #edf2f7; }
+.td-stack .td-home__actions .tp-btn { min-height:2.2rem; padding-inline:.8rem; font-size:.78rem; }
+.td-stack .td-home__actions .tp-btn svg { width:.9rem; height:.9rem; }
+.td-stack .td-manager { margin-top:.75rem; }
+
+@media (max-width:639px) {
+  .td-dashboard-page .tp-page-head__content { align-items:flex-start; }
+  .td-dashboard-page .tp-page-head__visual { width:3.1rem; height:3.1rem; border-radius:1rem; }
+  .td-dashboard-page .tp-page-title { font-size:1.8rem; }
+  .td-welcome-script { white-space:normal; border-right:0; animation:td-head-in .7s .25s both; }
+  .td-welcome-stats { gap:.4rem; }
+  .td-home__groups { grid-template-columns:1fr !important; }
+  .td-stack .td-home__group, .td-stack .td-home__group--lease { padding:1rem 0 .25rem; border-left:0; }
+  .td-stack .td-home__group--lease { border-top:1px solid #e7eef7; }
+}
+
 
 /* Make the welcome area immediately readable and inviting. */
 .tp-page-head {
@@ -770,7 +831,7 @@ const styles = `
  
 type PaymentStatus = "paid" | "pending" | "overdue" | "partial";
 type RequestStatus = "open" | "in_progress" | "completed" | "cancelled";
-type LeaseStatus = "active" | "ended" | "terminated";
+type LeaseStatus = "pending" | "upcoming" | "active" | "notice" | "ended" | "terminated";
  
 interface TenantHome {
   property_name: string | null;
@@ -947,6 +1008,14 @@ function greeting(): string {
   return "Good evening";
 }
  
+function leaseStatusMeta(status: LeaseStatus | null) {
+  if (status === "active") return { className: "tp-pill--good", label: "Active" };
+  if (status === "upcoming") return { className: "tp-pill--info", label: "Upcoming" };
+  if (status === "pending") return { className: "tp-pill--wait", label: "Pending" };
+  if (status === "notice") return { className: "tp-pill--wait", label: "Notice" };
+  return { className: "tp-pill--mute", label: "Inactive" };
+}
+
 function rentTone(status: PaymentStatus | null, due: string | null) {
   if (status === "paid") return { className: "tp-pill--good", label: "Paid" };
   if (status === "overdue") return { className: "tp-pill--bad", label: "Overdue" };
@@ -1133,11 +1202,22 @@ function TenantDashboardPage() {
  
   return (
     <TenantDashboardLayout
+      pageClassName="td-dashboard-page"
       title={`${greeting()}, ${readTenantFirstName()}`}
-      subtitle={
-        residence
-          ? `${residence} — everything about your home in one place.`
-          : "Everything about your home in one place."
+      subtitle={residence || "Your home"}
+      headerVisual={new Date().getHours() >= 18 ? <Moon /> : <Sun />}
+      headerExtras={
+        <>
+          <p className="td-welcome-script">Everything about your home in one place.</p>
+          <div className="td-welcome-stats" aria-label="Quick home status">
+            {(() => {
+              const meta = leaseStatusMeta(lease?.status);
+              const tone = meta.className === "tp-pill--good" ? "good" : meta.className === "tp-pill--wait" ? "wait" : meta.className === "tp-pill--info" ? "info" : "mute";
+              return <span className={`td-welcome-stat td-welcome-stat--${tone}`}><span className="td-welcome-stat__dot" aria-hidden="true" />Lease status: {meta.label}</span>;
+            })()}
+            <span className="td-welcome-stat td-welcome-stat--info"><CalendarDays />Next inspection: —</span>
+          </div>
+        </>
       }
       unreadNotifications={unread}
       openRequests={openRequests.length}
@@ -1257,37 +1337,25 @@ function TenantDashboardPage() {
                 </div>
               </div>
  
-              <dl className="td-facts">
-                <div>
-                  <dt className="tp-label">Unit</dt>
-                  <dd>{home?.unit_number ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Monthly rent</dt>
-                  <dd className="tp-money">
-                    {money(lease?.monthly_rent, currency)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Lease</dt>
-                  <dd>
-                    <span
-                      className={`tp-pill ${
-                        lease?.status === "active"
-                          ? "tp-pill--good"
-                          : "tp-pill--mute"
-                      }`}
-                    >
-                      {lease?.status === "active" ? "Active" : "Inactive"}
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Lease ends</dt>
-                  <dd>{longDate(lease?.end_date)}</dd>
-                </div>
-              </dl>
- 
+              <div className="td-home__groups">
+                <section className="td-home__group" aria-label="Unit information">
+                  <p className="td-home__group-title">Unit information</p>
+                  <div className="td-home__data">
+                    <div className="td-home__data-row"><Building2 /><div><dt>Building</dt><dd>{home?.property_name ?? "Your home"}</dd></div></div>
+                    <div className="td-home__data-row"><KeyRound /><div><dt>Unit</dt><dd>{home?.unit_number ?? "—"}</dd></div></div>
+                    <div className="td-home__data-row"><MapPin /><div><dt>Location</dt><dd>{[home?.city, home?.country].filter(Boolean).join(", ") || "—"}</dd></div></div>
+                  </div>
+                </section>
+                <section className="td-home__group td-home__group--lease" aria-label="Financial and lease information">
+                  <p className="td-home__group-title">Financial & lease</p>
+                  <div className="td-home__data">
+                    <div className="td-home__data-row"><CreditCard /><div><dt>Monthly rent</dt><dd className="tp-money">{money(lease?.monthly_rent, currency)}</dd></div></div>
+                    <div className="td-home__data-row"><FileText /><div><dt>Lease status</dt><dd>{(() => { const meta = leaseStatusMeta(lease?.status); return <span className={`tp-pill ${meta.className}`}>{meta.label}</span>; })()}</dd></div></div>
+                    <div className="td-home__data-row"><CalendarDays /><div><dt>Lease ends</dt><dd>{longDate(lease?.end_date)}</dd></div></div>
+                  </div>
+                </section>
+              </div>
+
               <div className="td-manager">
                 <ShieldCheck />
                 <span>{home?.manager_name ?? "Property management"}</span>
@@ -1296,8 +1364,12 @@ function TenantDashboardPage() {
                     <Phone aria-hidden="true" /> {home.manager_phone}
                   </a>
                 )}
-                <Link to="/tenant/home" className="tp-btn tp-btn--link">
-                  My home
+              </div>
+
+              <div className="td-home__actions">
+                <Link to="/tenant/home" className="tp-btn tp-btn--quiet">
+                  <Home />
+                  View my home
                 </Link>
               </div>
             </article>

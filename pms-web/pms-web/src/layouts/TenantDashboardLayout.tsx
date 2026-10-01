@@ -835,6 +835,9 @@ interface TenantDashboardLayoutProps {
   actions?: ReactNode;
   unreadNotifications?: number;
   openRequests?: number;
+  pageClassName?: string;
+  headerVisual?: ReactNode;
+  headerExtras?: ReactNode;
 }
  
 function TenantDashboardLayout({
@@ -844,6 +847,9 @@ function TenantDashboardLayout({
   actions,
   unreadNotifications = 0,
   openRequests = 0,
+  pageClassName = "",
+  headerVisual,
+  headerExtras,
 }: TenantDashboardLayoutProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -1054,11 +1060,19 @@ function TenantDashboardLayout({
             </Link>
           </header>
  
-          <main className="tp-content">
+          <main className={`tp-content ${pageClassName}`.trim()}>
             <div className="tp-page-head">
-              <div>
-                <h1 className="tp-page-title">{title}</h1>
-                {subtitle && <p className="tp-page-sub">{subtitle}</p>}
+              <div className="tp-page-head__content">
+                {headerVisual && (
+                  <div className="tp-page-head__visual" aria-hidden="true">
+                    {headerVisual}
+                  </div>
+                )}
+                <div className="tp-page-head__copy">
+                  <h1 className="tp-page-title">{title}</h1>
+                  {subtitle && <p className="tp-page-sub">{subtitle}</p>}
+                  {headerExtras}
+                </div>
               </div>
               {actions}
             </div>
