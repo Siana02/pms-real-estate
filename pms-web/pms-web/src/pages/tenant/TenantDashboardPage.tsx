@@ -1610,6 +1610,16 @@ const styles = `
 }
 
 
+
+/* Section entrance motion */
+.td-reveal{opacity:0;transform:translateY(28px);animation:td-slide-up .72s cubic-bezier(.22,1,.36,1) both}
+.td-reveal:nth-of-type(1){animation-delay:.06s}
+.td-reveal:nth-of-type(2){animation-delay:.14s}
+.td-reveal:nth-of-type(3){animation-delay:.22s}
+.td-reveal:nth-of-type(4){animation-delay:.30s}
+.td-reveal:nth-of-type(5){animation-delay:.38s}
+@keyframes td-slide-up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.td-reveal{opacity:1;transform:none;animation:none}}
 `;
  
 
@@ -2279,7 +2289,7 @@ function TenantDashboardPage() {
         </section>
  
         {/* ---------- notifications ---------- */}
-        <section className="tp-section" aria-label="Notifications">
+        <section className="tp-section td-reveal" aria-label="Notifications">
           <div className="tp-section__head td-activity-head">
             <div className="td-activity-head__copy">
               <h2 className="tp-section__title">Recent activity</h2>
@@ -2350,7 +2360,7 @@ function TenantDashboardPage() {
  
         {/* ---------- vacancies ---------- */}
         {vacancies.length > 0 && (
-          <section className="tp-section" aria-label="Available properties">
+          <section className="tp-section td-reveal" aria-label="Available properties">
             <div className="td-discovery-head">
               <div className="td-discovery-head__copy">
                 <h2 className="tp-section__title">Explore Available Units</h2>
