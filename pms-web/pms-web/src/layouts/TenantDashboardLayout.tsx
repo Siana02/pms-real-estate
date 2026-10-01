@@ -616,9 +616,16 @@ const styles = `
   outline: none;
 }
  
+.tp-search input {
+  transition: width 220ms cubic-bezier(.22,1,.36,1), box-shadow 220ms ease,
+    border-color 180ms ease, background-color 180ms ease;
+}
+ 
 .tp-search input:focus {
-  border-color: var(--tp-blue);
+  width: calc(100% + 40px);
+  border-color: #9dbed8;
   background: var(--tp-surface);
+  box-shadow: 0 12px 28px -20px rgba(37, 99, 235, 0.38);
 }
  
 /* ---------- content ---------- */
