@@ -275,7 +275,7 @@ function asAgreement(payload: unknown): Agreement | null {
           next_of_kin_phone: tenant.next_of_kin_phone == null ? null : String(tenant.next_of_kin_phone),
         }
       : null,
-  } as Agreement;
+  } as unknown as Agreement;
 }
 
 function longDateTime(value: string | null): string {
