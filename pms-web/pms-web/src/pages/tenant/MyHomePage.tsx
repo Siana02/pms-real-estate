@@ -202,6 +202,13 @@ const styles = `
   .mh-hero { grid-template-columns: minmax(0, 1fr); padding: 1.75rem; }
   .mh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* premium My Home refinement */
+.mh-hero{position:relative;gap:1.5rem;padding:1.5rem;overflow:hidden;border-color:#dce7ef;border-radius:1.35rem;background:radial-gradient(circle at 0% 0%,rgba(103,156,201,.08),transparent 28%),linear-gradient(145deg,#fff,#fbfcfa);box-shadow:0 12px 34px -28px rgba(16,42,67,.4)}
+.mh-hero__top{display:flex;align-items:flex-start;justify-content:space-between;gap:1.25rem}.mh-hero__mark{width:3rem;height:3rem;border:1px solid #d7e4ec;border-radius:1rem;background:linear-gradient(145deg,#f1f7fb,#fff);color:#527a99}.mh-hero__name{color:#20384d;font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.45rem,2.5vw,1.85rem);letter-spacing:-.035em}.mh-hero__where{color:#7a8994;font-size:.78rem}.mh-hero__tags{gap:.4rem;margin-top:.65rem}.mh-hero__tags .tp-pill{padding:.3rem .62rem;font-size:.67rem}.mh-hero__tags .tp-pill::before{width:.36rem;height:.36rem}
+.mh-hero__assistance{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;flex:none;min-height:2.3rem;padding:0 .8rem;border:1px solid #b9cede;border-radius:.7rem;background:rgba(255,255,255,.72);color:#456a87;font-size:.7rem;font-weight:700;letter-spacing:.025em;text-decoration:none;transition:transform 180ms ease,box-shadow 220ms ease,border-color 180ms ease,color 180ms ease,background 180ms ease}.mh-hero__assistance svg{width:.9rem;height:.9rem}.mh-hero__assistance:hover{border-color:#8eb3cf;background:#fff;color:#245c83;transform:translateY(-1px);box-shadow:0 10px 22px -16px rgba(37,99,235,.4)}
+.mh-facts{grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;padding-top:1.2rem;border-top:1px solid #e8eef3}.mh-facts>div{position:relative;margin:0;padding:.8rem .75rem;border:1px solid transparent;border-radius:.8rem;transition:background 180ms ease,border-color 180ms ease,box-shadow 220ms ease,transform 180ms ease}.mh-facts>div:hover{border-color:#e1ebf2;background:rgba(239,246,251,.58);box-shadow:0 10px 22px -22px rgba(16,42,67,.45);transform:translateY(-1px)}.mh-facts dt{color:#8a99a4;font-size:.61rem;font-weight:700;letter-spacing:.105em;text-transform:uppercase}.mh-facts dd{margin-top:.38rem;color:#243747;font-size:1.08rem;font-weight:720}.mh-facts dd.mh-fact__soft{color:#81909a;font-family:Georgia,"Times New Roman",serif;font-size:.88rem;font-style:italic;font-weight:400;letter-spacing:0}
+@media(max-width:760px){.mh-hero__top{flex-direction:column}.mh-hero__assistance{align-self:flex-start}.mh-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mh-hero{padding:1.15rem}.mh-facts{gap:.35rem}.mh-facts>div{padding:.7rem .6rem}.mh-facts dd{font-size:.96rem}}@media(prefers-reduced-motion:reduce){.mh-facts>div,.mh-hero__assistance{transition:none}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -348,16 +355,8 @@ function MyHomePage() {
   return (
     <TenantDashboardLayout
       title="My home"
-      subtitle="Your unit, your lease and who to contact about it."
-      actions={
-        <Link
-          to="/tenant/maintenance?action=new"
-          className="tp-btn tp-btn--primary"
-        >
-          <Wrench />
-          Report a problem
-        </Link>
-      }
+      subtitle="Everything you need regarding your space, lease agreements, and care requests."
+
     >
       <style>{styles}</style>
  
@@ -372,7 +371,8 @@ function MyHomePage() {
           <span className="tp-skeleton mh-skeleton" />
         ) : (
           <section className="mh-hero" aria-label="Your unit">
-            <div className="mh-hero__id">
+            <div className="mh-hero__top">
+              <div className="mh-hero__id">
               <span className="mh-hero__mark" aria-hidden="true">
                 <Home />
               </span>
@@ -394,12 +394,16 @@ function MyHomePage() {
                     className={`tp-pill ${
                       lease?.status === "active"
                         ? "tp-pill--good"
-                        : "tp-pill--mute"
+                        : lease?.status === "ended" || lease?.status === "terminated"
+                          ? "tp-pill--mute"
+                          : "tp-pill--wait"
                     }`}
                   >
                     {lease?.status === "active"
                       ? "Lease active"
-                      : "No active lease"}
+                      : lease?.status === "ended" || lease?.status === "terminated"
+                        ? "Lease ended"
+                        : "Pending active lease"}
                   </span>
                   {home?.unit_type && (
                     <span className="tp-pill tp-pill--mute">
@@ -408,28 +412,31 @@ function MyHomePage() {
                   )}
                 </div>
               </div>
+              <Link
+                to="/tenant/maintenance?action=new"
+                className="mh-hero__assistance"
+              >
+                <Wrench />
+                Request Assistance
+              </Link>
             </div>
  
             <dl className="mh-facts">
               <div>
-                <dt className="tp-label">Monthly rent</dt>
-                <dd className="tp-money">
-                  {money(lease?.monthly_rent, currency)}
-                </dd>
+                <dt>Monthly rent</dt>
+                <dd className="tp-money">{money(lease?.monthly_rent, currency)}</dd>
               </div>
               <div>
-                <dt className="tp-label">Deposit held</dt>
-                <dd className="tp-money">
-                  {money(lease?.deposit_amount, currency)}
-                </dd>
+                <dt>Deposit held</dt>
+                <dd className="tp-money">{money(lease?.deposit_amount, currency)}</dd>
               </div>
               <div>
-                <dt className="tp-label">Lease ends</dt>
-                <dd>{longDate(lease?.end_date)}</dd>
+                <dt>Lease ends</dt>
+                <dd className="mh-fact__soft">{lease?.end_date ? longDate(lease.end_date) : "Flexible / Monthly"}</dd>
               </div>
               <div>
-                <dt className="tp-label">Bedrooms</dt>
-                <dd>{home?.bedrooms ? String(home.bedrooms) : "—"}</dd>
+                <dt>Bedrooms</dt>
+                <dd className="mh-fact__soft">{home?.bedrooms ? String(home.bedrooms) : "Studio Layout"}</dd>
               </div>
             </dl>
           </section>
@@ -594,10 +601,10 @@ function MyHomePage() {
               )}
               <Link
                 to="/tenant/maintenance?action=new"
-                className="tp-btn tp-btn--primary"
+                className="tp-btn tp-btn--quiet"
               >
                 <Wrench />
-                Report a problem
+                Request Assistance
               </Link>
             </div>
  
