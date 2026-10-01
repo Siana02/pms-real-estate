@@ -1469,6 +1469,7 @@ function RegisterPage() {
   const [unitId, setUnitId] = useState("");
   const [unitsReload, setUnitsReload] = useState(0);
   const [unitAvailabilityMessage, setUnitAvailabilityMessage] = useState("");
+  const [unitAvailabilityValid, setUnitAvailabilityValid] = useState(true);
   const [unitSuggestions, setUnitSuggestions] = useState<UnitOption[]>([]);
   const [organizationName, setOrganizationName] = useState("");
   const [country, setCountry] = useState(detectCountry);
@@ -1609,6 +1610,7 @@ function RegisterPage() {
   useEffect(() => {
     if (role !== "tenant" || !propertyId || !unitId || !requestedMoveInDate) {
       setUnitAvailabilityMessage("");
+      setUnitAvailabilityValid(true);
       setUnitSuggestions([]);
       return;
     }
@@ -1628,6 +1630,7 @@ function RegisterPage() {
         const suggestions = Array.isArray(record.suggestions) ? parseUnitOptions(record.suggestions) : [];
         setUnitSuggestions(suggestions);
         if (available) {
+          setUnitAvailabilityValid(true);
           setUnitAvailabilityMessage("");
         } else {
           const selected = record.selected_unit && typeof record.selected_unit === "object"
@@ -1637,12 +1640,13 @@ function RegisterPage() {
           const availabilityText = nextDate
             ? `The unit ${number} won't be available until ${nextDate}. Select another unit or postpone your move-in date.`
             : `The unit ${number} is not available for your selected move-in date. Select another unit or postpone your move-in date.`;
+          setUnitAvailabilityValid(false);
           setUnitAvailabilityMessage(availabilityText);
-          setUnitId("");
         }
       })
       .catch(() => {
         if (!cancelled) {
+          setUnitAvailabilityValid(false);
           setUnitAvailabilityMessage("We couldn't verify this unit's availability for your move-in date yet. We'll check again when you submit.");
           setUnitSuggestions([]);
         }
@@ -1738,7 +1742,7 @@ function RegisterPage() {
 
   const stepValid: Record<number, boolean> = {
     1: role === "tenant"
-      ? tenantOrgValid && tenantPropertyValid && tenantUnitValid
+      ? tenantOrgValid && tenantPropertyValid && tenantUnitValid && unitAvailabilityValid
       : orgValid,
     2:
       role === "tenant"
@@ -2223,9 +2227,24 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                             <p className="rg-help rg-help--error" role="alert"><AlertCircle />Select an available unit.</p>
                           ) : null}
                           {unitSuggestions.length > 0 && (
-                            <div className="rg-help" role="status">
-                              Suggestions with the same unit type and a similar rent:
-                              {" "}{unitSuggestions.map((suggestion) => `${suggestion.unit_number} — KSh ${suggestion.monthly_rent.toLocaleString()}`).join(" · ")}
+                            <div className="rg-help" role="status" style={{ flexDirection: "column", alignItems: "flex-start" }}>
+                              <span>Suggestions with the same unit type and a similar rent:</span>
+                              <span style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                                {unitSuggestions.map((suggestion) => (
+                                  <button
+                                    key={suggestion.id}
+                                    type="button"
+                                    className="rg-link-btn"
+                                    onClick={() => {
+                                      setUnitId(String(suggestion.id));
+                                      setUnitAvailabilityMessage("");
+                                      setUnitAvailabilityValid(true);
+                                    }}
+                                  >
+                                    {suggestion.unit_number} — KSh {suggestion.monthly_rent.toLocaleString()}
+                                  </button>
+                                ))}
+                              </span>
                             </div>
                           )}
                         </div>
