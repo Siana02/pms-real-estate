@@ -362,6 +362,7 @@ function MyHomePage() {
  
   return (
     <TenantDashboardLayout
+      pageClassName="mh-page"
       title="My home"
       subtitle="Everything you need regarding your space, lease agreements, and care requests."
 
