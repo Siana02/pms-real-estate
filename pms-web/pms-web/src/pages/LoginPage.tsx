@@ -1123,7 +1123,7 @@ function LoginPage() {
             </div>
 
             <div className="lg-divider">
-              <span>or sign in with email</span>
+              <span>or sign in with email or username</span>
             </div>
 
             <form className="lg-form" onSubmit={handleLogin} noValidate>
