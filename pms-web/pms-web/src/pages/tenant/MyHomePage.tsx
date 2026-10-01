@@ -399,11 +399,11 @@ function MyHomePage() {
                           : "tp-pill--wait"
                     }`}
                   >
-                    {${lease?.status === "active"
+                    {lease?.status === "active"
                       ? "Lease active"
                       : lease?.status === "ended" || lease?.status === "terminated"
                         ? "Lease ended"
-                        : "Pending active lease"}}
+                        : "Pending active lease"}
                   </span>
                   {home?.unit_type && (
                     <span className="tp-pill tp-pill--mute">
@@ -437,10 +437,6 @@ function MyHomePage() {
               <div>
                 <dt>Bedrooms</dt>
                 <dd className="mh-fact__soft">{home?.bedrooms ? String(home.bedrooms) : "Studio Layout"}</dd>
-              </div></div>
-              <div>
-                <dt className="tp-label">Bedrooms</dt>
-                <dd>{home?.bedrooms ? String(home.bedrooms) : "—"}</dd>
               </div>
             </dl>
           </section>
