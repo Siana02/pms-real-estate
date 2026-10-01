@@ -53,7 +53,7 @@ public function usernameAvailable(Request $request)
                     Rule::exists('units', 'id')
                         ->where('property_id', $request->input('property_id')),
                 ],
-                'requested_move_in_date' => ['required', 'date'],
+                'requested_move_in_date' => ['nullable', 'date'],
                 'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
                 'name' => ['required', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
@@ -83,16 +83,18 @@ public function usernameAvailable(Request $request)
                     'This unit is under maintenance and cannot be requested.'
                 );
 
-                // Availability is date-based. A future tenant may reserve a unit
-                // that is currently occupied, provided their requested dates do
-                // not overlap an existing reservation/tenancy.
-                app(LeaseProvisioner::class)->assertNoOverlap(
-                    $unit,
-                    CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString(),
-                    !empty($validated['requested_move_out_date'])
-                        ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
-                        : null
-                );
+                // Availability is date-based when the tenant supplied dates.
+                // A pending registration without dates is still a real lease
+                // reservation awaiting manager confirmation.
+                if (!empty($validated['requested_move_in_date'])) {
+                    app(LeaseProvisioner::class)->assertNoOverlap(
+                        $unit,
+                        CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString(),
+                        !empty($validated['requested_move_out_date'])
+                            ? CarbonImmutable::parse($validated['requested_move_out_date'])->toDateString()
+                            : null
+                    );
+                }
 
                 $nameParts = preg_split('/\s+/', trim($validated['name']), 2);
                 $firstName = $nameParts[0] ?? $validated['name'];
@@ -169,7 +171,7 @@ public function usernameAvailable(Request $request)
                     app(LeaseProvisioner::class)->createPending([
                         'property_id' => $validated['property_id'],
                         'unit_id' => $validated['unit_id'],
-                        'requested_move_in_date' => $validated['requested_move_in_date'],
+                        'requested_move_in_date' => $validated['requested_move_in_date'] ?? null,
                         'requested_move_out_date' => $validated['requested_move_out_date'] ?? null,
                     ], (int) $validated['organization_id'], $tenant);
                 }

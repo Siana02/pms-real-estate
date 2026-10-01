@@ -39,18 +39,22 @@ class LeaseProvisioner
                 abort(403, 'You do not have access to this tenant.');
             }
 
-            $requestedStart = CarbonImmutable::parse($data['requested_move_in_date'])->toDateString();
+            $requestedStart = !empty($data['requested_move_in_date'])
+                ? CarbonImmutable::parse($data['requested_move_in_date'])->toDateString()
+                : null;
             $requestedEnd = !empty($data['requested_move_out_date'])
                 ? CarbonImmutable::parse($data['requested_move_out_date'])->toDateString()
                 : null;
 
-            if ($requestedEnd !== null && $requestedEnd < $requestedStart) {
+            if ($requestedEnd !== null && ($requestedStart === null || $requestedEnd < $requestedStart)) {
                 throw ValidationException::withMessages([
                     'requested_move_out_date' => 'The requested end date must be on or after the requested start date.',
                 ]);
             }
 
-            $this->assertNoOverlap($unit, $requestedStart, $requestedEnd);
+            if ($requestedStart !== null) {
+                $this->assertNoOverlap($unit, $requestedStart, $requestedEnd);
+            }
 
             $agreement = $this->buildPendingAgreementTemplate(
                 $organizationId,
@@ -424,7 +428,7 @@ class LeaseProvisioner
         Unit $unit,
         Tenant $tenant,
         float|string $monthlyRent,
-        string $requestedStart,
+        ?string $requestedStart,
         ?string $requestedEnd
     ): string {
         $organization = Organization::find($organizationId);
@@ -446,7 +450,7 @@ class LeaseProvisioner
             "Next of kin phone: " . ($tenant->next_of_kin_phone ?: 'Not provided'),
             'Monthly rent (unit default): ' . number_format((float) $monthlyRent, 2),
             'Security deposit (default): ' . number_format((float) $monthlyRent, 2),
-            "Requested lease start: {$requestedStart}",
+            'Requested lease start: ' . ($requestedStart ?: 'Not provided'),
             'Requested lease end: ' . ($requestedEnd ?: 'Open-ended / to be confirmed'),
             '',
             'Terms:',

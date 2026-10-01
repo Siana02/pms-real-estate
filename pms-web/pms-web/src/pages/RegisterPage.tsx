@@ -1681,7 +1681,7 @@ function RegisterPage() {
   }, [organizations, organizationQuery]);
   const nameValid = name.trim().length >= 2;
   const phoneValid = role !== "tenant" || phone.trim().length >= 7;
-  const requestedStartValid = role !== "tenant" || requestedMoveInDate.length > 0;
+  const requestedStartValid = true;
   const requestedEndValid = role !== "tenant" || !requestedMoveOutDate || requestedMoveOutDate >= requestedMoveInDate;
   const usernameValid =
     USERNAME_PATTERN.test(username.trim()) && usernameState !== "taken";
@@ -2483,10 +2483,10 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                               value={requestedMoveInDate}
                               onChange={(event) => setRequestedMoveInDate(event.target.value)}
                               onBlur={() => markTouched("requestedMoveInDate")}
-                              aria-invalid={touched.requestedMoveInDate && !requestedStartValid}
+                              aria-invalid={false}
                             />
                           </div>
-                          <p className="rg-help">Your requested move-in date. The manager confirms the official lease start.</p>
+                          <p className="rg-help">Optional. If provided, the manager will review it as your requested lease start.</p>
                         </div>
                         <div>
                           <label className="rg-label" htmlFor="requested-move-out">Requested lease end</label>
@@ -2502,7 +2502,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                               onBlur={() => markTouched("requestedMoveOutDate")}
                             />
                           </div>
-                          <p className="rg-help">Optional. Leave blank for an open-ended request.</p>
+                          <p className="rg-help">Optional. Leave blank if you do not know your requested lease end yet.</p>
                         </div>
                       </div>
 
