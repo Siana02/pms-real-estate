@@ -329,6 +329,15 @@ const styles = `
 .mh-support-note svg{flex:none;width:.9rem;height:.9rem;margin-top:.1rem;color:#2563EB}
 .mh-page>.tp-section> .tp-section__sub:last-child{margin-top:.9rem;color:#A0A9AE;font-size:.65rem;font-style:italic}
 @media(max-width:600px){.mh-support-email,.mh-support-phone{align-items:flex-start;flex-direction:column;gap:.35rem}.mh-support-email a,.mh-support-phone a,.mh-support-email strong{text-align:left}.mh-support-cta{width:100%}}
+
+/* Section entrance motion */
+.mh-reveal{opacity:0;transform:translateY(28px);animation:mh-slide-up .72s cubic-bezier(.22,1,.36,1) both}
+.mh-reveal:nth-of-type(1){animation-delay:.06s}
+.mh-reveal:nth-of-type(2){animation-delay:.15s}
+.mh-reveal:nth-of-type(3){animation-delay:.24s}
+.mh-reveal:nth-of-type(4){animation-delay:.33s}
+@keyframes mh-slide-up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.mh-reveal{opacity:1;transform:none;animation:none}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -604,7 +613,7 @@ function MyHomePage() {
           </article>
         </div>
 
-        <section className="tp-section mh-support-section" aria-label="Property management">
+        <section className="tp-section mh-reveal mh-support-section" aria-label="Property management">
           <div className="mh-support-head">
             <h2>Who looks after this home</h2>
             <p>Reach your manager directly for anything urgent.</p>
