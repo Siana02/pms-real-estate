@@ -295,6 +295,66 @@ const styles = `
  
 /* ---------- notifications ---------- */
 
+.td-activity-head {
+  justify-content:center;
+  text-align:center;
+}
+
+.td-activity-head__copy {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  width:100%;
+}
+
+.td-activity-head .tp-section__title {
+  margin:0;
+  color:#263746;
+  font-family:Georgia, "Times New Roman", serif;
+  font-size:clamp(1.35rem, 2vw, 1.65rem);
+  font-weight:700;
+  letter-spacing:-.025em;
+  line-height:1.15;
+}
+
+.td-activity-head .tp-section__sub {
+  max-width:34rem;
+  margin:.45rem auto 0;
+  color:#7b888b;
+  font-size:.8rem;
+  line-height:1.55;
+}
+
+.td-activity-head .td-activity-see-all {
+  position:relative;
+  margin-top:.7rem;
+  padding-bottom:.18rem;
+}
+
+.td-activity-head .td-activity-see-all::after {
+  content:"";
+  position:absolute;
+  right:0;
+  bottom:0;
+  left:0;
+  height:1px;
+  background:currentColor;
+  transform:scaleX(.35);
+  transform-origin:center;
+  opacity:.45;
+  transition:transform 220ms ease, opacity 220ms ease;
+}
+
+.td-activity-head .td-activity-see-all:hover::after,
+.td-activity-head .td-activity-see-all:focus-visible::after {
+  transform:scaleX(1);
+  opacity:.8;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .td-activity-head .td-activity-see-all::after { transition:none; }
+}
+
 .td-activity-see-all {
   display:inline-flex;
   align-items:center;
@@ -1979,16 +2039,16 @@ function TenantDashboardPage() {
  
         {/* ---------- notifications ---------- */}
         <section className="tp-section" aria-label="Notifications">
-          <div className="tp-section__head">
-            <div>
+          <div className="tp-section__head td-activity-head">
+            <div className="td-activity-head__copy">
               <h2 className="tp-section__title">Recent activity</h2>
               <p className="tp-section__sub">
-                Payments, repairs and messages from your property manager.
+                Your latest home updates, receipts, and maintenance logs.
               </p>
+              <Link to="/tenant/notifications" className="td-activity-see-all">
+                See all <ArrowRight />
+              </Link>
             </div>
-            <Link to="/tenant/notifications" className="td-activity-see-all">
-              See all <ArrowRight />
-            </Link>
           </div>
  
           {loading ? (
