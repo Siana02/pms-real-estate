@@ -524,10 +524,28 @@ class TenantPortalController extends Controller
         $tenant = $this->currentTenant($request);
         $lease = $this->latestLease($tenant);
 
-        abort_if($lease === null || $lease->deposit === null, 404, 'No deposit record is available yet.');
-        abort_if((float) $lease->deposit->amount_required <= 0, 422, 'No security deposit is required for this lease.');
+        abort_if($lease === null, 404, 'No lease agreement is available yet.');
 
-        $lease->deposit->update([
+        $required = (float) ($lease->deposit_amount ?? 0);
+        if ($required <= 0) {
+            $lease->loadMissing('unit');
+            $required = (float) ($lease->unit?->monthly_rent ?? 0);
+        }
+
+        abort_if($required <= 0, 422, 'No security deposit is required for this lease.');
+
+        $deposit = $lease->deposit()->updateOrCreate(
+            ['lease_id' => $lease->id],
+            [
+                'organization_id' => $lease->organization_id,
+                'tenant_id' => $tenant->id,
+                'amount_required' => $required,
+                'amount_paid' => $lease->deposit?->amount_paid ?? 0,
+                'status' => $lease->deposit?->status ?? 'unpaid',
+            ]
+        );
+
+        $deposit->update([
             'tenant_marked_paid_at' => CarbonImmutable::now(),
         ]);
 
@@ -674,7 +692,21 @@ class TenantPortalController extends Controller
             'lease_id' => $lease->id,
             'status' => $lease->status,
             'agreement_status' => $status,
-            'contract_text' => filled($lease->manager_terms) ? $lease->manager_terms : $lease->tenant_terms,
+            'contract_text' => filled($lease->manager_terms)
+                ? $lease->manager_terms
+                : (filled($lease->tenant_terms)
+                    ? $lease->tenant_terms
+                    : ($lease->status === 'pending' && $property && $unit && $tenant
+                        ? app(LeaseProvisioner::class)->buildPendingAgreementTemplate(
+                            (int) ($organization?->id ?? $tenant->organization_id),
+                            $property,
+                            $unit,
+                            $tenant,
+                            $monthlyRent,
+                            $lease->requested_move_in_date?->toDateString() ?? CarbonImmutable::today()->toDateString(),
+                            $lease->requested_move_out_date?->toDateString()
+                        )
+                        : null)),
             'start_date' => $lease->start_date?->toDateString(),
             'end_date' => $lease->end_date?->toDateString(),
             'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
@@ -781,21 +813,51 @@ class TenantPortalController extends Controller
             return null;
         }
 
-        $lease->loadMissing(['unit', 'deposit']);
+        $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization', 'tenant.property', 'tenant.unit']);
+
+        $tenant = $lease->tenant;
+        $organization = $tenant?->organization
+            ?? Organization::find($lease->organization_id ?? $tenant?->organization_id);
+
+        $property = $lease->property;
+        if ($property === null && $lease->property_id !== null) {
+            $property = Property::whereKey($lease->property_id)
+                ->where('organization_id', $organization?->id ?? $tenant?->organization_id)
+                ->first();
+        }
+        if ($property === null) {
+            $property = $tenant?->property;
+        }
+
+        $unit = $lease->unit;
+        if ($unit === null && $lease->unit_id !== null) {
+            $unit = Unit::whereKey($lease->unit_id)
+                ->whereHas('property', function ($query) use ($organization) {
+                    if ($organization?->id !== null) {
+                        $query->where('organization_id', $organization->id);
+                    }
+                })
+                ->first();
+        }
+        if ($unit === null) {
+            $unit = $tenant?->unit;
+        }
 
         // A pending self-registration already has a canonical lease, but
         // older pending records may have incomplete financial snapshots.
-        // The unit remains the source of truth for the displayed monthly rent
-        // until the manager confirms the official lease terms.
+        // The selected unit remains the source of truth for displayed rent
+        // and the default deposit until the manager confirms official terms.
         $monthlyRent = (float) ($lease->monthly_rent ?? 0);
-        if ($monthlyRent <= 0 && $lease->unit?->monthly_rent !== null) {
-            $monthlyRent = (float) $lease->unit->monthly_rent;
+        if ($monthlyRent <= 0 && $unit?->monthly_rent !== null) {
+            $monthlyRent = (float) $unit->monthly_rent;
         }
 
         $depositAmount = (float) ($lease->deposit_amount ?? 0);
         if ($depositAmount <= 0 && $monthlyRent > 0) {
             $depositAmount = $monthlyRent;
         }
+
+        $deposit = $lease->deposit;
 
         return [
             'id' => $lease->id,
@@ -807,6 +869,37 @@ class TenantPortalController extends Controller
             'monthly_rent' => $monthlyRent,
             'deposit_amount' => $depositAmount,
             'notes' => $lease->notes,
+            'organization' => $organization ? [
+                'id' => $organization->id,
+                'name' => $organization->name,
+            ] : null,
+            'property' => $property ? [
+                'id' => $property->id,
+                'name' => $property->name,
+                'property_type' => $property->property_type,
+                'address' => $property->address,
+                'city' => $property->city,
+                'country' => $property->country,
+            ] : null,
+            'unit' => $unit ? [
+                'id' => $unit->id,
+                'unit_number' => $unit->unit_number,
+                'unit_type' => $unit->unit_type,
+                'default_rent' => $unit->monthly_rent,
+            ] : null,
+            'deposit' => $deposit ? [
+                'amount_required' => $deposit->amount_required,
+                'amount_paid' => $deposit->amount_paid,
+                'status' => $deposit->status,
+                'tenant_marked_paid_at' => $deposit->tenant_marked_paid_at?->toDateTimeString(),
+                'payment_date' => $deposit->payment_date?->toDateString(),
+            ] : ($depositAmount > 0 ? [
+                'amount_required' => $depositAmount,
+                'amount_paid' => 0,
+                'status' => 'unpaid',
+                'tenant_marked_paid_at' => null,
+                'payment_date' => null,
+            ] : null),
         ];
     }
 
