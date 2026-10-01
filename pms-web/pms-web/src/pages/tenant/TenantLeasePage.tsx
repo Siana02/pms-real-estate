@@ -10,6 +10,7 @@ import {
   FileText,
   Loader2,
   ShieldCheck,
+  Info,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -222,6 +223,39 @@ const styles = `
 .tl-spin { animation: tl-rotate 0.9s linear infinite; }
 
 @keyframes tl-rotate { to { transform: rotate(360deg); } }
+
+/* Executive lease overview */
+.tl-summary{gap:0!important;padding:1.5rem 1.6rem!important}
+.tl-summary__head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:1.5rem!important;padding-bottom:1.2rem!important;border-bottom:1px solid var(--tp-line-soft)!important}
+.tl-summary__heading{min-width:0!important}
+.tl-summary__title{color:#0F172A!important;font-size:1.3rem!important;font-weight:750!important}
+.tl-summary__subtitle{color:#64748B!important}
+.tl-summary__badges{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:.5rem!important;flex-wrap:wrap!important}
+.tl-summary__badges .tl-badge{white-space:nowrap!important}
+.tl-badge--document{background:#EFF6FF!important;color:#1E40AF!important}
+.tl-summary__map{display:flex!important;flex-direction:column!important}
+.tl-summary__parties{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:2rem!important;padding:1.35rem 0!important;border-bottom:1px solid #E7EEF4}
+.tl-summary__parties>div,.tl-summary__timeline>div,.tl-summary__financials>div{min-width:0!important}
+.tl-summary__parties dd,.tl-summary__timeline dd{margin:.35rem 0 0!important;color:#0F172A!important;font-size:.9rem!important;font-weight:700!important}
+.tl-summary__timeline{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:1.25rem!important;padding:1.35rem 0!important;border-bottom:1px solid #E7EEF4}
+.tl-summary__timeline dd{white-space:nowrap!important}
+.tl-summary__financials{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:2rem!important;padding:1.35rem 0!important}
+.tl-summary__financials>div+div{padding-left:2rem!important;border-left:1px solid #E7EEF4}
+.tl-summary__financials strong{display:block!important;margin-top:.35rem!important;color:#0F172A!important;font-size:1.15rem!important;font-weight:750!important}
+.tl-summary__info{display:flex!important;align-items:flex-start!important;gap:.65rem!important;margin-top:.25rem!important;padding:.9rem 1rem!important;border-radius:.8rem!important;background:#EFF6FF!important;color:#64748B!important}
+.tl-summary__info svg{flex:none!important;width:1rem!important;height:1rem!important;margin-top:.12rem!important;color:#2563EB!important}
+.tl-summary__info p{margin:0!important;font-size:.74rem!important;line-height:1.55!important}
+@media(max-width:900px){
+  .tl-summary__timeline{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  .tl-summary__head{flex-direction:column!important}
+  .tl-summary__badges{justify-content:flex-start!important}
+  .tl-summary__parties,.tl-summary__financials{grid-template-columns:1fr!important}
+  .tl-summary__financials>div+div{padding-left:0!important;border-left:0!important;padding-top:1rem!important;border-top:1px solid #E7EEF4}
+  .tl-summary__timeline{grid-template-columns:1fr!important}
+  .tl-summary__timeline dd{white-space:normal!important}
+}
 `;
 
 /* ------------------------------------------------------------------ */
@@ -590,74 +624,41 @@ function TenantLeasePage() {
           </div>
         ) : (
           <>
-            <section className="tp-card tl-summary" aria-label="Lease summary">
               <div className="tl-summary__head">
-                <div>
+                <div className="tl-summary__heading">
                   <h2 className="tl-summary__title">Lease agreement</h2>
                   <p className="tl-summary__subtitle">{agreement.property?.name ?? "Property"} · Unit {agreement.unit?.unit_number ?? "—"}</p>
                 </div>
-                <span className="tl-badge tl-badge--pending"><FileSignature />{agreement.status === "pending" ? "Reservation agreement" : "Digital lease"}</span>
+                <div className="tl-summary__badges">
+                  <span className="tl-badge tl-badge--document"><FileSignature />Digital lease</span>
+                  <span className={`tl-badge ${leaseLocked ? "tl-badge--done" : "tl-badge--pending"}`}>
+                    {leaseLocked ? <ShieldCheck /> : <Clock />}
+                    {leaseLocked ? "Lease locked" : "Lease pending"}
+                  </span>
+                </div>
               </div>
 
-              <div
-                className={`tl-badge ${
-                  leaseLocked ? "tl-badge--done" : "tl-badge--pending"
-                }`}
-              >
-                {leaseLocked ? <ShieldCheck /> : <Clock />}
-                {leaseLocked
-                  ? "Lease locked — final manager signature recorded"
-                  : awaitingManager
-                    ? "Your side is signed — awaiting manager review and signature"
-                    : agreement.status === "pending"
-                      ? "Pending manager confirmation"
-                      : "Ready for your review and signature"}
+              <div className="tl-summary__map">
+                <div className="tl-summary__parties">
+                  <div><dt className="tp-label">Organization</dt><dd>{agreement.organization?.name ?? "—"}</dd></div>
+                  <div><dt className="tp-label">Property / unit</dt><dd>{agreement.property?.name ?? "—"} · {agreement.unit?.unit_number ?? "—"}</dd></div>
+                </div>
+                <div className="tl-summary__timeline">
+                  <div><dt className="tp-label">Official start</dt><dd>{agreement.start_date ? longDate(agreement.start_date) : "Not confirmed"}</dd></div>
+                  <div><dt className="tp-label">Requested start</dt><dd>{longDate(agreement.requested_move_in_date)}</dd></div>
+                  <div><dt className="tp-label">Official end</dt><dd>{longDate(agreement.end_date)}</dd></div>
+                  <div><dt className="tp-label">Requested end</dt><dd>{longDate(agreement.requested_move_out_date)}</dd></div>
+                </div>
+                <div className="tl-summary__financials">
+                  <div><span className="tp-label">Monthly rent</span><strong>KSh {Number(agreement.monthly_rent ?? 0).toLocaleString()}</strong></div>
+                  <div><span className="tp-label">Rent due</span><strong>{agreement.rent_due_day}th of each month</strong></div>
+                </div>
               </div>
 
-              <dl className="tl-summary__row">
-                <div>
-                  <dt className="tp-label">Organization</dt>
-                  <dd>{agreement.organization?.name ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Property / unit</dt>
-                  <dd>
-                    {agreement.property?.name ?? "—"} · {agreement.unit?.unit_number ?? "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Official lease start</dt>
-                  <dd>{agreement.start_date ? longDate(agreement.start_date) : "Not confirmed"}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Official lease end</dt>
-                  <dd>{longDate(agreement.end_date)}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Requested start</dt>
-                  <dd>{longDate(agreement.requested_move_in_date)}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Requested end</dt>
-                  <dd>{longDate(agreement.requested_move_out_date)}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Monthly rent</dt>
-                  <dd>KSh {Number(agreement.monthly_rent ?? 0).toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt className="tp-label">Rent due</dt>
-                  <dd>{agreement.rent_due_day}th of each month</dd>
-                </div>
-              </dl>
-
-              <p className="tl-hint">
-                Property, unit, rent, official dates and deposit terms come from
-                the organization's lease record. You can provide your requested
-                dates and your side of the agreement before signing. Once you sign,
-                your agreement copy becomes read-only. After the manager signs,
-                only the lease end date remains editable.
-              </p>
+              <div className="tl-summary__info">
+                <Info />
+                <p>Property, unit, rent, official dates and deposit terms come from the organization's lease record. You can provide your requested dates and your side of the agreement before signing. Once you sign, your agreement copy becomes read-only. After the manager signs, only the lease end date remains editable.</p>
+              </div>
             </section>
 
             {deposit && (
