@@ -31,7 +31,7 @@ const styles = `
 @keyframes mh-type-in { from { max-width:0; } to { max-width:42rem; } }
 @keyframes mh-caret { 50% { border-color:transparent; } }
 
-.mh-stack {
+.mh-panel__head{display:flex;align-items:center;gap:.8rem;padding-bottom:1rem;border-bottom:1px solid #e6edf2}.mh-panel__head svg{width:1.05rem;height:1.05rem;color:#456a87;stroke-width:1.7}.mh-panel__head h2{margin:0;color:#263746;font-size:1.1rem;font-weight:600;letter-spacing:-.02em}.mh-unit-editorial,.mh-lease-editorial{display:flex;flex-direction:column;gap:1.15rem;padding-top:1.25rem}.mh-unit-identity{display:flex;flex-direction:column;gap:.28rem}.mh-unit-kicker,.mh-specs span,.mh-lease-grid span{color:#87939a;font-size:.65rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase}.mh-unit-identity strong{color:#263746;font-size:1rem;font-weight:600}.mh-unit-identity strong span{color:#a2b1ba;margin:0 .25rem}.mh-specs{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.mh-specs>div{padding:.8rem .85rem;border:1px solid #e8eef2;border-radius:.75rem;background:linear-gradient(145deg,#fbfdff,#f6fafb);transition:background 180ms ease,box-shadow 180ms ease,transform 180ms ease}.mh-specs>div:hover{background:#fff;box-shadow:0 10px 24px -20px rgba(37,99,235,.35);transform:translateY(-1px)}.mh-specs strong{display:block;margin-top:.3rem;color:#263746;font-size:.88rem;font-weight:600}.mh-address{display:flex;align-items:center;gap:.45rem;padding-top:.9rem;border-top:1px solid #edf1f3;color:#87939a;font-size:.78rem}.mh-address svg{width:.9rem;height:.9rem;color:#6d8da4}.mh-lease-grid{display:grid;grid-template-columns:1fr 1.15fr 1.35fr 1.55fr;gap:1rem}.mh-lease-grid>div{min-width:0}.mh-lease-grid>div>strong{display:block;margin-top:.4rem;color:#263746;font-size:.84rem;font-weight:700;line-height:1.45}.mh-status{display:inline-flex;align-items:center;padding:.28rem .6rem;border-radius:999px;font-size:.67rem;font-weight:700;letter-spacing:.02em}.mh-status--wait{color:#9a6708;background:#fff6dc;box-shadow:inset 0 0 0 1px rgba(180,128,24,.14),0 0 16px -12px rgba(180,128,24,.55);animation:mh-status-glow 3s ease-in-out infinite}.mh-status--good{color:#19734a;background:#eaf8f0}.mh-status--muted{color:#6d777c;background:#f0f3f4}@keyframes mh-status-glow{50%{box-shadow:inset 0 0 0 1px rgba(180,128,24,.2),0 0 18px -10px rgba(180,128,24,.7)}}.mh-financials strong{font-size:.78rem}.mh-financials em{font-style:normal;color:#b0bac0;margin:0 .4rem}.mh-actions{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.3rem;padding:.6rem;border:1px solid #e7ecef;border-radius:.9rem;background:#f5f7f8}.mh-action{display:flex;align-items:center;gap:.65rem;min-height:3rem;padding:.65rem .75rem;border:1px solid #e0e7eb;border-radius:.65rem;background:linear-gradient(145deg,#fff,#f8fafb);color:#365a73;text-decoration:none;font-size:.76rem;font-weight:600;transition:background 180ms ease,transform 180ms ease,box-shadow 180ms ease}.mh-action--alt{background:linear-gradient(145deg,#f9fcff,#f2f7fa)}.mh-action:hover,.mh-action:focus-visible{background:#fff;transform:translateY(-1px);box-shadow:0 10px 24px -20px rgba(37,99,235,.45)}.mh-action>svg{width:.95rem;height:.95rem;margin-left:auto;transition:transform 180ms ease}.mh-action:hover>svg,.mh-action:focus-visible>svg{transform:translateX(4px)}.mh-action__icon{display:inline-flex;align-items:center;justify-content:center;width:1.8rem;height:1.8rem;border-radius:.5rem;background:#eef5f9;color:#537791}.mh-action__icon svg{width:.9rem;height:.9rem}\n.mh-stack {
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -216,7 +216,7 @@ const styles = `
 .mh-hero:hover{transform:translateY(-4px) scale(1.008);border-color:#c9ddea;box-shadow:0 22px 46px -28px rgba(37,99,235,.28),0 0 26px -18px rgba(92,160,205,.4)}.mh-hero__top{display:flex;align-items:flex-start;justify-content:space-between;gap:1.25rem}.mh-hero__mark{width:3rem;height:3rem;border:1px solid #d7e4ec;border-radius:1rem;background:linear-gradient(145deg,#f1f7fb,#fff);color:#527a99}.mh-hero__id > div{text-align:center}.mh-hero__where{justify-content:center}.mh-hero__tags{justify-content:center}.mh-hero__name{color:#102a43;font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.45rem,2.5vw,1.85rem);letter-spacing:-.035em}.mh-hero__where{color:#7a8994;font-size:.78rem}.mh-hero__tags{gap:.4rem;margin-top:.65rem}.mh-hero__tags .tp-pill{padding:.3rem .62rem;font-size:.67rem}.mh-hero__tags .tp-pill::before{width:.36rem;height:.36rem}
 .mh-hero__assistance{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;flex:none;min-height:2.3rem;padding:0 .8rem;border:1px solid #b9cede;border-radius:.7rem;background:rgba(255,255,255,.72);color:#456a87;font-size:.7rem;font-weight:700;letter-spacing:.025em;text-decoration:none;transition:transform 180ms ease,box-shadow 220ms ease,border-color 180ms ease,color 180ms ease,background 180ms ease}.mh-hero__assistance svg{width:.9rem;height:.9rem}.mh-hero__assistance:hover{border-color:#8eb3cf;background:#fff;color:#245c83;transform:translateY(-1px);box-shadow:0 10px 22px -16px rgba(37,99,235,.4)}
 .mh-facts{grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;padding-top:1.2rem;border-top:1px solid #e8eef3}.mh-facts>div{position:relative;margin:0;padding:.8rem .75rem;border:1px solid transparent;border-radius:.8rem;transition:background 180ms ease,border-color 180ms ease,box-shadow 220ms ease,transform 180ms ease}.mh-facts>div:hover{border-color:#e1ebf2;background:rgba(239,246,251,.58);box-shadow:0 10px 22px -22px rgba(16,42,67,.45);transform:translateY(-1px)}.mh-facts dt{color:#8a99a4;font-size:.61rem;font-weight:700;letter-spacing:.105em;text-transform:uppercase}.mh-facts dd{margin-top:.38rem;color:#243747;font-size:1.08rem;font-weight:720}.mh-facts dd.mh-fact__soft{color:#81909a;font-family:Georgia,"Times New Roman",serif;font-size:.88rem;font-style:italic;font-weight:400;letter-spacing:0}
-@media(max-width:760px){.mh-page .tp-page-sub{white-space:normal;overflow:visible;width:auto;max-width:36rem;border-right:0;animation:none}.mh-hero__top{flex-direction:column}.mh-hero__assistance{align-self:flex-start}.mh-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mh-hero{padding:1.15rem}.mh-facts{gap:.35rem}.mh-facts>div{padding:.7rem .6rem}.mh-facts dd{font-size:.96rem}}@media(prefers-reduced-motion:reduce){.mh-page .tp-page-sub{animation:none;border-right:0}.mh-facts>div,.mh-hero,.mh-hero__assistance{transition:none}}
+@media(max-width:760px){.mh-specs,.mh-lease-grid,.mh-actions{grid-template-columns:1fr}.mh-page .tp-page-sub{white-space:normal;overflow:visible;width:auto;max-width:36rem;border-right:0;animation:none}.mh-hero__top{flex-direction:column}.mh-hero__assistance{align-self:flex-start}.mh-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mh-hero{padding:1.15rem}.mh-facts{gap:.35rem}.mh-facts>div{padding:.7rem .6rem}.mh-facts dd{font-size:.96rem}}@media(prefers-reduced-motion:reduce){.mh-page .tp-page-sub{animation:none;border-right:0}.mh-facts>div,.mh-hero,.mh-hero__assistance{transition:none}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -454,117 +454,47 @@ function MyHomePage() {
  
         <div className="mh-grid">
           <article className="tp-card mh-panel">
-            <div className="mh-panel__head">
-              <Building2 />
-              <h2>Unit details</h2>
+            <div className="mh-panel__head"><Building2 /><h2>Unit details</h2></div>
+            <div className="mh-unit-editorial">
+              <div className="mh-unit-identity">
+                <span className="mh-unit-kicker">Property &amp; unit</span>
+                <strong>{home?.property_type ?? "Residential"} <span>•</span> {home?.unit_type ?? "Bedsitter"}</strong>
+              </div>
+              <div className="mh-specs" aria-label="Unit specifications">
+                <div><span>Bedrooms</span><strong>{home?.bedrooms ? String(home.bedrooms) : "Studio Layout"}</strong></div>
+                <div><span>Bathrooms</span><strong>{home?.bathrooms ? `${String(home.bathrooms)} Bath` : "Private"}</strong></div>
+                <div><span>Floor area</span><strong>{home?.size_sqm ? `${String(home.size_sqm)} m²` : "Standard"}</strong></div>
+              </div>
+              <div className="mh-address"><MapPin /><span>{address || "Address not provided"}</span></div>
             </div>
- 
-            <dl className="mh-rows">
-              <div className="mh-row">
-                <dt>Property type</dt>
-                <dd>{home?.property_type ?? "—"}</dd>
-              </div>
-              <div className="mh-row">
-                <dt>Unit type</dt>
-                <dd>{home?.unit_type ?? "—"}</dd>
-              </div>
-              <div className="mh-row">
-                <dt>Bedrooms</dt>
-                <dd>{home?.bedrooms ? String(home.bedrooms) : "—"}</dd>
-              </div>
-              <div className="mh-row">
-                <dt>Bathrooms</dt>
-                <dd>{home?.bathrooms ? String(home.bathrooms) : "—"}</dd>
-              </div>
-              <div className="mh-row">
-                <dt>Floor area</dt>
-                <dd>
-                  {home?.size_sqm ? `${String(home.size_sqm)} m²` : "—"}
-                </dd>
-              </div>
-              <div className="mh-row">
-                <dt>Address</dt>
-                <dd>{address}</dd>
-              </div>
-            </dl>
- 
             {amenities.length > 0 && (
               <>
                 <p className="tp-label">Amenities</p>
-                <ul className="mh-amenities">
-                  {amenities.map((amenity) => (
-                    <li className="mh-amenity" key={amenity}>
-                      <Sparkles />
-                      {amenity}
-                    </li>
-                  ))}
-                </ul>
+                <ul className="mh-amenities">{amenities.map((amenity) => <li className="mh-amenity" key={amenity}><Sparkles />{amenity}</li>)}</ul>
               </>
             )}
           </article>
- 
           <article className="tp-card mh-panel">
-            <div className="mh-panel__head">
-              <FileText />
-              <h2>Lease summary</h2>
-            </div>
- 
-            <dl className="mh-rows">
-              <div className="mh-row">
-                <dt>Status</dt>
-                <dd>
-                  <span
-                    className={`tp-pill ${
-                      lease?.status === "active"
-                        ? "tp-pill--good"
-                        : "tp-pill--mute"
-                    }`}
-                  >
-                    {lease?.status === "active" ? "Active" : "Inactive"}
-                  </span>
-                </dd>
+            <div className="mh-panel__head"><FileText /><h2>Lease summary</h2></div>
+            <div className="mh-lease-editorial">
+              <div className="mh-lease-grid">
+                <div><span>Status</span><strong><span className={`mh-status ${
+                  lease?.status === "active" ? "mh-status--good" :
+                  lease?.status === "ended" || lease?.status === "terminated" ? "mh-status--muted" : "mh-status--wait"
+                }`}>{lease?.status === "active" ? "Active" : lease?.status === "ended" || lease?.status === "terminated" ? "Inactive" : "Pending Active"}</span></strong></div>
+                <div><span>Start date</span><strong>{longDate(lease?.start_date)}</strong></div>
+                <div><span>End date</span><strong>{lease?.end_date ? longDate(lease.end_date) : "Flexible / Month-to-Month"}</strong></div>
+                <div className="mh-financials"><span>Financials</span><strong>Rent: {money(lease?.monthly_rent, currency)} <em>|</em> Deposit: {money(lease?.deposit_amount, currency)}</strong></div>
               </div>
-              <div className="mh-row">
-                <dt>Start date</dt>
-                <dd>{longDate(lease?.start_date)}</dd>
+              {lease?.notes && <p className="tp-section__sub" style={{ lineHeight: 1.6 }}>{lease.notes}</p>}
+              <div className="mh-actions">
+                <Link to="/tenant/lease" className="mh-action"><span className="mh-action__icon"><FileText /></span><span>View Full Lease Agreement</span><ArrowRight /></Link>
+                <Link to="/tenant/payments" className="mh-action mh-action--alt"><span className="mh-action__icon"><CalendarClock /></span><span>View Scheduled Payments</span><ArrowRight /></Link>
               </div>
-              <div className="mh-row">
-                <dt>End date</dt>
-                <dd>{longDate(lease?.end_date)}</dd>
-              </div>
-              <div className="mh-row">
-                <dt>Monthly rent</dt>
-                <dd className="tp-money">
-                  {money(lease?.monthly_rent, currency)}
-                </dd>
-              </div>
-              <div className="mh-row">
-                <dt>Deposit</dt>
-                <dd className="tp-money">
-                  {money(lease?.deposit_amount, currency)}
-                </dd>
-              </div>
-            </dl>
- 
-            {lease?.notes && (
-              <p className="tp-section__sub" style={{ lineHeight: 1.6 }}>
-                {lease.notes}
-              </p>
-            )}
- 
-            <div className="mh-actions">
-              <Link to="/tenant/lease" className="tp-btn tp-btn--quiet">
-                <FileText />
-                Full lease
-              </Link>
-              <Link to="/tenant/payments" className="tp-btn tp-btn--quiet">
-                <CalendarClock />
-                Payment schedule
-              </Link>
             </div>
           </article>
         </div>
- 
+
         <section className="tp-section" aria-label="Property management">
           <div className="tp-section__head">
             <div>
