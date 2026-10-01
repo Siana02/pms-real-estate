@@ -412,6 +412,7 @@ function MyHomePage() {
                   )}
                 </div>
               </div>
+              </div>
               <Link
                 to="/tenant/maintenance?action=new"
                 className="mh-hero__assistance"
