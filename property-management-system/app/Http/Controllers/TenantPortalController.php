@@ -554,10 +554,21 @@ class TenantPortalController extends Controller
             app(\App\Services\LeaseProvisioner::class)->assertNoOverlap($lease->unit, $startDate, $endDate, $lease->id);
         }
 
-        $lease->update(['end_date' => $endDate]);
+        $status = app(\App\Services\LeaseProvisioner::class)->statusForDates(
+            $startDate ?? CarbonImmutable::today()->toDateString(),
+            $endDate,
+            $lease->status
+        );
+
+        $lease->update([
+            'end_date' => $endDate,
+            'status' => $status,
+        ]);
+
+        app(\App\Services\LeaseProvisioner::class)->syncUnitStatus($lease->unit);
 
         return response()->json([
-            'message' => 'Lease end date updated. The signed agreement document remains unchanged.',
+            'message' => 'Lease end date updated. The signed agreement text remains unchanged.',
             'data' => $this->agreementPayload($lease->fresh()),
         ]);
     }
