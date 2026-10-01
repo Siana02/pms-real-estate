@@ -277,6 +277,32 @@ const styles = `
 .mh-action>span:not(.mh-action__icon){min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
 @media(max-width:1100px){.mh-grid{grid-template-columns:1fr!important}}
 @media(max-width:700px){.mh-specs,.mh-lease-grid,.mh-actions{grid-template-columns:1fr!important}.mh-lease-grid>div:nth-child(3)>strong{white-space:normal!important}}
+
+/* Stacked editorial card layout */
+.mh-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:1.25rem!important}
+.mh-panel{display:flex!important;flex-direction:column!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}
+.mh-panel__head{flex:none!important;display:flex!important;align-items:center!important;gap:.8rem!important;padding-bottom:1rem!important;border-bottom:1px solid #e5edf3!important}
+.mh-panel__head h2{margin:0!important;color:#0F172A!important;font-size:1.1rem!important;font-weight:700!important;white-space:nowrap!important}
+.mh-panel__head svg{flex:none!important;color:#2563EB!important}
+.mh-unit-rows,.mh-lease-rows{display:flex!important;flex-direction:column!important;width:100%!important;padding-top:.45rem!important}
+.mh-detail-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:2rem!important;min-width:0!important;padding:.82rem 0!important;border-bottom:1px solid #edf2f5!important}
+.mh-detail-row:last-child{border-bottom:0!important}
+.mh-detail-row>span:first-child{flex:0 0 auto!important;color:#7F8C96!important;font-size:.67rem!important;font-weight:700!important;letter-spacing:.1em!important;text-transform:uppercase!important}
+.mh-detail-row>strong{margin-left:auto!important;min-width:0!important;color:#0F172A!important;font-size:.84rem!important;font-weight:600!important;text-align:right!important;white-space:nowrap!important}
+.mh-detail-row .mh-status{white-space:nowrap!important}
+.mh-address{margin-top:.45rem!important;padding-top:.9rem!important;border-top:1px solid #e8eef2!important}
+.mh-address span{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.mh-financials-split{display:grid!important;grid-template-columns:1fr 1fr!important;gap:1rem!important;margin-top:1rem!important;padding:1rem 0!important;border-top:1px solid #e8eef2!important;border-bottom:1px solid #e8eef2!important}
+.mh-financials-split>div{min-width:0!important}
+.mh-financials-split>div+div{padding-left:1rem!important;border-left:1px solid #e5edf3!important}
+.mh-financials-split span{display:block!important;color:#7F8C96!important;font-size:.64rem!important;font-weight:700!important;letter-spacing:.1em!important;text-transform:uppercase!important}
+.mh-financials-split strong{display:block!important;margin-top:.35rem!important;color:#0F172A!important;font-size:1rem!important;font-weight:700!important;white-space:nowrap!important}
+.mh-actions{display:flex!important;flex-direction:column!important;gap:.55rem!important;width:100%!important;margin-top:auto!important;padding-top:1rem!important}
+.mh-action{display:flex!important;align-items:center!important;gap:.7rem!important;width:100%!important;min-width:0!important;box-sizing:border-box!important;padding:.72rem .8rem!important}
+.mh-action>span:not(.mh-action__icon){min-width:0!important;overflow:visible!important;white-space:nowrap!important}
+.mh-action>svg{margin-left:auto!important;flex:none!important}
+@media(max-width:1100px){.mh-grid{grid-template-columns:1fr!important}}
+@media(max-width:600px){.mh-financials-split{grid-template-columns:1fr!important}.mh-financials-split>div+div{padding-left:0!important;border-left:0!important;border-top:1px solid #e5edf3!important;padding-top:.8rem!important}.mh-detail-row{gap:1rem!important}.mh-detail-row>strong{white-space:normal!important}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -515,42 +541,39 @@ function MyHomePage() {
         <div className="mh-grid">
           <article className="tp-card mh-panel">
             <div className="mh-panel__head"><Building2 /><h2>Unit details</h2></div>
-            <div className="mh-unit-editorial">
-              <div className="mh-unit-identity">
-                <span className="mh-unit-kicker">Property &amp; unit</span>
-                <strong>{home?.property_type ?? "Residential"} <span>•</span> {home?.unit_type ?? "Bedsitter"}</strong>
-              </div>
-              <div className="mh-specs" aria-label="Unit specifications">
-                <div><span>Bedrooms</span><strong>{home?.bedrooms ? String(home.bedrooms) : "Studio Layout"}</strong></div>
-                <div><span>Bathrooms</span><strong>{home?.bathrooms ? `${String(home.bathrooms)} Bath` : "Private"}</strong></div>
-                <div><span>Floor area</span><strong>{home?.size_sqm ? `${String(home.size_sqm)} m²` : "Standard"}</strong></div>
-              </div>
-              <div className="mh-address"><MapPin /><span>{address || "Address not provided"}</span></div>
+            <div className="mh-unit-rows">
+              <div className="mh-detail-row"><span>Property &amp; unit</span><strong>{home?.property_type ?? "Residential"} • {home?.unit_type ?? "Bedsitter"}</strong></div>
+              <div className="mh-detail-row"><span>Bedrooms</span><strong>{home?.bedrooms ? String(home.bedrooms) : "Studio Layout"}</strong></div>
+              <div className="mh-detail-row"><span>Bathrooms</span><strong>{home?.bathrooms ? `${String(home.bathrooms)} Bath` : "Private"}</strong></div>
+              <div className="mh-detail-row"><span>Floor area</span><strong>{home?.size_sqm ? `${String(home.size_sqm)} m²` : "Standard"}</strong></div>
             </div>
+            <div className="mh-address"><MapPin /><span>{address || "Address not provided"}</span></div>
             {amenities.length > 0 && (
-              <>
+              <div className="mh-amenities-wrap">
                 <p className="tp-label">Amenities</p>
                 <ul className="mh-amenities">{amenities.map((amenity) => <li className="mh-amenity" key={amenity}><Sparkles />{amenity}</li>)}</ul>
-              </>
+              </div>
             )}
           </article>
+
           <article className="tp-card mh-panel">
             <div className="mh-panel__head"><FileText /><h2>Lease summary</h2></div>
-            <div className="mh-lease-editorial">
-              <div className="mh-lease-grid">
-                <div><span>Status</span><strong><span className={`mh-status ${
-                  lease?.status === "active" ? "mh-status--good" :
-                  lease?.status === "ended" || lease?.status === "terminated" ? "mh-status--muted" : "mh-status--wait"
-                }`}>{lease?.status === "active" ? "Active" : lease?.status === "ended" || lease?.status === "terminated" ? "Inactive" : "Pending Active"}</span></strong></div>
-                <div><span>Start date</span><strong>{longDate(lease?.start_date)}</strong></div>
-                <div><span>End date</span><strong>{lease?.end_date ? longDate(lease.end_date) : "Flexible / Month-to-Month"}</strong></div>
-                <div className="mh-financials"><span>Financials</span><strong><span>Rent: {money(lease?.monthly_rent, currency)}</span><span>Deposit: {money(lease?.deposit_amount, currency)}</span></strong></div>
-              </div>
-              {lease?.notes && <p className="tp-section__sub" style={{ lineHeight: 1.6 }}>{lease.notes}</p>}
-              <div className="mh-actions">
-                <Link to="/tenant/lease" className="mh-action"><span className="mh-action__icon"><FileText /></span><span>View Full Lease Agreement</span><ArrowRight /></Link>
-                <Link to="/tenant/payments" className="mh-action mh-action--alt"><span className="mh-action__icon"><CalendarClock /></span><span>View Scheduled Payments</span><ArrowRight /></Link>
-              </div>
+            <div className="mh-lease-rows">
+              <div className="mh-detail-row"><span>Status</span><strong><span className={`mh-status ${
+                lease?.status === "active" ? "mh-status--good" :
+                lease?.status === "ended" || lease?.status === "terminated" ? "mh-status--muted" : "mh-status--wait"
+              }`}>{lease?.status === "active" ? "Active" : lease?.status === "ended" || lease?.status === "terminated" ? "Inactive" : "Pending Active"}</span></strong></div>
+              <div className="mh-detail-row"><span>Start date</span><strong>{longDate(lease?.start_date)}</strong></div>
+              <div className="mh-detail-row"><span>End date</span><strong>{lease?.end_date ? longDate(lease.end_date) : "Flexible / Month-to-Month"}</strong></div>
+            </div>
+            <div className="mh-financials-split">
+              <div><span>Rent</span><strong>{money(lease?.monthly_rent, currency)}</strong></div>
+              <div><span>Deposit</span><strong>{money(lease?.deposit_amount, currency)}</strong></div>
+            </div>
+            {lease?.notes && <p className="tp-section__sub" style={{ lineHeight: 1.6 }}>{lease.notes}</p>}
+            <div className="mh-actions">
+              <Link to="/tenant/lease" className="mh-action"><span className="mh-action__icon"><FileText /></span><span>View Full Lease Agreement</span><ArrowRight /></Link>
+              <Link to="/tenant/payments" className="mh-action mh-action--alt"><span className="mh-action__icon"><CalendarClock /></span><span>View Scheduled Payments</span><ArrowRight /></Link>
             </div>
           </article>
         </div>
