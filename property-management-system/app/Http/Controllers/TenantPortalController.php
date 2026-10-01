@@ -337,6 +337,7 @@ class TenantPortalController extends Controller
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
         abort_if($lease->manager_signed_at !== null, 422, 'This lease is locked. Only the lease end date can be changed after final signing.');
+        abort_if($lease->tenant_signed_at !== null, 422, 'Your signed copy is locked. Only the lease end date can be changed after signing.');
 
         $validated = $request->validate([
             'requested_move_in_date' => ['nullable', 'date'],
