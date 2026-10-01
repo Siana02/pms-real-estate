@@ -53,7 +53,7 @@ public function usernameAvailable(Request $request)
                     Rule::exists('units', 'id')
                         ->where('property_id', $request->input('property_id')),
                 ],
-                'requested_move_in_date' => ['nullable', 'date'],
+                'requested_move_in_date' => ['required', 'date', 'after_or_equal:today'],
                 'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
                 'name' => ['required', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
