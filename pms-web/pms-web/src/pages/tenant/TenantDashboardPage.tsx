@@ -1010,7 +1010,7 @@ const styles = `
  
 type PaymentStatus = "paid" | "pending" | "overdue" | "partial";
 type RequestStatus = "open" | "in_progress" | "completed" | "cancelled";
-type LeaseStatus = "active" | "ended" | "terminated";
+type LeaseStatus = "pending" | "upcoming" | "active" | "ended" | "terminated";
  
 interface TenantHome {
   property_name: string | null;
