@@ -20,6 +20,7 @@ Route::get('username-available', [AuthController::class, 'usernameAvailable']);
 Route::get('organizations', [OrganizationController::class, 'index']);
 Route::get('organizations/{organization}/properties', [OrganizationController::class, 'properties']);
 Route::get('properties/{property}/available-units', [UnitController::class, 'availableForRegistration']);
+Route::get('properties/{property}/registration-availability', [UnitController::class, 'registrationAvailability']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('change-password', [AuthController::class, 'changePassword']);
