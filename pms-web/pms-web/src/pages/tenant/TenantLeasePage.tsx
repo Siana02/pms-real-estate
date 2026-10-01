@@ -228,45 +228,15 @@ function asAgreement(payload: unknown): Agreement | null {
 
   const record = payload as Record<string, unknown>;
   const data =
-  const firstData =
     record.data && typeof record.data === "object"
       ? (record.data as Record<string, unknown>)
       : record;
-  const source =
-    firstData.data && typeof firstData.data === "object"
-      ? (firstData.data as Record<string, unknown>)
-      : firstData;
-
-  // Laravel endpoints return the lease inside { data: ... }. Normalize the
-  // response here instead of relying on a TypeScript cast, so the page always
-  // reads the actual API fields even if a response wrapper/version changes.
   const source =
     data.data && typeof data.data === "object"
       ? (data.data as Record<string, unknown>)
       : data;
 
   if (!source || Object.keys(source).length === 0) return null;
-
-  const organization =
-    source.organization && typeof source.organization === "object"
-      ? source.organization as Record<string, unknown>
-      : null;
-  const property =
-    source.property && typeof source.property === "object"
-      ? source.property as Record<string, unknown>
-      : null;
-  const unit =
-    source.unit && typeof source.unit === "object"
-      ? source.unit as Record<string, unknown>
-      : null;
-  const tenant =
-    source.tenant && typeof source.tenant === "object"
-      ? source.tenant as Record<string, unknown>
-      : null;
-  const deposit =
-    source.deposit && typeof source.deposit === "object"
-      ? source.deposit as Record<string, unknown>
-      : null;
 
   const objectOrNull = (value: unknown) =>
     value && typeof value === "object" ? value as Record<string, unknown> : null;
@@ -312,7 +282,6 @@ function asAgreement(payload: unknown): Agreement | null {
           tenant_marked_paid_at: deposit.tenant_marked_paid_at == null
             ? null
             : String(deposit.tenant_marked_paid_at),
-          tenant_marked_paid_at: deposit.tenant_marked_paid_at == null ? null : String(deposit.tenant_marked_paid_at),
         }
       : null,
     tenant: tenant
@@ -498,7 +467,7 @@ function TenantLeasePage() {
     e.preventDefault();
     if (!initials.trim() || !agreement || leaseLocked || tenantSigned) return;
     setSigning(true);
-    setTermsMessage("");
+    setDetailsMessage("");
     try {
       const response = await apiRequest("/tenant/lease-agreement", {
         method: "PATCH",
@@ -795,50 +764,6 @@ function TenantLeasePage() {
                   <div>
                     <h3 style={{margin:0}}>Requested lease dates</h3>
                     <p className="tl-hint">Before signing, you can provide the dates you are requesting. The manager confirms the official dates.</p>
-              <article className="tp-card tl-copy">
-                <form onSubmit={handleSaveTerms} className="tl-copy">
-                  <div className="tl-copy__head">
-                    <h3>Your copy</h3>
-                    <span
-                      className={`tl-badge ${
-                        tenantSigned ? "tl-badge--done" : "tl-badge--pending"
-                      }`}
-                    >
-                      {tenantSigned ? <CheckCircle2 /> : <Clock />}
-                      {tenantSigned
-                        ? `Signed ${agreement.tenant_signature} · ${longDateTime(
-                            agreement.tenant_signed_at
-                          )}`
-                        : "Not yet signed"}
-                    </span>
-                  </div>
-                  <div className="tl-date-card">
-                    <div className="tl-date-card__head"><p className="tl-date-card__title">Your requested lease dates</p><p className="tl-date-card__hint">You choose the dates you are requesting. The manager confirms the official lease dates before the final signature.</p></div>
-                    <div className="tl-date-fields">
-                      <div><label className="tp-label" htmlFor="requested-start">Move-in / lease start</label><input id="requested-start" type="date" value={requestedStart} onChange={(e) => setRequestedStart(e.target.value)} disabled={tenantSigned || leaseLocked} /></div>
-                      <div><label className="tp-label" htmlFor="requested-end">Move-out / lease end</label><input id="requested-end" type="date" value={requestedEnd} onChange={(e) => setRequestedEnd(e.target.value)} disabled={tenantSigned || leaseLocked} /></div>
-                    </div>
-                  </div>
-                  <textarea
-                    value={tenantTerms}
-                    onChange={(e) => setTenantTerms(e.target.value)}
-                    disabled={tenantSigned || leaseLocked}
-                    aria-label="Your copy of the lease agreement"
-                  />
-                  <p className="tl-hint">
-                    {tenantSigned
-                      ? "You have signed this version. It is now with the manager for final review."
-                      : "Set your requested dates and review your side of the agreement before signing."}
-                  </p>
-                  <div className="tl-sign-row">
-                    <button
-                      type="submit"
-                      className="tp-btn tp-btn--quiet"
-                      disabled={savingTerms || !termsChanged || tenantSigned || leaseLocked}
-                    >
-                      {savingTerms ? <Loader2 className="tl-spin" /> : null}
-                      Save changes
-                    </button>
                   </div>
                 </div>
                 <div className="tl-form-grid" style={{marginTop:".85rem"}}>
