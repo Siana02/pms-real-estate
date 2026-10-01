@@ -428,9 +428,6 @@ const styles = `
   .td-lead { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
   .td-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-`;
- 
-
 /* ------------------------------------------------------------------ */
 /*  PREMIUM DASHBOARD VISUAL LAYER — UI ONLY                          */
 /* ------------------------------------------------------------------ */
@@ -762,6 +759,10 @@ const styles = `
     font-size: 2.2rem;
   }
 }
+
+
+`;
+ 
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
