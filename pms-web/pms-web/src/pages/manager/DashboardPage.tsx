@@ -1855,6 +1855,46 @@ function DashboardPage() {
       { key: "cancelled", label: "Cancelled", count: counts.cancelled },
     ];
  
+  const revenueTrend = stats.revenue_trend ?? [];
+  const trendWidth = 720;
+  const trendHeight = 220;
+  const trendPaddingX = 12;
+  const trendPaddingY = 24;
+  const trendMax = Math.max(
+    1,
+    ...revenueTrend.map((point) => toNumber(point.value))
+  );
+  const trendPoints = revenueTrend.map((point, index) => {
+    const denominator = Math.max(revenueTrend.length - 1, 1);
+    const x =
+      trendPaddingX +
+      (index / denominator) * (trendWidth - trendPaddingX * 2);
+    const y =
+      trendHeight -
+      trendPaddingY -
+      (toNumber(point.value) / trendMax) *
+        (trendHeight - trendPaddingY * 2);
+    return { ...point, x, y };
+  });
+  const trendLine = trendPoints.map((point) => point.x + ',' + point.y).join(' ');
+  const trendArea =
+    trendPoints.length > 0
+      ? 'M ' +
+        trendPoints[0].x +
+        ' ' +
+        (trendHeight - trendPaddingY) +
+        ' L ' +
+        trendPoints.map((point) => point.x + ' ' + point.y).join(' L ') +
+        ' L ' +
+        trendPoints[trendPoints.length - 1].x +
+        ' ' +
+        (trendHeight - trendPaddingY) +
+        ' Z'
+      : '';
+
+  const timeOfDayIcon =
+    greeting() === 'Good evening' ? <Moon /> : <Sun />;
+
   return (
     <DashboardLayout>
       <div className="db-root">
@@ -2466,47 +2506,7 @@ function DashboardPage() {
                     (work?.spent ?? 0) + (expensesByProperty.get(key) ?? 0);
                   const net = revenue - spent;
  
-                  const revenueTrend = stats.revenue_trend ?? [];
-  const trendWidth = 720;
-  const trendHeight = 220;
-  const trendPaddingX = 12;
-  const trendPaddingY = 24;
-  const trendMax = Math.max(
-    1,
-    ...revenueTrend.map((point) => toNumber(point.value))
-  );
-  const trendPoints = revenueTrend.map((point, index) => {
-    const denominator = Math.max(revenueTrend.length - 1, 1);
-    const x =
-      trendPaddingX +
-      (index / denominator) * (trendWidth - trendPaddingX * 2);
-    const y =
-      trendHeight -
-      trendPaddingY -
-      (toNumber(point.value) / trendMax) *
-        (trendHeight - trendPaddingY * 2);
-    return { ...point, x, y };
-  });
-  const trendLine = trendPoints.map((point) => point.x + ',' + point.y).join(' ');
-  const trendArea =
-    trendPoints.length > 0
-      ? 'M ' +
-        trendPoints[0].x +
-        ' ' +
-        (trendHeight - trendPaddingY) +
-        ' L ' +
-        trendPoints.map((point) => point.x + ' ' + point.y).join(' L ') +
-        ' L ' +
-        trendPoints[trendPoints.length - 1].x +
-        ' ' +
-        (trendHeight - trendPaddingY) +
-        ' Z'
-      : '';
-
-  const timeOfDayIcon =
-    greeting() === 'Good evening' ? <Moon /> : <Sun />;
-
-  return (
+                  return (
                     <article key={key} className="db-property">
                       <div className="db-property__head">
                         <span className="db-property__avatar" aria-hidden="true">
