@@ -1930,8 +1930,7 @@ function DashboardPage() {
               </h1>
 
               <p className="db-subtitle">
-                Properties, units, tenants, maintenance and net revenue — the
-                whole portfolio in one view.
+                A clear view of what’s happening across your portfolio today.
               </p>
             </div>
 
