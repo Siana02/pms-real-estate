@@ -1221,6 +1221,189 @@ const styles = `
 /* LUXURY DASHBOARD OVERRIDE — intentionally last in this stylesheet so legacy dark/glass rules cannot win. */
 
 
+/* HEADER SIGNATURE — restrained editorial hierarchy and tactile luxury motion. */
+.db-header{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:2rem!important;
+}
+.db-header__copy{flex:1 1 auto!important;min-width:0!important}
+.db-eyebrow{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:.48rem!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  border-radius:0!important;
+  color:#64748B!important;
+  font-size:.72rem!important;
+  font-weight:600!important;
+  line-height:1!important;
+  text-transform:uppercase!important;
+  letter-spacing:.15em!important;
+}
+.db-eyebrow svg{
+  width:.82rem!important;
+  height:.82rem!important;
+  color:#94A3B8!important;
+  stroke-width:1.35!important;
+}
+.db-title{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:.28rem!important;
+  margin:.72rem 0 0!important;
+  background:none!important;
+  -webkit-text-fill-color:initial!important;
+  color:#0F172A!important;
+  font-size:clamp(2rem,2.55vw,2.25rem)!important;
+  font-weight:400!important;
+  line-height:1.08!important;
+  letter-spacing:-.035em!important;
+}
+.db-title__greeting{
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:1em!important;
+  font-weight:400!important;
+  color:#0F172A!important;
+}
+.db-title__org{
+  font-family:var(--db-font)!important;
+  font-size:1.12rem!important;
+  font-weight:600!important;
+  line-height:1.25!important;
+  letter-spacing:.055em!important;
+  text-transform:uppercase!important;
+  color:#0F172A!important;
+}
+.db-subtitle{
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+  margin:.62rem 0 0!important;
+  color:#64748B!important;
+  font-size:.875rem!important;
+  font-weight:400!important;
+  line-height:1.45!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.db-actions{
+  display:flex!important;
+  flex:0 0 auto!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:.55rem!important;
+  margin:0!important;
+  padding:0!important;
+  align-self:flex-start!important;
+}
+.db-btn{
+  transition:background-color .4s ease,box-shadow .4s ease,transform .4s cubic-bezier(.16,1,.3,1),color .4s ease!important;
+}
+.db-btn--primary{
+  min-height:2.55rem!important;
+  padding:.55rem .78rem .55rem .9rem!important;
+  border-radius:5px!important;
+  background:#0A1931!important;
+  border:1px solid #0A1931!important;
+  box-shadow:0 10px 24px -16px rgba(10,25,49,.55)!important;
+  color:#fff!important;
+}
+.db-btn--primary .db-btn__arrow{
+  width:.82rem!important;
+  height:.82rem!important;
+  stroke-width:1.5!important;
+  opacity:.78!important;
+  transition:transform .4s cubic-bezier(.16,1,.3,1)!important;
+}
+.db-btn--primary:hover{
+  background:#152A4A!important;
+  border-color:#152A4A!important;
+  box-shadow:0 12px 28px -15px rgba(10,25,49,.5),0 0 0 5px rgba(10,25,49,.06)!important;
+  transform:translateY(-1px)!important;
+}
+.db-btn--primary:hover .db-btn__arrow{
+  transform:translate(1px,-1px)!important;
+}
+.db-btn--refresh{
+  width:2.55rem!important;
+  height:2.55rem!important;
+  min-height:2.55rem!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:#F1F5F9!important;
+  color:#64748B!important;
+}
+.db-btn--refresh:hover{
+  background:#E8EEF4!important;
+  color:#0F172A!important;
+  transform:none!important;
+}
+.db-btn--refresh svg{
+  width:.95rem!important;
+  height:.95rem!important;
+  stroke-width:1.45!important;
+}
+.db-spin{
+  animation:db-refresh-spin .8s cubic-bezier(.16,1,.3,1) 1!important;
+}
+@keyframes db-refresh-spin{
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
+}
+@keyframes db-header-eyebrow-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes db-header-copy-in{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes db-header-actions-in{
+  from{opacity:0;transform:translateX(10px)}
+  to{opacity:1;transform:translateX(0)}
+}
+.db-eyebrow{
+  animation:db-header-eyebrow-in .6s ease-out both;
+}
+.db-title,.db-subtitle{
+  animation:db-header-copy-in .8s cubic-bezier(.16,1,.3,1) both;
+}
+.db-title{animation-delay:.12s}
+.db-subtitle{animation-delay:.2s}
+.db-actions{
+  animation:db-header-actions-in .65s cubic-bezier(.16,1,.3,1) .3s both;
+}
+@media(max-width:900px){
+  .db-header{
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:1.15rem!important;
+  }
+  .db-actions{
+    width:auto!important;
+    margin-left:auto!important;
+  }
+}
+@media(max-width:620px){
+  .db-header{gap:1rem!important}
+  .db-actions{width:100%!important;margin-left:0!important}
+  .db-actions .db-btn--primary{margin-left:auto!important}
+  .db-title{font-size:2rem!important}
+  .db-title__org{font-size:1rem!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .db-eyebrow,.db-title,.db-subtitle,.db-actions{animation:none!important}
+  .db-spin{animation:none!important}
+}
+
 /* FINAL POLISH — hierarchy, grounding and executive visualization. */
 .db-header__copy{min-width:0!important}
 .db-eyebrow{display:inline-flex!important;align-items:center!important;gap:.42rem!important;margin-bottom:.2rem!important}
@@ -1916,33 +2099,28 @@ function DashboardPage() {
               </span>
 
               <h1 className="db-title">
-                {organization.name ? (
-                  <>
-                    <span className="db-title__greeting">{greeting()}</span>
-                    <span className="db-title__org">{organization.name}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="db-title__greeting">{greeting()}</span>
-                    <span className="db-title__org">Welcome to your workspace</span>
-                  </>
-                )}
+                <span className="db-title__greeting">Portfolio overview</span>
+                <span className="db-title__org">
+                  {organization.name || "Your property workspace"}
+                </span>
               </h1>
 
               <p className="db-subtitle">
-                A clear view of what’s happening across your portfolio today.
+                Your real estate portfolio at a glance today.
               </p>
             </div>
 
-            <div className="db-actions">
+            <div className="db-actions" aria-label="Dashboard actions">
               <button
                 type="button"
-                className="db-btn db-btn--ghost"
+                className="db-btn db-btn--ghost db-btn--refresh"
                 onClick={() => load(true)}
                 disabled={refreshing || loading}
+                aria-label={refreshing ? "Refreshing dashboard" : "Refresh dashboard"}
+                title="Refresh dashboard"
               >
                 <RefreshCw className={refreshing ? "db-spin" : undefined} />
-                {refreshing ? "Refreshing…" : "Refresh"}
+                <span className="db-sr">Refresh</span>
               </button>
 
               <button
@@ -1951,7 +2129,8 @@ function DashboardPage() {
                 onClick={() => navigate("/manager/properties/add")}
               >
                 <Plus />
-                Add property
+                <span>Add property</span>
+                <ArrowUpRight className="db-btn__arrow" aria-hidden="true" />
               </button>
             </div>
           </header>
