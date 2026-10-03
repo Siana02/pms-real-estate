@@ -20,6 +20,8 @@ import {
   Search,
   TrendingDown,
   Users,
+  Sun,
+  Moon,
   Wallet,
   Wrench,
   X,
@@ -1217,6 +1219,40 @@ const styles = `
 }
 
 /* LUXURY DASHBOARD OVERRIDE — intentionally last in this stylesheet so legacy dark/glass rules cannot win. */
+/* FINAL POLISH — hierarchy, grounding and executive visualization. */
+.db-header__copy{min-width:0!important}
+.db-eyebrow{display:inline-flex!important;align-items:center!important;gap:.42rem!important;margin-bottom:.2rem!important}
+.db-eyebrow svg{stroke-width:1.5!important}
+.db-title{display:flex!important;flex-direction:column!important;gap:.12rem!important;margin:.45rem 0 0!important;font-size:clamp(1.7rem,2.6vw,2.45rem)!important;line-height:1.12!important;letter-spacing:-.025em!important}
+.db-title__greeting{font-family:Georgia,"Times New Roman",serif!important;font-weight:500!important;color:#25313d!important}
+.db-title__org{font-family:var(--db-font)!important;font-size:.43em!important;font-weight:500!important;line-height:1.3!important;letter-spacing:.055em!important;text-transform:uppercase!important;color:#89939e!important}
+.db-header{position:relative!important;align-items:flex-start!important}
+.db-actions{align-self:flex-start!important;margin-left:auto!important;padding-top:.15rem!important}
+.db-stats{gap:1px!important;border:1px solid #e1e4e7!important;border-radius:.65rem!important;overflow:hidden!important;background:#e1e4e7!important;box-shadow:0 10px 30px -10px rgba(0,0,0,.04)!important}
+.db-stat,.db-root button.db-stat--action{min-height:9.8rem!important;border:0!important;box-shadow:none!important}
+.db-stat:not(:last-child){border-right:0!important}
+.db-stat:hover,.db-root button.db-stat--action:hover{box-shadow:inset 0 -2px 0 #0a192f!important}
+.db-stat__value{font-size:clamp(1.65rem,2vw,2rem)!important;white-space:nowrap!important;overflow:visible!important}
+.db-stat:last-child .db-stat__value{font-size:clamp(1.25rem,1.55vw,1.72rem)!important;letter-spacing:-.035em!important}
+.db-trend{padding:1.55rem 1.6rem 1.15rem!important;border:1px solid #e1e4e7!important;border-radius:.7rem!important;background:#fff!important;box-shadow:0 14px 40px -36px rgba(24,32,42,.4)!important}
+.db-trend__head{display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:1.5rem!important}
+.db-trend__eyebrow{margin:0 0 .35rem!important;font-size:.65rem!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.13em!important;color:#89939e!important}
+.db-trend__title{margin:0!important;font-family:Georgia,"Times New Roman",serif!important;font-size:1.35rem!important;font-weight:500!important;letter-spacing:-.02em!important;color:#25313d!important}
+.db-trend__summary{display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:.15rem!important}
+.db-trend__summary span{font-size:.65rem!important;text-transform:uppercase!important;letter-spacing:.1em!important;color:#89939e!important}
+.db-trend__summary strong{font-size:1rem!important;font-weight:600!important;color:#25313d!important;white-space:nowrap!important}
+.db-trend__chart{height:220px!important;margin-top:1.1rem!important}
+.db-trend__svg{display:block!important;width:100%!important;height:100%!important;overflow:visible!important}
+.db-trend__baseline{stroke:#edf0f1!important;stroke-width:1!important}
+.db-trend__area{fill:url(#db-trend-fill)!important;opacity:.08!important}
+.db-trend__line{stroke:#315f8a!important;stroke-width:3!important;stroke-linecap:round!important;stroke-linejoin:round!important;vector-effect:non-scaling-stroke!important}
+.db-trend__dot{fill:#fff!important;stroke:#315f8a!important;stroke-width:2!important;vector-effect:non-scaling-stroke!important}
+.db-trend__labels{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;margin-top:.15rem!important;padding:0 .15rem!important;color:#9aa3ac!important;font-size:.65rem!important;text-transform:uppercase!important;letter-spacing:.08em!important;text-align:center!important}
+.db-trend__empty{height:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:.7rem!important;border:1px dashed #e1e5e8!important;border-radius:.5rem!important;color:#89939e!important;font-size:.75rem!important}
+.db-trend__empty-line{width:70%!important;height:1px!important;background:#e5e8ea!important}
+@media(max-width:900px){.db-header{align-items:flex-start!important}.db-actions{padding-top:0!important}.db-title{font-size:2rem!important}.db-trend__head{align-items:flex-start!important}}
+@media(max-width:620px){.db-title{font-size:1.8rem!important}.db-title__org{font-size:.46em!important}.db-header{gap:1rem!important}.db-actions{width:auto!important;margin-left:0!important}.db-trend{padding:1.15rem 1rem 1rem!important}.db-trend__head{flex-direction:column!important;gap:.7rem!important}.db-trend__summary{align-items:flex-start!important}.db-trend__chart{height:180px!important}.db-trend__labels{font-size:.58rem!important}}
+
 .db-root{background:#f7f7f5!important;color:#18202a!important;min-height:100vh!important;letter-spacing:-.012em!important}
 .db-backdrop{display:none!important}
 .db-shell{max-width:1440px!important;margin:0 auto!important;padding:3rem 3.25rem 5rem!important;gap:2.5rem!important}
@@ -1301,12 +1337,18 @@ const styles = `
 type Priority = "urgent" | "high" | "medium" | "low";
 type RequestStatus = "open" | "in_progress" | "completed" | "cancelled";
  
+interface RevenueTrendPoint {
+  label: string;
+  value: number;
+}
+
 interface DashboardStats {
   properties?: number;
   units?: number;
   occupied_units?: number;
   active_tenants?: number;
   monthly_revenue?: number;
+  revenue_trend?: RevenueTrendPoint[];
 }
  
 interface DashboardResponse {
@@ -1825,24 +1867,32 @@ function DashboardPage() {
         <div className="db-shell">
           {/* ---------- header ---------- */}
           <header className="db-header">
-            <div>
+            <div className="db-header__copy">
               <span className="db-eyebrow">
-                <Home />
-                Overview
+                {timeOfDayIcon}
+                {greeting()}
               </span>
- 
+
               <h1 className="db-title">
-                {organization.name
-                  ? `${greeting()}, ${organization.name}`
-                  : `${greeting()} — welcome to your workspace`}
+                {organization.name ? (
+                  <>
+                    <span className="db-title__greeting">{greeting()}</span>
+                    <span className="db-title__org">{organization.name}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="db-title__greeting">{greeting()}</span>
+                    <span className="db-title__org">Welcome to your workspace</span>
+                  </>
+                )}
               </h1>
- 
+
               <p className="db-subtitle">
                 Properties, units, tenants, maintenance and net revenue — the
                 whole portfolio in one view.
               </p>
             </div>
- 
+
             <div className="db-actions">
               <button
                 type="button"
@@ -1853,7 +1903,7 @@ function DashboardPage() {
                 <RefreshCw className={refreshing ? "db-spin" : undefined} />
                 {refreshing ? "Refreshing…" : "Refresh"}
               </button>
- 
+
               <button
                 type="button"
                 className="db-btn db-btn--primary"
@@ -1935,6 +1985,83 @@ function DashboardPage() {
             })}
           </section>
  
+          {/* ---------- revenue visualization ---------- */}
+          <section className="db-trend" aria-label="Revenue trend">
+            <div className="db-trend__head">
+              <div>
+                <p className="db-trend__eyebrow">Cash performance</p>
+                <h2 className="db-trend__title">Revenue over the last six months</h2>
+              </div>
+              <div className="db-trend__summary">
+                <span>Current month</span>
+                <strong>
+                  {loading
+                    ? "—"
+                    : revenueTrend.length
+                    ? formatMoney(
+                        toNumber(revenueTrend[revenueTrend.length - 1].value),
+                        currency
+                      )
+                    : formatMoney(money.gross, currency)}
+                </strong>
+              </div>
+            </div>
+
+            <div className="db-trend__chart">
+              {loading || revenueTrend.length === 0 ? (
+                <div className="db-trend__empty">
+                  <span className="db-trend__empty-line" />
+                  <span>Revenue history will appear here as payments are recorded.</span>
+                </div>
+              ) : (
+                <svg
+                  className="db-trend__svg"
+                  viewBox={'0 0 ' + trendWidth + ' ' + trendHeight}
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-label="Six month revenue trend"
+                >
+                  <defs>
+                    <linearGradient id="db-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#315f8a" />
+                      <stop offset="100%" stopColor="#315f8a" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <line
+                    x1="12"
+                    y1={trendHeight - trendPaddingY}
+                    x2={trendWidth - 12}
+                    y2={trendHeight - trendPaddingY}
+                    className="db-trend__baseline"
+                  />
+                  <path d={trendArea} className="db-trend__area" />
+                  <polyline
+                    points={trendLine}
+                    className="db-trend__line"
+                    fill="none"
+                  />
+                  {trendPoints.map((point) => (
+                    <circle
+                      key={point.label}
+                      cx={point.x}
+                      cy={point.y}
+                      r="3.5"
+                      className="db-trend__dot"
+                    />
+                  ))}
+                </svg>
+              )}
+            </div>
+
+            {revenueTrend.length > 0 && (
+              <div className="db-trend__labels" aria-hidden="true">
+                {revenueTrend.map((point) => (
+                  <span key={point.label}>{point.label}</span>
+                ))}
+              </div>
+            )}
+          </section>
+
           {/* ---------- occupancy + revenue ledger ---------- */}
           <section className="db-split" aria-label="Occupancy and revenue">
             <div className="db-card">
@@ -2337,7 +2464,47 @@ function DashboardPage() {
                     (work?.spent ?? 0) + (expensesByProperty.get(key) ?? 0);
                   const net = revenue - spent;
  
-                  return (
+                  const revenueTrend = stats.revenue_trend ?? [];
+  const trendWidth = 720;
+  const trendHeight = 220;
+  const trendPaddingX = 12;
+  const trendPaddingY = 24;
+  const trendMax = Math.max(
+    1,
+    ...revenueTrend.map((point) => toNumber(point.value))
+  );
+  const trendPoints = revenueTrend.map((point, index) => {
+    const denominator = Math.max(revenueTrend.length - 1, 1);
+    const x =
+      trendPaddingX +
+      (index / denominator) * (trendWidth - trendPaddingX * 2);
+    const y =
+      trendHeight -
+      trendPaddingY -
+      (toNumber(point.value) / trendMax) *
+        (trendHeight - trendPaddingY * 2);
+    return { ...point, x, y };
+  });
+  const trendLine = trendPoints.map((point) => point.x + ',' + point.y).join(' ');
+  const trendArea =
+    trendPoints.length > 0
+      ? 'M ' +
+        trendPoints[0].x +
+        ' ' +
+        (trendHeight - trendPaddingY) +
+        ' L ' +
+        trendPoints.map((point) => point.x + ' ' + point.y).join(' L ') +
+        ' L ' +
+        trendPoints[trendPoints.length - 1].x +
+        ' ' +
+        (trendHeight - trendPaddingY) +
+        ' Z'
+      : '';
+
+  const timeOfDayIcon =
+    greeting() === 'Good evening' ? <Moon /> : <Sun />;
+
+  return (
                     <article key={key} className="db-property">
                       <div className="db-property__head">
                         <span className="db-property__avatar" aria-hidden="true">
