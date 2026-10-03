@@ -205,6 +205,16 @@ const styles = `
     transition-duration: 0.001ms !important;
   }
 }
+
+/* LUXURY MANAGER SHELL — appended after legacy layout rules. */
+.dl-root{background:#f7f7f5!important;color:#18202a!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+.dl-topbar{background:rgba(255,255,255,.94)!important;border-bottom:1px solid #e3e6e8!important;backdrop-filter:blur(16px)!important}
+.dl-brand__mark{background:#0a192f!important;border:0!important;color:#fff!important}.dl-brand__name{color:#18202a!important}.dl-brand__name span{color:#315f8a!important}
+.dl-iconbtn{border:1px solid #e1e5e8!important;background:#fff!important;color:#52606f!important}.dl-iconbtn:hover{background:#f2f4f5!important;border-color:#d4dbe0!important}
+.dl-rail{background:#fff!important;border-right:1px solid #e1e4e7!important;backdrop-filter:none!important;box-shadow:8px 0 30px -30px rgba(24,32,42,.3)!important}
+.dl-main{background:#f7f7f5!important}
+.dl-overlay{background:rgba(24,32,42,.3)!important}
+
 `;
 
 interface DashboardLayoutProps {
