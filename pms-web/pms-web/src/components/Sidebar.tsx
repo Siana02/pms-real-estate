@@ -265,6 +265,26 @@ const styles = `
     transition-duration: 0.001ms !important;
   }
 }
+
+/* LUXURY SIDEBAR OVERRIDE — appended after legacy sidebar rules. */
+.sb{padding:1.65rem 1rem!important;color:#26313c!important;background:#fff!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:0!important}
+.sb-brand__mark{width:2rem!important;height:2rem!important;border:0!important;border-radius:.35rem!important;background:#0a192f!important;color:#fff!important}
+.sb-brand__name{font-size:1rem!important;color:#18202a!important;letter-spacing:.02em!important}
+.sb-brand__name span{color:#315f8a!important}
+.sb-org{margin-top:2rem!important;padding:.8rem 0!important;border:0!important;border-bottom:1px solid #e6e9eb!important;border-radius:0!important;background:transparent!important}
+.sb-org__avatar{width:2.15rem!important;height:2.15rem!important;border:1px solid #dfe4e8!important;border-radius:50%!important;background:#f1f4f6!important;color:#536779!important}
+.sb-org__label{color:#98a1aa!important;font-size:.58rem!important}.sb-org__name{color:#34404c!important;font-size:.78rem!important}.sb-org__email{color:#929ca5!important;font-size:.68rem!important}
+.sb-nav{gap:.08rem!important;margin-top:1.7rem!important}
+.sb-nav__label{margin:0 0 .55rem .7rem!important;color:#9aa2aa!important;font-size:.57rem!important;letter-spacing:.14em!important}
+.sb-link{min-height:2.5rem!important;padding:.55rem .7rem!important;border:0!important;border-radius:0!important;color:#77828d!important;font-size:.78rem!important;font-weight:500!important}
+.sb-link svg{width:1rem!important;height:1rem!important;color:#99a3ad!important}
+.sb-link:hover{color:#26313c!important;background:#f6f7f7!important}
+.sb-link--active{position:relative!important;border:0!important;background:transparent!important;color:#172b3f!important;font-weight:650!important}
+.sb-link--active:before{left:-1rem!important;width:2px!important;height:1.35rem!important;border-radius:0!important;background:#315f8a!important}
+.sb-link--active svg{color:#315f8a!important}
+.sb-foot{padding-top:1rem!important;margin-top:1rem!important;border-top:1px solid #e7eaec!important}
+.sb-link--danger:hover{background:#f8efed!important;color:#82463f!important}
+
 `;
  
 /* ------------------------------------------------------------------ */
