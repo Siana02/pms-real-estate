@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MaintenanceRequest;
+use App\Models\MaintenanceRequestUpdate;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -89,6 +90,13 @@ class MaintenanceRequestController extends Controller
             'reported_date' => $validated['reported_date'] ?? now()->toDateString(),
         ]);
 
+        MaintenanceRequestUpdate::create([
+            'maintenance_request_id' => $maintenanceRequest->id,
+            'type' => 'submitted',
+            'status' => $maintenanceRequest->status,
+            'message' => 'Maintenance request received by your property manager.',
+        ]);
+
         return response()->json([
             'message' => 'Maintenance request created successfully.',
             'maintenance_request' => $maintenanceRequest->load(['property', 'unit', 'tenant']),
@@ -99,16 +107,13 @@ class MaintenanceRequestController extends Controller
     {
         $this->authorizeOrganization($request, $maintenanceRequest);
 
-        return response()->json($maintenanceRequest->load(['property', 'unit', 'tenant']));
+        return response()->json($maintenanceRequest->load(['property', 'unit', 'tenant', 'updates']));
     }
 
     public function update(Request $request, MaintenanceRequest $maintenanceRequest)
     {
         $this->authorizeOrganization($request, $maintenanceRequest);
 
-        // Tenant-submitted fields (title, description, priority, property, unit,
-        // tenant) are intentionally immutable from the manager workflow. The
-        // manager controls the operational side of the request instead.
         $validated = $request->validate([
             'status' => 'sometimes|required|in:open,in_progress,completed,cancelled',
             'assigned_to' => 'nullable|string|max:255',
@@ -120,12 +125,49 @@ class MaintenanceRequestController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $previousStatus = $maintenanceRequest->status;
+        $previousDate = $maintenanceRequest->scheduled_date?->toDateString();
+        $previousTime = $maintenanceRequest->scheduled_time;
+
         $validated = $this->applyWorkflowRules($maintenanceRequest, $validated);
         $maintenanceRequest->update($validated);
+        $maintenanceRequest->refresh();
+
+        if (array_key_exists('status', $validated) && $validated['status'] !== $previousStatus) {
+            $label = match ($validated['status']) {
+                'in_progress' => 'Your maintenance request is now in progress.',
+                'completed' => 'Your maintenance request has been completed.',
+                'cancelled' => 'Your maintenance request has been closed.',
+                default => 'Your maintenance request has been received.',
+            };
+            MaintenanceRequestUpdate::create([
+                'maintenance_request_id' => $maintenanceRequest->id,
+                'type' => 'status',
+                'status' => $validated['status'],
+                'message' => $label,
+            ]);
+        }
+
+        $newDate = $maintenanceRequest->scheduled_date?->toDateString();
+        $newTime = $maintenanceRequest->scheduled_time;
+        if ($newDate !== $previousDate || $newTime !== $previousTime) {
+            if ($newDate === null) {
+                $message = 'The maintenance visit is no longer scheduled.';
+            } else {
+                $when = $newDate . ($newTime ? ' at ' . substr($newTime, 0, 5) : '');
+                $message = 'Maintenance visit scheduled for ' . $when . '. Please confirm your availability.';
+            }
+            MaintenanceRequestUpdate::create([
+                'maintenance_request_id' => $maintenanceRequest->id,
+                'type' => 'schedule',
+                'status' => $maintenanceRequest->status,
+                'message' => $message,
+            ]);
+        }
 
         return response()->json([
             'message' => 'Maintenance request updated successfully.',
-            'maintenance_request' => $maintenanceRequest->fresh()->load(['property', 'unit', 'tenant']),
+            'maintenance_request' => $maintenanceRequest->fresh()->load(['property', 'unit', 'tenant', 'updates']),
             'summary' => $this->summary($request->user()->organization_id),
         ]);
     }
@@ -146,11 +188,9 @@ class MaintenanceRequestController extends Controller
                 $validated['scheduled_time'] = null;
                 $validated['tenant_availability'] = null;
             } else {
-                // Any new/rescheduled visit needs a fresh tenant confirmation.
                 $validated['tenant_availability'] = 'pending';
             }
         } elseif (array_key_exists('scheduled_time', $validated) && $item->scheduled_date !== null) {
-            // Changing only the time also invalidates a previous confirmation.
             $validated['tenant_availability'] = 'pending';
         }
 
