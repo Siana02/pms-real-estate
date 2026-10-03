@@ -50,8 +50,8 @@ class TenantMaintenanceController extends Controller
             'category' => ['nullable', 'string', 'max:100'],
             'priority' => ['required', 'in:low,medium,high,urgent'],
             'reported_date' => ['nullable', 'date'],
-            'availability_start_at' => ['nullable', 'date'],
-            'availability_end_at' => ['nullable', 'date', 'after:availability_start_at'],
+            'availability_start_at' => ['nullable', 'date', 'required_with:availability_end_at'],
+            'availability_end_at' => ['nullable', 'date', 'after:availability_start_at', 'required_with:availability_start_at'],
         ]);
 
         $description = $validated['description'];
@@ -117,11 +117,8 @@ class TenantMaintenanceController extends Controller
     {
         $tenant = $this->currentTenant($request);
         abort_if($maintenanceRequest->tenant_id !== $tenant->id, 403, 'You do not have access to this maintenance request.');
-
-        $maintenanceRequest->load('updates');
         $now = CarbonImmutable::now();
         $maintenanceRequest->updates()->whereNull('tenant_read_at')->update(['tenant_read_at' => $now]);
-
         return response()->json(['message' => 'Maintenance updates marked as read.']);
     }
 
