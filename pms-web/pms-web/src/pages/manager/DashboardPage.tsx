@@ -2181,57 +2181,50 @@ function DashboardPage() {
       <div className="db-root">
         <style>{styles}</style>
  
-        <div className="db-backdrop" aria-hidden="true">
-          <span className="db-orb db-orb--indigo" />
-          <span className="db-orb db-orb--blue" />
-          <span className="db-orb db-orb--purple" />
-        </div>
- 
         <div className="db-shell">
           {/* ---------- header ---------- */}
           <header className="db-header">
-            <div className="db-header__brand">
-              {organization.name || "Your property workspace"}
+            <div className="db-header__greeting">
+              <span className="db-eyebrow">
+                {timeOfDayIcon}
+                {greeting()}
+              </span>
             </div>
 
-            <div className="db-header__row">
-              <div className="db-header__copy">
-                <span className="db-eyebrow">
-                  {timeOfDayIcon}
-                  {greeting()}
+            <div className="db-header__center">
+              <h1 className="db-title">
+                Portfolio overview for{" "}
+                <span className="db-title__org">
+                  {organization.name || "Your property workspace"}
                 </span>
+              </h1>
 
-                <h1 className="db-title">
-                  <span className="db-title__greeting">Portfolio overview</span>
-                </h1>
-
-                <p className="db-subtitle">
-                  Your real estate portfolio at a glance today.
-                </p>
-              </div>
+              <p className="db-subtitle">
+                Your real estate portfolio at a glance today.
+              </p>
 
               <div className="db-actions" aria-label="Dashboard actions">
                 <button
-                type="button"
-                className="db-btn db-btn--ghost db-btn--refresh"
-                onClick={() => load(true)}
-                disabled={refreshing || loading}
-                aria-label={refreshing ? "Refreshing dashboard" : "Refresh dashboard"}
-                title="Refresh dashboard"
-              >
-                <RefreshCw className={refreshing ? "db-spin" : undefined} />
-                <span className="db-sr">Refresh</span>
-              </button>
+                  type="button"
+                  className="db-btn db-btn--ghost db-btn--refresh"
+                  onClick={() => load(true)}
+                  disabled={refreshing || loading}
+                  aria-label={refreshing ? "Refreshing dashboard" : "Refresh dashboard"}
+                  title="Refresh dashboard"
+                >
+                  <RefreshCw className={refreshing ? "db-spin" : undefined} />
+                  <span>Refresh</span>
+                </button>
 
-              <button
-                type="button"
-                className="db-btn db-btn--primary"
-                onClick={() => navigate("/manager/properties/add")}
-              >
-                <Plus />
-                <span>Add property</span>
-                <ArrowUpRight className="db-btn__arrow" aria-hidden="true" />
-              </button>
+                <button
+                  type="button"
+                  className="db-btn db-btn--primary"
+                  onClick={() => navigate("/manager/properties/add")}
+                >
+                  <Plus />
+                  <span>Add property</span>
+                  <ArrowUpRight className="db-btn__arrow" aria-hidden="true" />
+                </button>
               </div>
             </div>
           </header>
