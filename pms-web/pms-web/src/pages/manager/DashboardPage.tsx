@@ -1219,6 +1219,8 @@ const styles = `
 }
 
 /* LUXURY DASHBOARD OVERRIDE — intentionally last in this stylesheet so legacy dark/glass rules cannot win. */
+
+
 /* FINAL POLISH — hierarchy, grounding and executive visualization. */
 .db-header__copy{min-width:0!important}
 .db-eyebrow{display:inline-flex!important;align-items:center!important;gap:.42rem!important;margin-bottom:.2rem!important}
