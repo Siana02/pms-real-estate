@@ -1776,6 +1776,39 @@ function ageLabel(date: string): string {
   .db-title{font-size:1.9rem!important}
   .db-subtitle{white-space:normal!important}
 }
+
+ 
+/* FINAL HEADER LAYOUT — centered manager hierarchy. */
+.db-backdrop{display:none!important}
+.db-shell{max-width:none!important;width:100%!important;padding:2.75rem 3.5rem 5rem!important}
+.db-header{position:relative!important;display:flex!important;align-items:stretch!important;justify-content:center!important;width:100%!important;min-height:11.5rem!important;padding:0!important}
+.db-header__greeting{position:absolute!important;top:.1rem!important;left:0!important;z-index:2!important}
+.db-header__center{width:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;text-align:center!important}
+.db-header__center .db-title{display:block!important;width:100%!important;margin:2.35rem 0 0!important;padding:0!important;color:#0F172A!important;font-family:var(--db-font)!important;font-size:clamp(1.55rem,2.2vw,2rem)!important;font-weight:600!important;line-height:1.15!important;letter-spacing:.045em!important;text-transform:uppercase!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;background:none!important;-webkit-text-fill-color:initial!important}
+.db-header__center .db-title__org{display:inline!important;margin-left:.35em!important;color:#0A1931!important;font:inherit!important;letter-spacing:.045em!important;white-space:nowrap!important}
+.db-header__center .db-subtitle{display:block!important;width:100%!important;max-width:none!important;margin:.7rem 0 0!important;color:#64748B!important;font-size:.86rem!important;font-weight:400!important;line-height:1.4!important;text-align:center!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.db-header__center .db-actions{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;gap:.65rem!important;width:auto!important;margin:1.15rem auto 0!important;padding:0!important}
+.db-header__center .db-btn{min-height:2.45rem!important;white-space:nowrap!important;border-radius:5px!important}
+.db-header__center .db-btn--refresh{background:#F1F5F9!important;border:1px solid #E2E8F0!important;color:#334155!important;box-shadow:none!important}
+.db-header__center .db-btn--refresh:hover{background:#E8EEF4!important;color:#0F172A!important}
+.db-header__center .db-btn--primary{background:#0A1931!important;border:1px solid #0A1931!important;color:#fff!important}
+.db-header__center .db-btn--primary:hover{background:#152A4A!important;border-color:#152A4A!important}
+.db-header__center .db-btn__arrow{width:.8rem!important;height:.8rem!important}
+.db-eyebrow{display:inline-flex!important;align-items:center!important;gap:.42rem!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;border-radius:0!important;color:#64748B!important;font-size:.68rem!important;font-weight:600!important;line-height:1!important;letter-spacing:.15em!important;text-transform:uppercase!important;white-space:nowrap!important}
+.db-eyebrow svg{width:.8rem!important;height:.8rem!important;color:#94A3B8!important;stroke-width:1.4!important}
+@media(max-width:900px){
+  .db-shell{padding:2rem 1.5rem 3.5rem!important}
+  .db-header{min-height:auto!important}
+  .db-header__greeting{position:static!important;align-self:flex-start!important}
+  .db-header__center .db-title{margin:1.6rem 0 0!important;font-size:1.5rem!important}
+}
+@media(max-width:620px){
+  .db-shell{padding:1.5rem 1rem 2.5rem!important}
+  .db-header__center .db-title{font-size:1.18rem!important;letter-spacing:.025em!important}
+  .db-header__center .db-subtitle{font-size:.76rem!important}
+  .db-header__center .db-actions{margin-top:1rem!important}
+}
+
 `;
 }
  
