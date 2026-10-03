@@ -2092,25 +2092,27 @@ function DashboardPage() {
         <div className="db-shell">
           {/* ---------- header ---------- */}
           <header className="db-header">
-            <div className="db-header__copy">
-              <span className="db-eyebrow">
-                {timeOfDayIcon}
-                {greeting()}
-              </span>
-
-              <h1 className="db-title">
-                <span className="db-title__greeting">Portfolio overview</span>
-                <span className="db-title__org">
-                  {organization.name || "Your property workspace"}
-                </span>
-              </h1>
-
-              <p className="db-subtitle">
-                Your real estate portfolio at a glance today.
-              </p>
+            <div className="db-header__brand">
+              {organization.name || "Your property workspace"}
             </div>
 
-            <div className="db-actions" aria-label="Dashboard actions">
+            <div className="db-header__row">
+              <div className="db-header__copy">
+                <span className="db-eyebrow">
+                  {timeOfDayIcon}
+                  {greeting()}
+                </span>
+
+                <h1 className="db-title">
+                  <span className="db-title__greeting">Portfolio overview</span>
+                </h1>
+
+                <p className="db-subtitle">
+                  Your real estate portfolio at a glance today.
+                </p>
+              </div>
+
+              <div className="db-actions" aria-label="Dashboard actions">
               <button
                 type="button"
                 className="db-btn db-btn--ghost db-btn--refresh"
