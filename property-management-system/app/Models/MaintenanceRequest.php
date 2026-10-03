@@ -19,8 +19,12 @@ class MaintenanceRequest extends Model
         'priority',
         'status',
         'assigned_to',
+        'scheduled_date',
+        'scheduled_time',
+        'tenant_availability',
         'estimated_cost',
         'actual_cost',
+        'cost_responsibility',
         'reported_date',
         'completed_date',
         'notes',
@@ -30,6 +34,7 @@ class MaintenanceRequest extends Model
         'estimated_cost' => 'decimal:2',
         'actual_cost' => 'decimal:2',
         'reported_date' => 'date',
+        'scheduled_date' => 'date',
         'completed_date' => 'date',
     ];
 
