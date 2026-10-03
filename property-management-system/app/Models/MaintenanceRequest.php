@@ -22,6 +22,8 @@ class MaintenanceRequest extends Model
         'scheduled_date',
         'scheduled_time',
         'tenant_availability',
+        'availability_start_at',
+        'availability_end_at',
         'estimated_cost',
         'actual_cost',
         'cost_responsibility',
@@ -35,6 +37,8 @@ class MaintenanceRequest extends Model
         'actual_cost' => 'decimal:2',
         'reported_date' => 'date',
         'scheduled_date' => 'date',
+        'availability_start_at' => 'datetime',
+        'availability_end_at' => 'datetime',
         'completed_date' => 'date',
     ];
 
@@ -56,5 +60,10 @@ class MaintenanceRequest extends Model
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function updates()
+    {
+        return $this->hasMany(MaintenanceRequestUpdate::class);
     }
 }

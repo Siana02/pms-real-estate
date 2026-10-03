@@ -3,10 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Leases as Lease;
-use App\Models\MaintenanceRequest;
+use App\Models\MaintenanceRequestUpdate;
 use App\Models\Payment;
 use App\Models\Tenant;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -30,14 +29,24 @@ class TenantNotificationController extends Controller
             ];
         }
 
-        foreach (MaintenanceRequest::where('tenant_id', $tenant->id)->orderByDesc('updated_at')->limit(10)->get() as $item) {
+        $updates = MaintenanceRequestUpdate::whereHas('maintenanceRequest', fn ($query) => $query->where('tenant_id', $tenant->id))
+            ->with('maintenanceRequest')
+            ->orderByDesc('created_at')
+            ->limit(30)
+            ->get();
+
+        foreach ($updates as $update) {
+            $item = $update->maintenanceRequest;
             $notifications[] = [
-                'id' => 'request-' . $item->id . '-' . $item->status . '-' . optional($item->updated_at)->timestamp,
+                'id' => 'maintenance-update-' . $update->id,
                 'type' => 'maintenance_update',
-                'title' => $item->title . ' is now ' . $this->statusLabel($item->status),
-                'body' => $this->maintenanceBody($item),
-                'created_at' => optional($item->updated_at)->toIso8601String(),
-                'read_at' => $item->status === 'completed' ? optional($item->updated_at)->toIso8601String() : null,
+                'maintenance_request_id' => $item?->id,
+                'title' => $item?->title ?? 'Maintenance update',
+                'status' => $update->status,
+                'status_label' => $this->statusLabel($update->status),
+                'body' => $update->message,
+                'created_at' => optional($update->created_at)->toIso8601String(),
+                'read_at' => optional($update->tenant_read_at)->toIso8601String(),
             ];
         }
 
@@ -67,19 +76,5 @@ class TenantNotificationController extends Controller
             'cancelled' => 'closed',
             default => 'received',
         };
-    }
-
-    private function maintenanceBody(MaintenanceRequest $item): ?string
-    {
-        $parts = [];
-        if ($item->assigned_to) $parts[] = $item->assigned_to . ' is handling this request.';
-        if ($item->scheduled_date) {
-            $when = CarbonImmutable::parse($item->scheduled_date)->format('D, j M Y');
-            if ($item->scheduled_time) $when .= ' at ' . CarbonImmutable::createFromFormat('H:i:s', $item->scheduled_time)->format('g:i A');
-            $parts[] = 'Visit scheduled for ' . $when . '.';
-        }
-        if ($item->tenant_availability === 'confirmed') $parts[] = 'You confirmed that you will be available.';
-        if ($item->tenant_availability === 'unavailable') $parts[] = 'You marked the scheduled time as unavailable.';
-        return $parts ? implode(' ', $parts) : null;
     }
 }

@@ -48,6 +48,7 @@ Route::middleware(['auth:sanctum', 'role:tenant'])->prefix('tenant')->group(func
     Route::get('maintenance-requests', [TenantMaintenanceController::class, 'index']);
     Route::post('maintenance-requests', [TenantMaintenanceController::class, 'store']);
     Route::patch('maintenance-requests/{maintenanceRequest}/availability', [TenantMaintenanceController::class, 'availability']);
+    Route::patch('maintenance-requests/{maintenanceRequest}/viewed', [TenantMaintenanceController::class, 'viewed']);
     Route::get('notifications', [TenantNotificationController::class, 'index']);
     Route::get('vacancies', [TenantPortalController::class, 'vacancies']);
     Route::post('leases/{lease}/notice', [TenantPortalController::class, 'submitMoveOutNotice']);
