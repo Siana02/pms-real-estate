@@ -1495,150 +1495,7 @@ function ageLabel(date: string): string {
   const days = daysSince(date);
   if (days === 0) return "Reported today";
   if (days === 1) return "1 day open";
-  return `${days} days open
-/* ---------- personality layer ---------- */
-.db-root {
-  --db-bg: #f5f2ec !important;
-  --db-text: #202831 !important;
-  --db-ink: #162536 !important;
-  --db-muted: #707a83 !important;
-  --db-faint: #9aa0a4 !important;
-  --db-line: #dedbd4 !important;
-  --db-ivory: #fbfaf7 !important;
-  --db-navy: #10263c !important;
-  --db-sage: #728477 !important;
-  --db-clay: #ad6f56 !important;
-  background:
-    radial-gradient(circle at 88% 8%, rgba(190, 174, 146, .16), transparent 25rem),
-    #f5f2ec !important;
-}
-.db-shell { max-width: 94rem !important; padding: 2rem 2rem 4rem !important; gap: 1.35rem !important; }
-.db-header { flex-direction: row !important; align-items: flex-end !important; justify-content: space-between !important; gap: 2rem !important; }
-.db-header__copy { max-width: 58rem !important; }
-.db-eyebrow { padding: 0 !important; border: 0 !important; background: none !important; color: #8a8277 !important; font-size: .66rem !important; letter-spacing: .14em !important; }
-.db-eyebrow svg { width: .82rem !important; height: .82rem !important; color: #9b8061 !important; }
-.db-title { display:flex !important; flex-direction:column !important; gap:.1rem !important; margin:.45rem 0 0 !important; background:none !important; color:var(--db-ink) !important; font-family:Georgia,"Times New Roman",serif !important; font-weight:400 !important; letter-spacing:-.035em !important; }
-.db-title__greeting { font-size:clamp(1.15rem,1.5vw,1.45rem) !important; color:#727a80 !important; }
-.db-title__org { font-size:clamp(2.25rem,4vw,3.65rem) !important; line-height:.98 !important; }
-.db-subtitle { margin-top:.75rem !important; color:#7e858a !important; font-size:.9rem !important; }
-.db-actions { align-self:flex-end !important; flex:none !important; }
-.db-btn--ghost { border:1px solid #d9d6cf !important; background:rgba(255,255,255,.5) !important; color:#35414b !important; }
-.db-btn--primary { background:#10263c !important; box-shadow:0 12px 25px -18px rgba(16,38,60,.7) !important; }
-.db-pulse { display:grid !important; grid-template-columns:minmax(0,1.65fr) minmax(19rem,.75fr) !important; gap:1rem !important; }
-.db-featured { position:relative !important; min-height:18rem !important; display:grid !important; grid-template-columns:minmax(15rem,.85fr) minmax(0,1.15fr) !important; padding:0 !important; overflow:hidden !important; border:1px solid #dcd8d0 !important; border-radius:1rem !important; background:#fff !important; color:#202831 !important; text-align:left !important; box-shadow:0 20px 45px -38px rgba(39,45,50,.55) !important; transition:transform .25s ease,box-shadow .25s ease !important; }
-.db-featured:hover { transform:translateY(-2px) !important; box-shadow:0 26px 50px -38px rgba(39,45,50,.65) !important; }
-.db-featured__visual { position:relative !important; min-height:18rem !important; overflow:hidden !important; background:linear-gradient(145deg,#d9d3c7,#b6aa98 48%,#8e887e) !important; }
-.db-featured__visual:before { content:""; position:absolute; inset:0 !important; background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(18,35,51,.28)) !important; }
-.db-featured__sun { position:absolute; width:7rem;height:7rem;border-radius:50%;right:15%;top:15%;background:rgba(247,232,195,.75);filter:blur(1px) !important; }
-.db-featured__building { position:absolute; bottom:0; background:#53606a; box-shadow:inset 0 0 0 1px rgba(255,255,255,.09); }
-.db-featured__building--one { left:8%; width:36%; height:45%; transform:skewY(-3deg); }
-.db-featured__building--two { left:34%; width:36%; height:66%; transform:skewY(2deg); background:#3d4c58; }
-.db-featured__building--three { right:5%; width:27%; height:54%; background:#69716f; }
-.db-featured__building:after { content:""; position:absolute; inset:12% 12%; background:repeating-linear-gradient(90deg,rgba(238,224,190,.52) 0 7px,transparent 7px 18px),repeating-linear-gradient(0deg,rgba(238,224,190,.4) 0 7px,transparent 7px 18px); opacity:.55; }
-.db-featured__mark { position:absolute; left:1.1rem; top:1rem; display:grid; place-items:center; width:2.7rem;height:2.7rem;border-radius:.7rem; background:rgba(16,38,60,.82); color:#f7f3eb; font-size:.72rem;font-weight:700;letter-spacing:.06em; }
-.db-featured__body { display:flex; flex-direction:column; padding:1.55rem 1.65rem 1.35rem !important; }
-.db-featured__eyebrow,.db-attention__eyebrow { margin:0 0 .55rem !important; font-size:.63rem !important; font-weight:700 !important; text-transform:uppercase !important; letter-spacing:.14em !important; color:#9a8d7b !important; }
-.db-featured__title-row { display:flex !important; justify-content:space-between !important; gap:1rem !important; }
-.db-featured__title-row svg { width:1rem !important;height:1rem !important;color:#7e8a92 !important; }
-.db-featured h2 { margin:0 !important; font-family:Georgia,"Times New Roman",serif !important; font-size:1.65rem !important; font-weight:500 !important; color:#1e2c38 !important; }
-.db-featured p { margin:.35rem 0 0 !important; color:#7b858c !important; font-size:.78rem !important; }
-.db-featured p svg { width:.8rem;height:.8rem;vertical-align:-2px;margin-right:.25rem; }
-.db-featured__stats { display:flex !important; flex-wrap:wrap !important; gap:1.2rem !important; margin-top:auto !important; padding-top:1.3rem !important; }
-.db-featured__stats span { font-size:.72rem !important; color:#8a9297 !important; }
-.db-featured__stats strong { display:block !important; color:#263743 !important; font-size:1rem !important; font-weight:600 !important; }
-.db-featured__progress { height:3px !important; margin-top:.75rem !important; background:#ebe8e1 !important; overflow:hidden !important; }
-.db-featured__progress span { display:block !important; height:100% !important; background:#71847b !important; }
-.db-featured__foot { margin-top:.7rem !important; font-size:.7rem !important; color:#8b7567 !important; }
-.db-pulse__side { padding:1.45rem 1.35rem !important; border:1px solid #dedbd4 !important; border-radius:1rem !important; background:#eee9df !important; }
-.db-pulse__label { font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:#918675; }
-.db-pulse__side h2 { max-width:14rem;margin:.45rem 0 1.25rem;font-family:Georgia,"Times New Roman",serif;font-size:1.5rem;font-weight:500;line-height:1.12;color:#263541; }
-.db-today { display:flex;flex-direction:column;gap:1rem; }
-.db-today__item { display:flex;align-items:center;gap:.75rem; }
-.db-today__dot { flex:none;display:grid;place-items:center;width:2.15rem;height:2.15rem;border-radius:50%;background:#dfe3de;color:#5d7065; }
-.db-today__dot svg { width:.95rem;height:.95rem; }
-.db-today__dot--money { background:#e7ddca;color:#9a7951; }
-.db-today__dot--home { background:#dfe5eb;color:#536d83; }
-.db-today__item div { display:flex;flex-direction:column;gap:.1rem; }
-.db-today__item strong { font-size:.86rem;color:#263541;font-weight:600; }
-.db-today__item div span { font-size:.7rem;line-height:1.35;color:#858d91; }
-.db-stats { grid-template-columns:repeat(4,1fr) !important; gap:0 !important; border:1px solid #ddd9d1 !important; border-radius:1rem !important; overflow:hidden !important; background:#fff !important; box-shadow:0 18px 45px -38px rgba(32,40,49,.5) !important; }
-.db-stat,.db-root button.db-stat--action { min-height:9.8rem !important; border:0 !important; border-right:1px solid #ebe8e2 !important; border-radius:0 !important; background:#fff !important; box-shadow:none !important; padding:1.35rem 1.4rem !important; }
-.db-stat:last-child,.db-root button.db-stat--action:last-child { border-right:0 !important; }
-.db-stat:after { display:none !important; }
-.db-stat__icon { display:none !important; }
-.db-stat__label { color:#899198 !important;font-size:.67rem !important;text-transform:uppercase !important;letter-spacing:.12em !important; }
-.db-stat__value { margin-top:.85rem !important;color:#263743 !important;font-size:clamp(1.7rem,2.3vw,2.25rem) !important;font-weight:500 !important; }
-.db-stat:nth-child(2) .db-stat__value { color:#5f7468 !important; }
-.db-stat:nth-child(3) .db-stat__value { color:#536d83 !important; }
-.db-stat:nth-child(4) .db-stat__value { color:#9a755c !important;font-size:clamp(1.35rem,1.8vw,1.8rem) !important; }
-.db-stat__hint { color:#9a9fa1 !important;font-size:.69rem !important; }
-.db-stat__go { display:none !important; }
-.db-attention { padding:1.45rem 1.5rem 1.2rem !important; border:1px solid #dedbd4 !important; border-radius:1rem !important; background:#fff !important; box-shadow:0 18px 45px -38px rgba(32,40,49,.4) !important; }
-.db-attention__head { display:flex;align-items:flex-end;justify-content:space-between;gap:1rem; }
-.db-attention__head h2 { margin:0;font-family:Georgia,"Times New Roman",serif;font-size:1.45rem;font-weight:500;color:#263541; }
-.db-attention__head button { display:inline-flex;align-items:center;gap:.3rem;color:#66747e;font-size:.75rem;font-weight:600; }
-.db-attention__head button svg { width:.8rem;height:.8rem; }
-.db-attention__list { display:flex;flex-direction:column;margin-top:1rem; }
-.db-attention__row { display:grid;grid-template-columns:4px minmax(0,1fr) auto auto;align-items:center;gap:.8rem;padding:.85rem .1rem;border-top:1px solid #efede8;text-align:left; }
-.db-attention__row:hover { background:#faf9f6; }
-.db-attention__priority { width:4px;height:2rem;border-radius:3px;background:#9da5aa; }
-.db-attention__priority--urgent { background:#a65b4b; }.db-attention__priority--high { background:#b17d58; }.db-attention__priority--medium { background:#71879a; }.db-attention__priority--low { background:#a5aaa7; }
-.db-attention__main { min-width:0;display:flex;flex-direction:column;gap:.2rem; }
-.db-attention__main strong { color:#33414b;font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.db-attention__main small { color:#969d9f;font-size:.69rem; }
-.db-attention__status { padding:.25rem .5rem;border-radius:999px;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;background:#f0eee9;color:#727c80; }
-.db-attention__status--in_progress { background:#e5ebef;color:#526a7a; }.db-attention__status--open { background:#eee9df;color:#806e5b; }
-.db-attention__row > svg { width:.85rem;height:.85rem;color:#a1a6a8; }
-.db-trend { border:1px solid #dedbd4 !important; background:#fff !important; border-radius:1rem !important; box-shadow:0 18px 45px -38px rgba(32,40,49,.45) !important; }
-.db-trend__title { color:#263541 !important; }
-.db-trend__line { stroke:#315f8a !important; }
-.db-trend__dot { stroke:#315f8a !important; }
-.db-split,.db-panel { border-radius:1rem !important; border-color:#dedbd4 !important; background:#fff !important; box-shadow:0 18px 45px -38px rgba(32,40,49,.35) !important; }
-.db-card { background:#fbfaf7 !important; border-color:#e4e0d8 !important; }
-.db-panel__title { color:#263541 !important; }
-.db-panel__title svg { color:#7b8b82 !important; }
-.db-panel__sub { color:#899196 !important; }
-.db-task { background:#fbfaf7 !important; border-color:#e7e3dc !important; }
-.db-task__title { color:#33414b !important; }
-.db-task__meta,.db-task__desc { color:#7f888d !important; }
-.db-pill { background:#f0eee9 !important;border-color:#e2dfd7 !important;color:#667076 !important; }
-.db-pill--urgent { background:#f2e4df !important;color:#915b4d !important;border-color:#e6c9bf !important; }
-.db-pill--high { background:#f1e8dd !important;color:#916e4e !important;border-color:#e6d2bd !important; }
-.db-pill--medium { background:#e6edf0 !important;color:#597184 !important;border-color:#d1dde4 !important; }
-.db-pill--completed { background:#e4ece6 !important;color:#5f7568 !important;border-color:#d0dfd5 !important; }
-.db-search input { background:#fbfaf7 !important;border-color:#dcd8d0 !important;color:#33414b !important; }
-.db-property { background:#fbfaf7 !important;border-color:#e2ded6 !important; }
-.db-property__name { color:#33414b !important; }
-.db-property__meta { color:#899196 !important; }
-.db-bar { background:#e8e5df !important; }
-.db-bar__fill { background:#71847b !important; }
-@media (max-width: 980px) {
-  .db-header { flex-direction:column !important; align-items:flex-start !important; }
-  .db-actions { align-self:flex-start !important; }
-  .db-pulse { grid-template-columns:1fr !important; }
-  .db-featured { min-height:16rem !important; }
-}
-@media (max-width: 760px) {
-  .db-shell { padding:1.25rem .9rem 3rem !important; }
-  .db-stats { grid-template-columns:repeat(2,1fr) !important; }
-  .db-stat,.db-root button.db-stat--action { min-height:8.5rem !important; border-bottom:1px solid #ebe8e2 !important; }
-  .db-stat:nth-child(2) { border-right:0 !important; }
-  .db-featured { grid-template-columns:1fr !important; }
-  .db-featured__visual { min-height:10rem !important; }
-  .db-featured__body { min-height:15rem !important; }
-  .db-attention__row { grid-template-columns:4px minmax(0,1fr) auto !important; }
-  .db-attention__row > svg { display:none !important; }
-}
-@media (max-width: 520px) {
-  .db-title__org { font-size:2rem !important; }
-  .db-actions { width:100% !important; }
-  .db-actions .db-btn { flex:1 !important; }
-  .db-stats { grid-template-columns:1fr 1fr !important; }
-  .db-featured__body { padding:1.2rem !important; }
-  .db-featured__stats { gap:.8rem !important; }
-  .db-attention__status { display:none !important; }
-}
-`;
+  return `${days} days open`;
 }
  
 function isThisMonth(date: string | null | undefined): boolean {
@@ -2037,26 +1894,6 @@ function DashboardPage() {
 
   const timeOfDayIcon =
     greeting() === 'Good evening' ? <Moon /> : <Sun />;
-  const maintenanceSummary = loading
-    ? "Loading tenant requests…"
-    : counts.active === 0
-    ? "Nothing needs action right now."
-    : String(formatNumber(counts.active)) +
-      " need action" +
-      (urgentCount > 0
-        ? " · " + String(formatNumber(urgentCount)) + " urgent"
-        : "") +
-      " · " +
-      String(formatMoney(money.maintenanceCommitted, currency)) +
-      " committed";
-
-  const maintenanceCostSummary =
-    money.maintenanceCommitted > 0
-      ? String(formatMoney(money.maintenanceCommitted, currency)) +
-        " of open maintenance is still committed — projected net " +
-        String(formatMoney(money.projectedNet, currency)) +
-        "."
-      : "No open maintenance costs are pending against this month.";
 
   return (
     <DashboardLayout>
@@ -2093,7 +1930,8 @@ function DashboardPage() {
               </h1>
 
               <p className="db-subtitle">
-                A clear view of what is happening across your portfolio today.
+                Properties, units, tenants, maintenance and net revenue — the
+                whole portfolio in one view.
               </p>
             </div>
 
@@ -2133,103 +1971,6 @@ function DashboardPage() {
             </div>
           )}
  
-          {/* ---------- portfolio pulse ---------- */}
-          {!loading && properties.length > 0 && (
-            <section className="db-pulse" aria-label="Portfolio pulse">
-              <button
-                type="button"
-                className="db-featured"
-                onClick={() => navigate("/manager/properties")}
-              >
-                <div className="db-featured__visual" aria-hidden="true">
-                  <span className="db-featured__sun" />
-                  <span className="db-featured__building db-featured__building--one" />
-                  <span className="db-featured__building db-featured__building--two" />
-                  <span className="db-featured__building db-featured__building--three" />
-                  <span className="db-featured__mark">{initials(properties[0].name || "Property")}</span>
-                </div>
-                <div className="db-featured__body">
-                  <div className="db-featured__eyebrow">Portfolio snapshot</div>
-                  <div className="db-featured__title-row">
-                    <div>
-                      <h2>{properties[0].name || "Untitled property"}</h2>
-                      <p>
-                        <MapPin />
-                        {[properties[0].city, properties[0].country].filter(Boolean).join(", ") || "Location not set"}
-                      </p>
-                    </div>
-                    <ArrowUpRight />
-                  </div>
-                  <div className="db-featured__stats">
-                    <span><strong>{formatNumber(toNumber(properties[0].units_count))}</strong> units</span>
-                    <span>
-                      <strong>
-                        {Math.round(
-                          typeof properties[0].occupancy === "number"
-                            ? properties[0].occupancy
-                            : toNumber(properties[0].units_count) > 0
-                            ? (toNumber(properties[0].occupied_units) / toNumber(properties[0].units_count)) * 100
-                            : 0
-                        )}%
-                      </strong> occupied
-                    </span>
-                    <span><strong>{formatNumber(toNumber(properties[0].active_tenants))}</strong> tenants</span>
-                  </div>
-                  <div className="db-featured__progress">
-                    <span
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            typeof properties[0].occupancy === "number"
-                              ? properties[0].occupancy
-                              : toNumber(properties[0].units_count) > 0
-                              ? (toNumber(properties[0].occupied_units) / toNumber(properties[0].units_count)) * 100
-                              : 0
-                          )
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="db-featured__foot">
-                    {maintenanceByProperty.get(String(properties[0].id))?.open
-                      ? `${formatNumber(maintenanceByProperty.get(String(properties[0].id))?.open ?? 0)} maintenance requests need attention`
-                      : "Your portfolio is looking quiet here."}
-                  </p>
-                </div>
-              </button>
-
-              <div className="db-pulse__side">
-                <div className="db-pulse__label">Today</div>
-                <h2>A few things worth knowing.</h2>
-                <div className="db-today">
-                  <div className="db-today__item">
-                    <span className="db-today__dot db-today__dot--maintenance"><Wrench /></span>
-                    <div>
-                      <strong>{formatNumber(counts.active)}</strong>
-                      <span>{counts.active === 1 ? "maintenance request needs action" : "maintenance requests need action"}</span>
-                    </div>
-                  </div>
-                  <div className="db-today__item">
-                    <span className="db-today__dot db-today__dot--money"><Wallet /></span>
-                    <div>
-                      <strong>{formatMoney(money.gross, currency)}</strong>
-                      <span>gross rent recorded this month</span>
-                    </div>
-                  </div>
-                  <div className="db-today__item">
-                    <span className="db-today__dot db-today__dot--home"><Home /></span>
-                    <div>
-                      <strong>{formatNumber(Math.max(0, portfolio.units - portfolio.occupied))}</strong>
-                      <span>{portfolio.units - portfolio.occupied === 1 ? "unit is" : "units are"} currently vacant</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
           {/* ---------- stats ---------- */}
           <section className="db-stats" aria-label="Portfolio summary">
             {cards.map(({ label, icon: Icon, value, hint, warn, to, action }) => {
@@ -2363,48 +2104,7 @@ function DashboardPage() {
             )}
           </section>
 
-          {/* ---------- today’s attention ---------- */}
-          {!loading && counts.active > 0 && queue.length > 0 && (
-            <section className="db-attention" aria-label="Attention needed">
-              <div className="db-attention__head">
-                <div>
-                  <p className="db-attention__eyebrow">Needs your attention</p>
-                  <h2>Keep the important things moving.</h2>
-                </div>
-                <button type="button" onClick={() => navigate("/maintenance")}>
-                  View all <ArrowUpRight />
-                </button>
-              </div>
-              <div className="db-attention__list">
-                {queue.slice(0, 3).map((request) => {
-                  const propertyName =
-                    request.property?.name ??
-                    properties.find((property) => String(property.id) === String(request.property_id))?.name ??
-                    "Unassigned property";
-                  return (
-                    <button
-                      key={String(request.id)}
-                      type="button"
-                      className="db-attention__row"
-                      onClick={() => navigate("/maintenance")}
-                    >
-                      <span className={`db-attention__priority db-attention__priority--${request.priority}`} />
-                      <span className="db-attention__main">
-                        <strong>{request.title}</strong>
-                        <small>{propertyName}{request.unit?.unit_number ? ` · ${request.unit.unit_number}` : ""}</small>
-                      </span>
-                      <span className={`db-attention__status db-attention__status--${request.status}`}>
-                        {STATUS_LABEL[request.status]}
-                      </span>
-                      <ArrowUpRight />
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* ---------- occupancy + revenue ledger ---------- */
+          {/* ---------- occupancy + revenue ledger ---------- */}
           <section className="db-split" aria-label="Occupancy and revenue">
             <div className="db-card">
               <div className="db-card__head">
@@ -2432,7 +2132,22 @@ function DashboardPage() {
               </div>
  
               <p className="db-card__hint">
-                {maintenanceCostSummary}
+                {loading
+                  ? "Calculating occupancy…"
+                  : portfolio.units > 0
+                  ? `${formatNumber(portfolio.occupied)} of ${formatNumber(
+                      portfolio.units
+                    )} units occupied · ${formatNumber(
+                      portfolio.units - portfolio.occupied
+                    )} vacant${
+                      portfolio.potential > portfolio.revenue
+                        ? ` · ${formatMoney(
+                            portfolio.potential - portfolio.revenue,
+                            currency
+                          )} idle rent`
+                        : ""
+                    }`
+                  : "Add units to start tracking occupancy."}
               </p>
             </div>
  
@@ -2467,7 +2182,15 @@ function DashboardPage() {
               </div>
  
               <p className="db-card__hint">
-                {maintenanceCostSummary}
+                {money.maintenanceCommitted > 0
+                  ? `${formatMoney(
+                      money.maintenanceCommitted,
+                      currency
+                    )} of open maintenance is still committed — projected net ${formatMoney(
+                      money.projectedNet,
+                      currency
+                    )}.`
+                  : "No open maintenance costs are pending against this month."}
               </p>
             </div>
           </section>
@@ -2481,7 +2204,20 @@ function DashboardPage() {
                   Maintenance requests
                 </h2>
                 <p className="db-panel__sub">
-                  {maintenanceSummary}
+                  {loading
+                    ? "Loading tenant requests…"
+                    : counts.active === 0
+                    ? "Nothing needs action right now."
+                    : `${formatNumber(
+                        counts.active
+                      )} need action${
+                        urgentCount > 0
+                          ? ` · ${formatNumber(urgentCount)} urgent`
+                          : ""
+                      } · ${formatMoney(
+                        money.maintenanceCommitted,
+                        currency
+                      )} committed`}
                 </p>
               </div>
  
