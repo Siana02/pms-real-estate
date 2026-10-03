@@ -307,52 +307,39 @@ const styles = `
   .tmt-choices { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* Premium maintenance experience — UI/UX only */
-.tmt-stack{gap:1.5rem!important}
-.tmt-hero{position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;padding:1.65rem 1.7rem;border-radius:1.25rem;background:linear-gradient(135deg,#101114 0%,#17191d 58%,#25201a 100%);color:#fff;box-shadow:0 18px 45px -30px rgba(0,0,0,.55)}
-.tmt-hero::before{content:"";position:absolute;width:16rem;height:16rem;border-radius:50%;right:-5rem;top:-8rem;background:rgba(201,168,108,.16);filter:blur(2px)}
+/* Refined maintenance UI — presentation only */
+.tmt-stack{gap:1.75rem!important}
+.tmt-hero{position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;padding:2rem 2.1rem;border:1px solid #17263a;border-radius:1rem;background:linear-gradient(135deg,#0a192f 0%,#12243d 68%,#1b304c 100%);color:#fff;box-shadow:0 20px 50px -34px rgba(10,25,47,.65)}
+.tmt-hero::before{content:"";position:absolute;width:20rem;height:20rem;border-radius:50%;right:-7rem;top:-11rem;background:rgba(148,181,211,.13);border:1px solid rgba(226,232,240,.12)}
 .tmt-hero__copy,.tmt-hero__action{position:relative;z-index:1}
-.tmt-hero__eyebrow{display:flex;align-items:center;gap:.45rem;margin:0 0 .5rem;color:#d7bd8b;font-size:.68rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
-.tmt-hero__eyebrow svg{width:.9rem;height:.9rem}
-.tmt-hero h2{margin:0;font-size:1.45rem;line-height:1.15;letter-spacing:-.035em;color:#fff}
-.tmt-hero p{max-width:38rem;margin:.45rem 0 0;color:#b8bcc4;font-size:.82rem;line-height:1.55}
-.tmt-hero .tp-btn--primary{background:#d2b77f;color:#171717;border-color:#d2b77f;box-shadow:none}
-.tmt-hero .tp-btn--primary:hover{background:#dfc78f;border-color:#dfc78f}
-.tmt-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:.75rem!important}
-.tmt-stat{position:relative;overflow:hidden;padding:1.1rem 1.2rem!important;border:1px solid #e7e4de!important;border-radius:1rem!important;background:linear-gradient(180deg,#fff 0%,#fbfaf8 100%)!important}
-.tmt-stat::after{content:"";position:absolute;right:1rem;top:1rem;width:.45rem;height:.45rem;border-radius:50%;background:currentColor;opacity:.45}
-.tmt-stat dd{font-size:1.75rem!important;margin-top:.4rem!important}
-.tmt-stat .tp-label{letter-spacing:.08em}
-.tmt-stat--open{color:#a46f19}.tmt-stat--progress{color:#315d92}.tmt-stat--done{color:#2f7654}
+.tmt-hero__eyebrow{display:flex;align-items:center;gap:.45rem;margin:0 0 .65rem;color:#a9c2d8;font-size:.66rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+.tmt-hero h2{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.55rem,2.8vw,2.15rem);font-weight:500;line-height:1.08;letter-spacing:-.025em;color:#fff}
+.tmt-hero p{max-width:40rem;margin:.6rem 0 0;color:#c3cedb;font-size:.84rem;line-height:1.65}
+.tmt-hero .tp-btn--primary{min-height:2.7rem;padding:0 1.15rem;background:#fff;color:#0a192f;border-color:#fff;border-radius:.5rem;box-shadow:none}
+.tmt-hero .tp-btn--primary:hover{background:#e9f0f6;border-color:#e9f0f6}
+.tmt-summary{display:flex!important;align-items:stretch;gap:0!important;padding:.35rem 0;border:1px solid #e1e6eb;border-radius:.8rem;background:rgba(241,244,247,.72);backdrop-filter:blur(10px);overflow:hidden}
+.tmt-stat{position:relative;flex:1;padding:1rem 1.25rem!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.tmt-stat:not(:last-child)::after{content:"";position:absolute;right:0;top:22%;height:56%;width:1px;background:#d6dde4}
+.tmt-stat dd{margin:.3rem 0 0!important;font-size:1.8rem!important;font-weight:650!important;line-height:1;letter-spacing:-.04em}
+.tmt-stat .tp-label{font-size:.62rem!important;letter-spacing:.13em!important;color:#6b7280!important}
+.tmt-stat--open{color:#6b4d1f}.tmt-stat--progress{color:#294e72}.tmt-stat--done{color:#315f4b}
 .tmt-stat--open dd,.tmt-stat--progress dd,.tmt-stat--done dd{color:currentColor!important}
-.tmt-group__title{margin:0 0 .65rem!important;color:#77736b!important;font-size:.65rem!important;letter-spacing:.13em!important}
-.tmt-list{gap:.6rem}
-.tmt-list li{border:0!important}
-.tmt-item{grid-template-columns:auto minmax(0,1fr) auto!important;gap:.75rem!important;padding:1rem 1.05rem!important;border:1px solid #e8e5df!important;border-radius:.9rem!important;background:#fff!important;box-shadow:0 5px 18px -18px rgba(20,20,20,.35)}
-.tmt-item:hover{background:#fdfcfb!important;border-color:#d8d1c4!important;transform:translateY(-1px)}
-.tmt-item__icon{width:2.5rem!important;height:2.5rem!important;border-radius:.75rem!important}
-.tmt-item__title{font-size:.9rem!important;font-weight:700!important;color:#191a1c}
-.tmt-item__meta{color:#7b7d83!important;font-size:.74rem!important}
-.tmt-item__right{gap:.5rem!important}
-.tmt-item__right .tp-pill{font-size:.68rem!important;font-weight:750!important}
-.tmt-detail{gap:1.35rem!important}
-.tmt-detail__body{padding:1rem 1.05rem;border-radius:.8rem;background:#f8f7f4;border:1px solid #ece8df}
-.tmt-detail__facts{padding:1rem 1.05rem;border:1px solid #e8e5df;border-radius:.85rem;background:#fff;gap:0!important}
-.tmt-detail__facts>div{padding:.75rem 0}
-.tmt-detail__facts>div:nth-child(odd){padding-right:1rem}
-.tmt-detail__facts>div:nth-child(even){padding-left:1rem;border-left:1px solid #eeeae3}
-.tmt-detail__facts>div:nth-child(n+3){border-top:1px solid #eeeae3}
-.tmt-panel{max-width:38rem!important;border:1px solid #e7e2d8;box-shadow:0 28px 70px -30px rgba(0,0,0,.5)!important}
-.tmt-panel__head{padding-bottom:1rem;border-bottom:1px solid #ece9e2}
-.tmt-panel__title{font-size:1.2rem!important}
-.tmt-choice{border-radius:.7rem!important;padding:.72rem .75rem!important}
-.tmt-choice[aria-pressed="true"]{border-color:#b79862!important;background:#fbf6eb!important;color:#705522!important}
-.tmt-choice[aria-pressed="true"] svg{color:#a47b36!important}
-.tmt-event__dot{background:#f7f1e6!important;color:#98743b!important}
-.tmt-event:not(:last-child) .tmt-event__dot::after{background:#ddd5c7!important}
-.tmt-done{padding:1.5rem .5rem .5rem}.tmt-done svg{color:#4d8b6a!important}
-@media(max-width:700px){.tmt-hero{align-items:flex-start;flex-direction:column;padding:1.35rem}.tmt-hero .tp-btn{width:100%;justify-content:center}}
-@media(max-width:520px){.tmt-summary{grid-template-columns:1fr!important}.tmt-item{grid-template-columns:auto minmax(0,1fr)!important}.tmt-item__right{grid-column:2;grid-row:auto;justify-content:flex-start}.tmt-detail__facts{grid-template-columns:1fr!important}.tmt-detail__facts>div:nth-child(even){padding-left:0;border-left:0}.tmt-detail__facts>div:nth-child(n+2){border-top:1px solid #eeeae3}}
+.tmt-group__title{margin:0 0 .7rem!important;color:#667085!important;font-size:.64rem!important;letter-spacing:.14em!important}
+.tmt-list{gap:0}.tmt-list li{border:0!important}
+.tmt-item{grid-template-columns:2.65rem minmax(0,1fr) auto!important;gap:1rem!important;padding:1.1rem 1.15rem!important;border:1px solid #e4e8ed!important;border-radius:.65rem!important;background:#fff!important;box-shadow:0 8px 24px -24px rgba(10,25,47,.5);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease!important}
+.tmt-item:hover{background:#fbfcfd!important;border-color:#cbd5df!important;transform:translateY(-1px);box-shadow:0 12px 28px -24px rgba(10,25,47,.45)}
+.tmt-item+.tmt-item{margin-top:.55rem}
+.tmt-item__icon{width:2.65rem!important;height:2.65rem!important;border-radius:.65rem!important;background:#f1f4f7!important;color:#52667a!important}
+.tmt-item__icon[data-tone="open"]{background:#f5f0e8!important;color:#765d32!important}.tmt-item__icon[data-tone="progress"]{background:#edf3f8!important;color:#315b7d!important}.tmt-item__icon[data-tone="done"]{background:#edf4ef!important;color:#416b54!important}
+.tmt-item__title{font-size:.94rem!important;font-weight:700!important;line-height:1.35!important;color:#1f2933}
+.tmt-item__meta{margin-top:.35rem!important;color:#7b8794!important;font-size:.73rem!important}
+.tmt-item__right{justify-content:flex-end;flex-wrap:wrap;gap:.4rem!important}.tmt-item__right svg{width:.9rem!important;height:.9rem!important;color:#9aa6b2!important}
+.tmt-priority{display:inline-flex;align-items:center;padding:.27rem .52rem;border-radius:999px;font-size:.62rem;font-weight:700;white-space:nowrap}
+.tmt-priority--high{background:#f5ede2;color:#704f28;border:1px solid #e9dcc7}.tmt-priority--normal{background:#f0f3f6;color:#596878;border:1px solid #e1e6eb}.tmt-priority--low{background:#edf3ef;color:#4d6756;border:1px solid #dce8df}
+.tp-pill--wait{border-color:#e8dcc9!important;background:#f7f1e7!important;color:#73552c!important}.tp-pill--info{border-color:#d1deea!important;background:#eef4f8!important;color:#315b7d!important}.tp-pill--good{border-color:#d6e5da!important;background:#edf5ef!important;color:#426b52!important}
+.tmt-panel{max-width:38rem!important;border:1px solid #dfe5ea;box-shadow:0 28px 70px -30px rgba(10,25,47,.45)!important}.tmt-panel__title{font-family:Georgia,"Times New Roman",serif;font-size:1.3rem!important;font-weight:500!important}
+@media(max-width:700px){.tmt-hero{align-items:flex-start;flex-direction:column;padding:1.4rem}.tmt-hero .tp-btn{width:100%;justify-content:center}}
+@media(max-width:520px){.tmt-summary{display:grid!important;grid-template-columns:1fr 1fr!important}.tmt-stat:not(:last-child)::after{display:none}.tmt-item{grid-template-columns:2.35rem minmax(0,1fr)!important;padding:.95rem!important}.tmt-item__icon{width:2.35rem!important;height:2.35rem!important}.tmt-item__right{grid-column:2;grid-row:auto;justify-content:flex-start}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -401,7 +388,7 @@ function unwrap<T>(payload: unknown): T[] {
 }
  
 const STATUS_LABEL: Record<RequestStatus, string> = {
-  open: "Submitted",
+  open: "Received",
   in_progress: "In progress",
   completed: "Resolved",
   cancelled: "Closed",
@@ -414,6 +401,12 @@ function statusTone(status: RequestStatus | null): string {
   return "tp-pill--wait";
 }
  
+function priorityTone(priority: Priority | null): string {
+  if (priority === "urgent" || priority === "high") return "tmt-priority--high";
+  if (priority === "low") return "tmt-priority--low";
+  return "tmt-priority--normal";
+}
+
 function iconTone(status: RequestStatus | null): string {
   if (status === "completed") return "done";
   if (status === "in_progress") return "progress";
@@ -620,6 +613,9 @@ function TenantMaintenancePage() {
               <p className="tmt-item__title">{request.title}</p>
  
               <span className="tmt-item__right">
+                <span className={`tmt-priority ${priorityTone(request.priority)}`}>
+                  {PRIORITIES.find((item) => item.key === request.priority)?.label ?? "Normal"} priority
+                </span>
                 <span className={`tp-pill ${statusTone(request.status)}`}>
                   {STATUS_LABEL[request.status ?? "open"]}
                 </span>
@@ -629,7 +625,7 @@ function TenantMaintenancePage() {
               <p className="tmt-item__meta">
                 {request.status === "completed"
                   ? `Resolved ${longDate(request.completed_date)}`
-                  : `Submitted ${longDate(request.reported_date)}`}
+                  : `Reported ${longDate(request.reported_date)}`}
                 {request.assigned_to ? ` · ${request.assigned_to}` : ""}
               </p>
             </button>
@@ -641,8 +637,8 @@ function TenantMaintenancePage() {
  
   return (
     <TenantDashboardLayout
-      title="Maintenance"
-      subtitle="Report a problem and follow it through to resolution."
+      title="Home Care"
+      subtitle="Maintenance requests, access coordination, and the path back to a well-kept home."
       openRequests={open.length}
       actions={
         <button
@@ -660,9 +656,9 @@ function TenantMaintenancePage() {
       <div className="tmt-stack">
         <section className="tmt-hero" aria-label="Maintenance overview">
           <div className="tmt-hero__copy">
-            <p className="tmt-hero__eyebrow"><Wrench /> Home care</p>
-            <h2>Keep your home in good shape.</h2>
-            <p>Report an issue, tell us what is happening, and follow the request from submission through to resolution.</p>
+            <p className="tmt-hero__eyebrow"><Wrench /> Maintenance</p>
+            <h2>Maintenance requests</h2>
+            <p>Report a problem, coordinate access, and follow every step until your home is back to normal.</p>
           </div>
           <div className="tmt-hero__action">
             <button type="button" className="tp-btn tp-btn--primary" onClick={() => setFormOpen(true)}>
@@ -681,7 +677,7 @@ function TenantMaintenancePage() {
         <section className="tmt-summary" aria-label="Request summary">
           <article className="tp-card tmt-stat tmt-stat--open">
             <dl>
-              <dt className="tp-label">Open</dt>
+              <dt className="tp-label">Received</dt>
               <dd>{open.length - inProgress.length}</dd>
             </dl>
           </article>
