@@ -2116,14 +2116,14 @@ function DashboardPage() {
 
             <div className="db-header__center">
               <h1 className="db-title">
-                Portfolio overview for{" "}
+                Portfolio Overview for{" "}
                 <span className="db-title__org">
                   {organization.name || "Your property workspace"}
                 </span>
               </h1>
 
               <p className="db-subtitle">
-                Portfolio at a glance today.
+                Portfolio at a glance today
               </p>
 
               <div className="db-actions" aria-label="Dashboard actions">
