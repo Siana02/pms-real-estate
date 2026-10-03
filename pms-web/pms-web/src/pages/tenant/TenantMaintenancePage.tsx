@@ -306,6 +306,53 @@ const styles = `
   .tmt-panel { border-radius: var(--tp-r-lg); padding: 1.5rem; }
   .tmt-choices { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* Premium maintenance experience — UI/UX only */
+.tmt-stack{gap:1.5rem!important}
+.tmt-hero{position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;padding:1.65rem 1.7rem;border-radius:1.25rem;background:linear-gradient(135deg,#101114 0%,#17191d 58%,#25201a 100%);color:#fff;box-shadow:0 18px 45px -30px rgba(0,0,0,.55)}
+.tmt-hero::before{content:"";position:absolute;width:16rem;height:16rem;border-radius:50%;right:-5rem;top:-8rem;background:rgba(201,168,108,.16);filter:blur(2px)}
+.tmt-hero__copy,.tmt-hero__action{position:relative;z-index:1}
+.tmt-hero__eyebrow{display:flex;align-items:center;gap:.45rem;margin:0 0 .5rem;color:#d7bd8b;font-size:.68rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.tmt-hero__eyebrow svg{width:.9rem;height:.9rem}
+.tmt-hero h2{margin:0;font-size:1.45rem;line-height:1.15;letter-spacing:-.035em;color:#fff}
+.tmt-hero p{max-width:38rem;margin:.45rem 0 0;color:#b8bcc4;font-size:.82rem;line-height:1.55}
+.tmt-hero .tp-btn--primary{background:#d2b77f;color:#171717;border-color:#d2b77f;box-shadow:none}
+.tmt-hero .tp-btn--primary:hover{background:#dfc78f;border-color:#dfc78f}
+.tmt-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:.75rem!important}
+.tmt-stat{position:relative;overflow:hidden;padding:1.1rem 1.2rem!important;border:1px solid #e7e4de!important;border-radius:1rem!important;background:linear-gradient(180deg,#fff 0%,#fbfaf8 100%)!important}
+.tmt-stat::after{content:"";position:absolute;right:1rem;top:1rem;width:.45rem;height:.45rem;border-radius:50%;background:currentColor;opacity:.45}
+.tmt-stat dd{font-size:1.75rem!important;margin-top:.4rem!important}
+.tmt-stat .tp-label{letter-spacing:.08em}
+.tmt-stat--open{color:#a46f19}.tmt-stat--progress{color:#315d92}.tmt-stat--done{color:#2f7654}
+.tmt-stat--open dd,.tmt-stat--progress dd,.tmt-stat--done dd{color:currentColor!important}
+.tmt-group__title{margin:0 0 .65rem!important;color:#77736b!important;font-size:.65rem!important;letter-spacing:.13em!important}
+.tmt-list{gap:.6rem}
+.tmt-list li{border:0!important}
+.tmt-item{grid-template-columns:auto minmax(0,1fr) auto!important;gap:.75rem!important;padding:1rem 1.05rem!important;border:1px solid #e8e5df!important;border-radius:.9rem!important;background:#fff!important;box-shadow:0 5px 18px -18px rgba(20,20,20,.35)}
+.tmt-item:hover{background:#fdfcfb!important;border-color:#d8d1c4!important;transform:translateY(-1px)}
+.tmt-item__icon{width:2.5rem!important;height:2.5rem!important;border-radius:.75rem!important}
+.tmt-item__title{font-size:.9rem!important;font-weight:700!important;color:#191a1c}
+.tmt-item__meta{color:#7b7d83!important;font-size:.74rem!important}
+.tmt-item__right{gap:.5rem!important}
+.tmt-item__right .tp-pill{font-size:.68rem!important;font-weight:750!important}
+.tmt-detail{gap:1.35rem!important}
+.tmt-detail__body{padding:1rem 1.05rem;border-radius:.8rem;background:#f8f7f4;border:1px solid #ece8df}
+.tmt-detail__facts{padding:1rem 1.05rem;border:1px solid #e8e5df;border-radius:.85rem;background:#fff;gap:0!important}
+.tmt-detail__facts>div{padding:.75rem 0}
+.tmt-detail__facts>div:nth-child(odd){padding-right:1rem}
+.tmt-detail__facts>div:nth-child(even){padding-left:1rem;border-left:1px solid #eeeae3}
+.tmt-detail__facts>div:nth-child(n+3){border-top:1px solid #eeeae3}
+.tmt-panel{max-width:38rem!important;border:1px solid #e7e2d8;box-shadow:0 28px 70px -30px rgba(0,0,0,.5)!important}
+.tmt-panel__head{padding-bottom:1rem;border-bottom:1px solid #ece9e2}
+.tmt-panel__title{font-size:1.2rem!important}
+.tmt-choice{border-radius:.7rem!important;padding:.72rem .75rem!important}
+.tmt-choice[aria-pressed="true"]{border-color:#b79862!important;background:#fbf6eb!important;color:#705522!important}
+.tmt-choice[aria-pressed="true"] svg{color:#a47b36!important}
+.tmt-event__dot{background:#f7f1e6!important;color:#98743b!important}
+.tmt-event:not(:last-child) .tmt-event__dot::after{background:#ddd5c7!important}
+.tmt-done{padding:1.5rem .5rem .5rem}.tmt-done svg{color:#4d8b6a!important}
+@media(max-width:700px){.tmt-hero{align-items:flex-start;flex-direction:column;padding:1.35rem}.tmt-hero .tp-btn{width:100%;justify-content:center}}
+@media(max-width:520px){.tmt-summary{grid-template-columns:1fr!important}.tmt-item{grid-template-columns:auto minmax(0,1fr)!important}.tmt-item__right{grid-column:2;grid-row:auto;justify-content:flex-start}.tmt-detail__facts{grid-template-columns:1fr!important}.tmt-detail__facts>div:nth-child(even){padding-left:0;border-left:0}.tmt-detail__facts>div:nth-child(n+2){border-top:1px solid #eeeae3}}
 `;
  
 /* ------------------------------------------------------------------ */
@@ -611,6 +658,19 @@ function TenantMaintenancePage() {
       <style>{styles}</style>
  
       <div className="tmt-stack">
+        <section className="tmt-hero" aria-label="Maintenance overview">
+          <div className="tmt-hero__copy">
+            <p className="tmt-hero__eyebrow"><Wrench /> Home care</p>
+            <h2>Keep your home in good shape.</h2>
+            <p>Report an issue, tell us what is happening, and follow the request from submission through to resolution.</p>
+          </div>
+          <div className="tmt-hero__action">
+            <button type="button" className="tp-btn tp-btn--primary" onClick={() => setFormOpen(true)}>
+              <Plus /> Submit request
+            </button>
+          </div>
+        </section>
+
         {error && (
           <p className="tmt-error" role="status">
             <AlertTriangle />
@@ -663,7 +723,7 @@ function TenantMaintenancePage() {
         ) : (
           <>
             <section aria-label="Open requests">
-              <h2 className="tmt-group__title">Open · {open.length}</h2>
+              <h2 className="tmt-group__title">Active requests · {open.length}</h2>
               {open.length === 0 ? (
                 <div className="tp-card tp-empty">
                   <span className="tp-empty__icon">
@@ -681,7 +741,7 @@ function TenantMaintenancePage() {
  
             {resolved.length > 0 && (
               <section aria-label="Resolved requests">
-                <h2 className="tmt-group__title">Resolved · {resolved.length}</h2>
+                <h2 className="tmt-group__title">Request history · {resolved.length}</h2>
                 <div className="tp-card">{renderList(resolved)}</div>
               </section>
             )}
