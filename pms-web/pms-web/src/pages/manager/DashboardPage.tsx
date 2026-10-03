@@ -2114,94 +2114,101 @@ function DashboardPage() {
           )}
  
           {/* ---------- portfolio pulse ---------- */}
-          {!loading && properties.length > 0 && (() => {
-            const featured = properties[0];
-            const featuredName = featured.name || "Untitled property";
-            const featuredLocation = [featured.city, featured.country].filter(Boolean).join(", ");
-            const featuredUnits = toNumber(featured.units_count);
-            const featuredOccupied = toNumber(featured.occupied_units);
-            const featuredRate =
-              typeof featured.occupancy === "number"
-                ? Math.round(featured.occupancy)
-                : featuredUnits > 0
-                ? Math.round((featuredOccupied / featuredUnits) * 100)
-                : 0;
-            const featuredWork = maintenanceByProperty.get(String(featured.id));
-
-            return (
-              <section className="db-pulse" aria-label="Portfolio pulse">
-                <button
-                  type="button"
-                  className="db-featured"
-                  onClick={() => navigate("/manager/properties")}
-                >
-                  <div className="db-featured__visual" aria-hidden="true">
-                    <span className="db-featured__sun" />
-                    <span className="db-featured__building db-featured__building--one" />
-                    <span className="db-featured__building db-featured__building--two" />
-                    <span className="db-featured__building db-featured__building--three" />
-                    <span className="db-featured__mark">{initials(featuredName)}</span>
+          {!loading && properties.length > 0 && (
+            <section className="db-pulse" aria-label="Portfolio pulse">
+              <button
+                type="button"
+                className="db-featured"
+                onClick={() => navigate("/manager/properties")}
+              >
+                <div className="db-featured__visual" aria-hidden="true">
+                  <span className="db-featured__sun" />
+                  <span className="db-featured__building db-featured__building--one" />
+                  <span className="db-featured__building db-featured__building--two" />
+                  <span className="db-featured__building db-featured__building--three" />
+                  <span className="db-featured__mark">{initials(properties[0].name || "Property")}</span>
+                </div>
+                <div className="db-featured__body">
+                  <div className="db-featured__eyebrow">Portfolio snapshot</div>
+                  <div className="db-featured__title-row">
+                    <div>
+                      <h2>{properties[0].name || "Untitled property"}</h2>
+                      <p>
+                        <MapPin />
+                        {[properties[0].city, properties[0].country].filter(Boolean).join(", ") || "Location not set"}
+                      </p>
+                    </div>
+                    <ArrowUpRight />
                   </div>
-                  <div className="db-featured__body">
-                    <div className="db-featured__eyebrow">Portfolio snapshot</div>
-                    <div className="db-featured__title-row">
-                      <div>
-                        <h2>{featuredName}</h2>
-                        <p>
-                          <MapPin />
-                          {featuredLocation || "Location not set"}
-                        </p>
-                      </div>
-                      <ArrowUpRight />
-                    </div>
-                    <div className="db-featured__stats">
-                      <span><strong>{formatNumber(featuredUnits)}</strong> units</span>
-                      <span><strong>{featuredRate}%</strong> occupied</span>
-                      <span>
-                        <strong>{formatNumber(toNumber(featured.active_tenants))}</strong> tenants
-                      </span>
-                    </div>
-                    <div className="db-featured__progress">
-                      <span style={{ width: `${featuredRate}%` }} />
-                    </div>
-                    <p className="db-featured__foot">
-                      {featuredWork?.open
-                        ? `${formatNumber(featuredWork.open)} maintenance ${featuredWork.open === 1 ? "request" : "requests"} need attention`
-                        : "Your portfolio is looking quiet here."}
-                    </p>
+                  <div className="db-featured__stats">
+                    <span><strong>{formatNumber(toNumber(properties[0].units_count))}</strong> units</span>
+                    <span>
+                      <strong>
+                        {Math.round(
+                          typeof properties[0].occupancy === "number"
+                            ? properties[0].occupancy
+                            : toNumber(properties[0].units_count) > 0
+                            ? (toNumber(properties[0].occupied_units) / toNumber(properties[0].units_count)) * 100
+                            : 0
+                        )}%
+                      </strong> occupied
+                    </span>
+                    <span><strong>{formatNumber(toNumber(properties[0].active_tenants))}</strong> tenants</span>
                   </div>
-                </button>
+                  <div className="db-featured__progress">
+                    <span
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            typeof properties[0].occupancy === "number"
+                              ? properties[0].occupancy
+                              : toNumber(properties[0].units_count) > 0
+                              ? (toNumber(properties[0].occupied_units) / toNumber(properties[0].units_count)) * 100
+                              : 0
+                          )
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="db-featured__foot">
+                    {maintenanceByProperty.get(String(properties[0].id))?.open
+                      ? `${formatNumber(maintenanceByProperty.get(String(properties[0].id))?.open ?? 0)} maintenance requests need attention`
+                      : "Your portfolio is looking quiet here."}
+                  </p>
+                </div>
+              </button>
 
-                <div className="db-pulse__side">
-                  <div className="db-pulse__label">Today</div>
-                  <h2>A few things worth knowing.</h2>
-                  <div className="db-today">
-                    <div className="db-today__item">
-                      <span className="db-today__dot db-today__dot--maintenance"><Wrench /></span>
-                      <div>
-                        <strong>{formatNumber(counts.active)}</strong>
-                        <span>{counts.active === 1 ? "maintenance request needs action" : "maintenance requests need action"}</span>
-                      </div>
+              <div className="db-pulse__side">
+                <div className="db-pulse__label">Today</div>
+                <h2>A few things worth knowing.</h2>
+                <div className="db-today">
+                  <div className="db-today__item">
+                    <span className="db-today__dot db-today__dot--maintenance"><Wrench /></span>
+                    <div>
+                      <strong>{formatNumber(counts.active)}</strong>
+                      <span>{counts.active === 1 ? "maintenance request needs action" : "maintenance requests need action"}</span>
                     </div>
-                    <div className="db-today__item">
-                      <span className="db-today__dot db-today__dot--money"><Wallet /></span>
-                      <div>
-                        <strong>{formatMoney(money.gross, currency)}</strong>
-                        <span>gross rent recorded this month</span>
-                      </div>
+                  </div>
+                  <div className="db-today__item">
+                    <span className="db-today__dot db-today__dot--money"><Wallet /></span>
+                    <div>
+                      <strong>{formatMoney(money.gross, currency)}</strong>
+                      <span>gross rent recorded this month</span>
                     </div>
-                    <div className="db-today__item">
-                      <span className="db-today__dot db-today__dot--home"><Home /></span>
-                      <div>
-                        <strong>{formatNumber(Math.max(0, portfolio.units - portfolio.occupied))}</strong>
-                        <span>{portfolio.units - portfolio.occupied === 1 ? "unit is" : "units are"} currently vacant</span>
-                      </div>
+                  </div>
+                  <div className="db-today__item">
+                    <span className="db-today__dot db-today__dot--home"><Home /></span>
+                    <div>
+                      <strong>{formatNumber(Math.max(0, portfolio.units - portfolio.occupied))}</strong>
+                      <span>{portfolio.units - portfolio.occupied === 1 ? "unit is" : "units are"} currently vacant</span>
                     </div>
                   </div>
                 </div>
-              </section>
-            );
-          })()}
+              </div>
+            </section>
+          )}
 
           {/* ---------- stats ---------- */}
           <section className="db-stats" aria-label="Portfolio summary">
