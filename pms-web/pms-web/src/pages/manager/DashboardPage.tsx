@@ -1262,7 +1262,7 @@ const styles = `
 .db-eyebrow{padding:0!important;border:0!important;background:transparent!important;backdrop-filter:none!important;border-radius:0!important;color:#738091!important;font-size:.65rem!important;letter-spacing:.16em!important}
 .db-eyebrow svg{color:#315f8a!important;width:.8rem!important;height:.8rem!important}
 .db-title{margin:.7rem 0 0!important;background:none!important;-webkit-text-fill-color:initial!important;color:#18202a!important;font-family:Georgia,"Times New Roman",serif!important;font-size:clamp(2.15rem,3.4vw,3.45rem)!important;font-weight:500!important;line-height:1.02!important;letter-spacing:-.04em!important}
-.db-subtitle{display:none!important}
+.db-subtitle{display:block!important}
 .db-actions{align-items:center!important;gap:.65rem!important}
 .db-btn{border-radius:.42rem!important;min-height:2.55rem!important;padding:.55rem .9rem!important;font-size:.78rem!important;letter-spacing:.01em!important}
 .db-btn--primary{background:#0a192f!important;color:#fff!important;border:1px solid #0a192f!important;box-shadow:0 10px 24px -16px rgba(10,25,47,.55)!important}
