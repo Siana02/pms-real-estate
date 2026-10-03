@@ -11,6 +11,8 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\MaintenanceRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TenantPortalController;
+use App\Http\Controllers\TenantMaintenanceController;
+use App\Http\Controllers\TenantNotificationController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -43,9 +45,10 @@ Route::middleware(['auth:sanctum', 'role:tenant'])->prefix('tenant')->group(func
     Route::get('overview', [TenantPortalController::class, 'overview']);
     Route::get('payments', [TenantPortalController::class, 'payments']);
     Route::post('payments', [TenantPortalController::class, 'storePayment']);
-    Route::get('maintenance-requests', [TenantPortalController::class, 'maintenanceRequests']);
-    Route::post('maintenance-requests', [TenantPortalController::class, 'storeMaintenanceRequest']);
-    Route::get('notifications', [TenantPortalController::class, 'notifications']);
+    Route::get('maintenance-requests', [TenantMaintenanceController::class, 'index']);
+    Route::post('maintenance-requests', [TenantMaintenanceController::class, 'store']);
+    Route::patch('maintenance-requests/{maintenanceRequest}/availability', [TenantMaintenanceController::class, 'availability']);
+    Route::get('notifications', [TenantNotificationController::class, 'index']);
     Route::get('vacancies', [TenantPortalController::class, 'vacancies']);
     Route::post('leases/{lease}/notice', [TenantPortalController::class, 'submitMoveOutNotice']);
     Route::get('lease-agreement', [TenantPortalController::class, 'leaseAgreement']);
