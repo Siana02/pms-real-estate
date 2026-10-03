@@ -2113,7 +2113,7 @@ function DashboardPage() {
               </div>
 
               <div className="db-actions" aria-label="Dashboard actions">
-              <button
+                <button
                 type="button"
                 className="db-btn db-btn--ghost db-btn--refresh"
                 onClick={() => load(true)}
@@ -2134,6 +2134,7 @@ function DashboardPage() {
                 <span>Add property</span>
                 <ArrowUpRight className="db-btn__arrow" aria-hidden="true" />
               </button>
+              </div>
             </div>
           </header>
  
