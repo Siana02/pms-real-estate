@@ -49,6 +49,32 @@ class DashboardController extends Controller
         ->whereYear('payment_date', now()->year)
         ->sum('amount');
 
+        // Keep the dashboard chart grounded in real payment history rather than
+        // estimating or repeating the current month's revenue.
+        $trendStart = now()->copy()->startOfMonth()->subMonths(5);
+        $trendEnd = now()->copy()->endOfMonth();
+
+        $revenueByMonth = Payment::whereHas('lease', function ($query) use ($organizationId) {
+            $query->where('organization_id', $organizationId);
+        })
+        ->whereBetween('payment_date', [$trendStart, $trendEnd])
+        ->selectRaw('YEAR(payment_date) as year, MONTH(payment_date) as month, SUM(amount) as total')
+        ->groupByRaw('YEAR(payment_date), MONTH(payment_date)')
+        ->get()
+        ->keyBy(fn ($row) => sprintf('%04d-%02d', $row->year, $row->month));
+
+        $revenueTrend = collect(range(5, 0))
+            ->map(function ($monthsAgo) use ($revenueByMonth) {
+                $date = now()->copy()->startOfMonth()->subMonths($monthsAgo);
+                $key = $date->format('Y-m');
+                return [
+                    'label' => $date->format('M'),
+                    'value' => (float) ($revenueByMonth->get($key)?->total ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
+
         $totalExpenses = Expense::where(
             'organization_id',
             $organizationId
