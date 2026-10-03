@@ -2037,6 +2037,26 @@ function DashboardPage() {
 
   const timeOfDayIcon =
     greeting() === 'Good evening' ? <Moon /> : <Sun />;
+  const maintenanceSummary = loading
+    ? "Loading tenant requests…"
+    : counts.active === 0
+    ? "Nothing needs action right now."
+    : String(formatNumber(counts.active)) +
+      " need action" +
+      (urgentCount > 0
+        ? " · " + String(formatNumber(urgentCount)) + " urgent"
+        : "") +
+      " · " +
+      String(formatMoney(money.maintenanceCommitted, currency)) +
+      " committed";
+
+  const maintenanceCostSummary =
+    money.maintenanceCommitted > 0
+      ? String(formatMoney(money.maintenanceCommitted, currency)) +
+        " of open maintenance is still committed — projected net " +
+        String(formatMoney(money.projectedNet, currency)) +
+        "."
+      : "No open maintenance costs are pending against this month.";
 
   return (
     <DashboardLayout>
@@ -2412,22 +2432,7 @@ function DashboardPage() {
               </div>
  
               <p className="db-card__hint">
-                {loading
-                  ? "Calculating occupancy…"
-                  : portfolio.units > 0
-                  ? `${formatNumber(portfolio.occupied)} of ${formatNumber(
-                      portfolio.units
-                    )} units occupied · ${formatNumber(
-                      portfolio.units - portfolio.occupied
-                    )} vacant${
-                      portfolio.potential > portfolio.revenue
-                        ? ` · ${formatMoney(
-                            portfolio.potential - portfolio.revenue,
-                            currency
-                          )} idle rent`
-                        : ""
-                    }`
-                  : "Add units to start tracking occupancy."}
+                {maintenanceCostSummary}
               </p>
             </div>
  
@@ -2484,20 +2489,7 @@ function DashboardPage() {
                   Maintenance requests
                 </h2>
                 <p className="db-panel__sub">
-                  {loading
-                    ? "Loading tenant requests…"
-                    : counts.active === 0
-                    ? "Nothing needs action right now."
-                    : `${formatNumber(
-                        counts.active
-                      )} need action${
-                        urgentCount > 0
-                          ? ` · ${formatNumber(urgentCount)} urgent`
-                          : ""
-                      } · ${formatMoney(
-                        money.maintenanceCommitted,
-                        currency
-                      )} committed`}
+                  {maintenanceSummary}
                 </p>
               </div>
  
