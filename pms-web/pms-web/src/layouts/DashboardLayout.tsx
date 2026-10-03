@@ -215,6 +215,11 @@ const styles = `
 .dl-main{background:#f7f7f5!important}
 .dl-overlay{background:rgba(24,32,42,.3)!important}
 
+/* MANAGER PORTAL EDGE RESET — no right-side rail/strip. */
+.dl-root{width:100%!important;max-width:none!important;overflow-x:hidden!important}
+.dl-main{width:100%!important;max-width:none!important;margin-right:0!important;border-right:0!important;box-shadow:none!important;overflow-x:hidden!important}
+@media (min-width:1024px){.dl-main{margin-left:var(--dl-rail-w)!important;margin-right:0!important;width:calc(100% - var(--dl-rail-w))!important}}
+
 `;
 
 interface DashboardLayoutProps {
