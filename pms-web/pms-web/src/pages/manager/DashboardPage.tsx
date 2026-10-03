@@ -2467,15 +2467,7 @@ function DashboardPage() {
               </div>
  
               <p className="db-card__hint">
-                {money.maintenanceCommitted > 0
-                  ? `${formatMoney(
-                      money.maintenanceCommitted,
-                      currency
-                    )} of open maintenance is still committed — projected net ${formatMoney(
-                      money.projectedNet,
-                      currency
-                    )}.`
-                  : "No open maintenance costs are pending against this month."}
+                {maintenanceCostSummary}
               </p>
             </div>
           </section>
