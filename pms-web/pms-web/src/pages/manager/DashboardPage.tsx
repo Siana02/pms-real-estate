@@ -60,6 +60,19 @@ const styles = `
     50% { border-color: #4b8bc4; }
   }
 
+  .manager-dashboard__portfolio-title {
+    display: block;
+    width: 100%;
+    margin: 3.25rem 0 0;
+    text-align: center;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: clamp(1.7rem, 3.5vw, 2.5rem);
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    line-height: 1.15;
+    color: #174a7c;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .manager-dashboard__greeting-text {
       width: auto;
@@ -97,6 +110,10 @@ export default function DashboardPage() {
           </span>
           <span className="manager-dashboard__greeting-text">{greeting}</span>
         </div>
+
+        <h1 className="manager-dashboard__portfolio-title">
+          PORTFOLIO OVERVIEW
+        </h1>
       </main>
     </>
   );
