@@ -2174,10 +2174,28 @@ function DashboardPage() {
                 Portfolio at a glance today
               </p>
 
-              <div className="db-actions" aria-label="Dashboard actions">
+              <div
+                className="db-actions"
+                aria-label="Dashboard actions"
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.85rem",
+                  width: "100%",
+                  margin: "1.15rem auto 0",
+                  padding: 0,
+                }}
+              >
                 <button
                   type="button"
                   className="db-btn db-btn--ghost db-btn--refresh"
+                  style={{
+                    background: "#E8EEF5",
+                    border: "1px solid #CBD5E1",
+                    color: "#334155",
+                  }}
                   onClick={() => load(true)}
                   disabled={refreshing || loading}
                   aria-label={refreshing ? "Refreshing dashboard" : "Refresh dashboard"}
