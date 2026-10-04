@@ -28,7 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('change-password', [AuthController::class, 'changePassword']);
 });
 
-Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
     Route::apiResource('organizations', OrganizationController::class)->except(['index']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
