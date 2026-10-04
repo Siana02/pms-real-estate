@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CloudSun, Moon, Plus, RefreshCw, Sun } from "lucide-react";
+import DashboardLayout from "../../layouts/DashboardLayout";
+import { apiRequest } from "../../services/api";
 
 const styles = `
   @import url("https://fonts.googleapis.com/css2?family=Edu+QLD+Hand&family=Kulim+Park:wght@300;400;500;600;700&display=swap");
