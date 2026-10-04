@@ -94,6 +94,12 @@ class DashboardController extends Controller
             fn (MaintenanceRequest $item) => (float) ($item->estimated_cost ?? 0)
         );
 
+        $dashboardMaintenanceItems = $openMaintenance
+            ->values()
+            ->concat($maintenance->reject(fn (MaintenanceRequest $item) => in_array($item->status, ['open', 'in_progress'], true))->values())
+            ->take(5)
+            ->values();
+
         $propertiesPayload = $properties->map(function (Property $property) use ($activeLeases, $units) {
             $propertyUnits = $units->where('property_id', $property->id);
             $leases = $activeLeases->where('property_id', $property->id);
@@ -158,7 +164,7 @@ class DashboardController extends Controller
                 'completed' => $maintenance->where('status', 'completed')->count(),
                 'cancelled' => $maintenance->where('status', 'cancelled')->count(),
                 'committed_cost' => (float) $committedMaintenance,
-                'items' => $maintenance->take(5)->values(),
+                'items' => $dashboardMaintenanceItems,
             ],
             'properties_list' => $propertiesPayload,
         ]);
