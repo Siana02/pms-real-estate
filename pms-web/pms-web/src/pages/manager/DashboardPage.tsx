@@ -1684,9 +1684,9 @@ function ageLabel(date: string): string {
 .db-eyebrow{display:inline-flex!important;align-items:center!important;gap:.45rem!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#64748B!important;font-size:.7rem!important;font-weight:600!important;line-height:1!important;letter-spacing:.15em!important;text-transform:uppercase!important;white-space:nowrap!important}
 .db-eyebrow svg{width:.82rem!important;height:.82rem!important;color:#94A3B8!important;stroke-width:1.4!important}
 .db-header__center{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;width:100%!important;min-width:0!important;text-align:center!important}
-.db-header__center .db-title{display:block!important;width:max-content!important;max-width:100%!important;margin:1.25rem auto 0!important;padding:0!important;color:#0F172A!important;background:none!important;-webkit-text-fill-color:initial!important;font-family:var(--db-font)!important;font-size:clamp(1.5rem,2vw,2rem)!important;font-weight:600!important;line-height:1.15!important;letter-spacing:.055em!important;text-transform:uppercase!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
-.db-header__center .db-title__org{display:block!important;margin:.35rem 0 0!important;color:#0A1931!important;font:inherit!important;letter-spacing:inherit!important;white-space:nowrap!important}
-.db-header__center .db-subtitle{display:block!important;width:max-content!important;max-width:100%!important;margin:.65rem auto 0!important;color:#64748B!important;font-size:.86rem!important;font-weight:400!important;line-height:1.4!important;text-align:center!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
+.db-header__center .db-title{display:block!important;width:auto!important;max-width:100%!important;margin:1.25rem 0 0!important;padding:0!important;color:#0F172A!important;background:none!important;-webkit-text-fill-color:initial!important;font-family:var(--db-font)!important;font-size:clamp(1.5rem,2vw,2rem)!important;font-weight:600!important;line-height:1.15!important;letter-spacing:.055em!important;text-transform:uppercase!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;text-align:center!important}
+.db-header__center .db-title__org{display:block!important;width:auto!important;max-width:100%!important;margin:.35rem 0 0!important;padding:0!important;color:#0A1931!important;font-family:var(--db-font)!important;font-size:clamp(1.5rem,2vw,2rem)!important;font-weight:600!important;line-height:1.15!important;letter-spacing:.055em!important;text-transform:uppercase!important;white-space:nowrap!important;text-align:center!important;overflow:visible!important}
+.db-header__center .db-subtitle{display:block!important;width:auto!important;max-width:100%!important;margin:.65rem 0 0!important;color:#64748B!important;font-size:.86rem!important;font-weight:400!important;line-height:1.4!important;text-align:center!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
 .db-header__center .db-actions{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:center!important;width:auto!important;margin:1.15rem auto 0!important;padding:0!important;gap:.65rem!important}
 .db-header__center .db-btn{display:inline-flex!important;flex:none!important;align-items:center!important;justify-content:center!important;gap:.45rem!important;min-height:2.55rem!important;padding:.55rem .9rem!important;border-radius:5px!important;font-size:.76rem!important;font-weight:600!important;white-space:nowrap!important}
 .db-header__center .db-btn svg{width:.95rem!important;height:.95rem!important;flex:none!important}
@@ -2115,12 +2115,10 @@ function DashboardPage() {
             </div>
 
             <div className="db-header__center">
-              <h1 className="db-title">
-                Portfolio Overview for{" "}
-                <span className="db-title__org">
-                  {organization.name || "Your property workspace"}
-                </span>
-              </h1>
+              <h1 className="db-title">Portfolio Overview for</h1>
+              <div className="db-title__org">
+                {organization.name || "Your property workspace"}
+              </div>
 
               <p className="db-subtitle">
                 Portfolio at a glance today
