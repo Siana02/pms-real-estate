@@ -2114,13 +2114,54 @@ function DashboardPage() {
               </span>
             </div>
 
-            <div className="db-header__center">
-              <h1 className="db-title">Portfolio Overview for</h1>
-              <div className="db-title__org">
+            <div
+              className="db-header__center"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                width: "100%",
+                textAlign: "center",
+              }}
+            >
+              <h1
+                className="db-title"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  margin: "1.25rem 0 0",
+                  padding: 0,
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Portfolio Overview for
+              </h1>
+              <div
+                className="db-title__org"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  margin: ".35rem 0 0",
+                  padding: 0,
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {organization.name || "Your property workspace"}
               </div>
 
-              <p className="db-subtitle">
+              <p
+                className="db-subtitle"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  margin: ".65rem 0 0",
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 Portfolio at a glance today
               </p>
 
