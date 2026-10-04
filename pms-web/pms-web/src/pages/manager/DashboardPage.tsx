@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CloudSun, Moon, Sun } from "lucide-react";
 
 const styles = `
-  @import url("https://fonts.googleapis.com/css2?family=Kulim+Park:wght@300;400;500;600;700&display=swap");
+  @import url("https://fonts.googleapis.com/css2?family=Edu+QLD+Hand&family=Kulim+Park:wght@300;400;500;600;700&display=swap");
 
   .manager-dashboard {
     width: 100%;
@@ -97,8 +97,44 @@ const styles = `
     color: #8b929a;
   }
 
+  .manager-dashboard__intro {
+    display: block;
+    width: 100%;
+    margin: 1.15rem auto 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: center;
+    font-family: "Edu QLD Hand", cursive;
+    font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+    font-weight: 400;
+    line-height: 1.2;
+    color: #42698e;
+  }
+
+  .manager-dashboard__intro-text {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 0;
+    border-right: 2px solid #6d9bc4;
+    animation:
+      manager-dashboard-intro-type 2.2s steps(27, end) 0.2s forwards,
+      manager-dashboard-intro-caret 0.75s step-end 3.2s 3;
+  }
+
+  @keyframes manager-dashboard-intro-type {
+    from { width: 0; }
+    to { width: 27ch; }
+  }
+
+  @keyframes manager-dashboard-intro-caret {
+    0%, 100% { border-color: transparent; }
+    50% { border-color: #6d9bc4; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .manager-dashboard__greeting-text {
+    .manager-dashboard__greeting-text,
+    .manager-dashboard__intro-text {
       width: auto;
       border-right: 0;
       animation: none;
@@ -167,6 +203,12 @@ export default function DashboardPage() {
 
         <div className="manager-dashboard__organization">
           {organizationName}
+        </div>
+
+        <div className="manager-dashboard__intro" aria-label="Manage your properties with ease">
+          <span className="manager-dashboard__intro-text">
+            Manage your properties with ease
+          </span>
         </div>
       </main>
     </>
