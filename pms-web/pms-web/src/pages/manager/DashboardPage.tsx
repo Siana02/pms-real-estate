@@ -18,12 +18,12 @@ const styles = `
     margin: 0;
     padding: 0.2rem 0;
     text-align: left;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Nunito", "Avenir Next", "Segoe UI", sans-serif;
     font-size: clamp(1.15rem, 2vw, 1.5rem);
-    font-weight: 650;
-    letter-spacing: -0.025em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
     line-height: 1.3;
-    color: #174a7c;
+    color: #2369a8;
   }
 
   .manager-dashboard__greeting-icon {
@@ -65,12 +65,12 @@ const styles = `
     width: 100%;
     margin: 3.25rem 0 0;
     text-align: center;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(1.7rem, 3.5vw, 2.5rem);
-    font-weight: 750;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.07em;
     line-height: 1.15;
-    color: #174a7c;
+    color: #111111;
   }
 
   @media (prefers-reduced-motion: reduce) {
