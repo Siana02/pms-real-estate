@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../../layouts/DashboardLayout";
 import { CloudSun, Moon, Plus, RefreshCw, Sun } from "lucide-react";
 
 const styles = `
@@ -246,7 +247,8 @@ export default function DashboardPage() {
     <>
       <style>{styles}</style>
 
-      <main className="manager-dashboard">
+      <DashboardLayout>
+        <main className="manager-dashboard">
         <div className="manager-dashboard__greeting">
           <span className="manager-dashboard__greeting-icon" aria-hidden="true">
             {greetingIcon}
