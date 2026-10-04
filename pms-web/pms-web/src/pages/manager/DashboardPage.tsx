@@ -283,7 +283,7 @@ const styles = `
     font-variant-numeric: tabular-nums;
   }
 
-  .manager-dashboard__stat-note {
+  .manager-dashboard__stat--button {\n    width: 100%;\n    border: 1px solid rgba(190, 210, 226, 0.82);\n    text-align: left;\n    cursor: pointer;\n    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;\n  }\n\n  .manager-dashboard__stat--button:hover {\n    transform: translateY(-2px);\n    border-color: #a9c6dd;\n    box-shadow: 0 14px 30px rgba(44, 78, 108, 0.1);\n  }\n\n  .manager-dashboard__stat-note {
     margin: 0.25rem 0 0;
     font-family: "Kulim Park", sans-serif;
     font-size: 0.76rem;
@@ -1099,7 +1099,7 @@ function DashboardPage() {
             ) : (
               <>
                 <section className="manager-dashboard__stats" aria-label="Portfolio summary">
-                  <article className="manager-dashboard__card manager-dashboard__stat">
+                  <button type="button" className="manager-dashboard__card manager-dashboard__stat manager-dashboard__stat--button" onClick={() => navigate("/manager/properties")} aria-label="Open properties">
                     <div>
                       <span className="manager-dashboard__stat-icon"><Building2 /></span>
                       <p className="manager-dashboard__stat-label">Properties</p>
@@ -1108,9 +1108,9 @@ function DashboardPage() {
                     <p className="manager-dashboard__stat-note">
                       {stats?.units ?? 0} units tracked
                     </p>
-                  </article>
+                  </button>
 
-                  <article className="manager-dashboard__card manager-dashboard__stat">
+                  <button type="button" className="manager-dashboard__card manager-dashboard__stat manager-dashboard__stat--button" onClick={() => navigate("/manager/units")} aria-label="Open units">
                     <div>
                       <span className="manager-dashboard__stat-icon"><DoorOpen /></span>
                       <p className="manager-dashboard__stat-label">Occupied units</p>
@@ -1121,9 +1121,9 @@ function DashboardPage() {
                     <p className="manager-dashboard__stat-note">
                       {stats?.occupancy ?? 0}% occupancy
                     </p>
-                  </article>
+                  </button>
 
-                  <article className="manager-dashboard__card manager-dashboard__stat">
+                  <button type="button" className="manager-dashboard__card manager-dashboard__stat manager-dashboard__stat--button" onClick={() => navigate("/manager/tenants")} aria-label="Open active tenants">
                     <div>
                       <span className="manager-dashboard__stat-icon"><Users /></span>
                       <p className="manager-dashboard__stat-label">Active tenants</p>
@@ -1132,9 +1132,9 @@ function DashboardPage() {
                     <p className="manager-dashboard__stat-note">
                       On active leases
                     </p>
-                  </article>
+                  </button>
 
-                  <article className="manager-dashboard__card manager-dashboard__stat">
+                  <button type="button" className="manager-dashboard__card manager-dashboard__stat manager-dashboard__stat--button" onClick={() => navigate("/manager/payments")} aria-label="Open payments">
                     <div>
                       <span className="manager-dashboard__stat-icon"><CheckCircle2 /></span>
                       <p className="manager-dashboard__stat-label">Net monthly revenue</p>
@@ -1143,9 +1143,9 @@ function DashboardPage() {
                       </p>
                     </div>
                     <p className="manager-dashboard__stat-note">
-                      {money(stats?.monthly_rent ?? 0, currency)} rent − {money((stats?.monthly_maintenance ?? 0) + (stats?.monthly_expenses ?? 0), currency)} costs
+                      {money(stats?.cash_collected_this_month ?? 0, currency)} collected this month
                     </p>
-                  </article>
+                  </button>
                 </section>
 
                 <section className="manager-dashboard__split">
@@ -1234,22 +1234,22 @@ function DashboardPage() {
                         <strong>{money(stats?.monthly_rent ?? 0, currency)}</strong>
                       </div>
                       <div className="manager-dashboard__money-row">
-                        <span>Maintenance completed</span>
-                        <strong>−{money(stats?.monthly_maintenance ?? 0, currency)}</strong>
+                        <span>Collected this month</span>
+                        <strong>{money(stats?.cash_collected_this_month ?? 0, currency)}</strong>
                       </div>
                       <div className="manager-dashboard__money-row">
-                        <span>Other expenses</span>
-                        <strong>−{money(stats?.monthly_expenses ?? 0, currency)}</strong>
+                        <span>Maintenance / expenses</span>
+                        <strong>Not deducted</strong>
                       </div>
                       <div className="manager-dashboard__money-row manager-dashboard__money-row--net">
-                        <span>Net revenue</span>
+                        <span>Manager revenue</span>
                         <strong>{money(stats?.net_revenue ?? 0, currency)}</strong>
                       </div>
                     </div>
 
                     {(stats?.committed_maintenance ?? 0) > 0 && (
                       <p className="manager-dashboard__commitment">
-                        {money(stats?.committed_maintenance ?? 0, currency)} of open maintenance is still committed — projected net {money((stats?.net_revenue ?? 0) - (stats?.committed_maintenance ?? 0), currency)}.
+                        {money(stats?.committed_maintenance ?? 0, currency)} of open maintenance is committed. The cost is tracked separately and is not deducted from manager revenue because responsibility may belong to the landlord or tenant.
                       </p>
                     )}
                   </article>
