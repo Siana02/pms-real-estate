@@ -204,8 +204,8 @@ const styles = `
   .dl-rail *,
   .dl-rail *::before,
   .dl-rail *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms;
+    transition-duration: 0.001ms;
   }
 }
 
