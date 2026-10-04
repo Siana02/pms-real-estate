@@ -111,6 +111,7 @@ code {
 }
 
 /* Manager dashboard header hierarchy — desktop. */
+/* Manager dashboard header hierarchy. */
 @media (min-width: 1024px) {
   #root .db-root .db-header {
     position: relative !important;
