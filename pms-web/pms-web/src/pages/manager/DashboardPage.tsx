@@ -1,6 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { CloudSun, Moon, Sun } from "lucide-react";
 
 const styles = `
+  @import url("https://fonts.googleapis.com/css2?family=Kulim+Park:wght@300;400;500;600;700&display=swap");
+
   .manager-dashboard {
     width: 100%;
     min-height: 100vh;
@@ -18,10 +21,10 @@ const styles = `
     margin: 0;
     padding: 0.2rem 0;
     text-align: left;
-    font-family: "Nunito", "Avenir Next", "Segoe UI", sans-serif;
+    font-family: "Kulim Park", sans-serif;
     font-size: clamp(1.15rem, 2vw, 1.5rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 500;
+    letter-spacing: -0.015em;
     line-height: 1.3;
     color: #2369a8;
   }
@@ -36,7 +39,12 @@ const styles = `
     border-radius: 50%;
     background: #e8f2fc;
     color: #2369a8;
-    font-size: 1rem;
+  }
+
+  .manager-dashboard__greeting-icon svg {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 1.8;
   }
 
   .manager-dashboard__greeting-text {
@@ -73,6 +81,20 @@ const styles = `
     color: #111111;
   }
 
+  .manager-dashboard__organization {
+    display: block;
+    width: 100%;
+    margin: 0.9rem 0 0;
+    text-align: center;
+    font-family: "Kulim Park", sans-serif;
+    font-size: clamp(1.25rem, 2.6vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: #8b929a;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .manager-dashboard__greeting-text {
       width: auto;
@@ -82,7 +104,14 @@ const styles = `
   }
 `;
 
+type Organization = {
+  id?: number | string;
+  name?: string;
+};
+
 export default function DashboardPage() {
+  const [organization, setOrganization] = useState<Organization | null>(null);
+
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
 
@@ -94,10 +123,29 @@ export default function DashboardPage() {
   const greetingIcon = useMemo(() => {
     const hour = new Date().getHours();
 
-    if (hour < 12) return "☀️";
-    if (hour < 18) return "◐";
-    return "☾";
+    if (hour < 12) return <Sun aria-hidden="true" />;
+    if (hour < 18) return <CloudSun aria-hidden="true" />;
+    return <Moon aria-hidden="true" />;
   }, []);
+
+  useEffect(() => {
+    const storedOrganization =
+      localStorage.getItem("organization") ??
+      sessionStorage.getItem("organization");
+
+    if (!storedOrganization) return;
+
+    try {
+      const parsed = JSON.parse(storedOrganization) as Organization;
+      setOrganization(parsed);
+    } catch {
+      setOrganization(null);
+    }
+  }, []);
+
+  const organizationName =
+    organization?.name ??
+    (organization?.id ? `Organization ${organization.id}` : "Organization");
 
   return (
     <>
@@ -114,6 +162,10 @@ export default function DashboardPage() {
         <h1 className="manager-dashboard__portfolio-title">
           PORTFOLIO OVERVIEW
         </h1>
+
+        <div className="manager-dashboard__organization">
+          {organizationName}
+        </div>
       </main>
     </>
   );
