@@ -291,7 +291,8 @@ export default function DashboardPage() {
             <span>Add Property</span>
           </button>
         </div>
-      </main>
+        </main>
+      </DashboardLayout>
     </>
   );
 }
