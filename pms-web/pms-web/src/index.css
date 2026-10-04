@@ -110,6 +110,22 @@ code {
   background: var(--code-bg);
 }
 
+/* Manager dashboard header: force the requested five-level desktop hierarchy. */
+@media (min-width: 901px) {
+  #root .db-root .db-header {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: initial !important;
+  }
+
+  #root .db-root .db-header__greeting {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
 /* Manager dashboard header hierarchy — desktop. */
 /* Manager dashboard header hierarchy. */
 @media (min-width: 1024px) {
@@ -136,11 +152,30 @@ code {
     align-items: center !important;
     justify-content: flex-start !important;
     width: 100% !important;
+    margin: 1rem 0 0 !important;
     min-width: 0 !important;
     text-align: center !important;
   }
 
   #root .db-root .db-header__center .db-title {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    gap: 0.2rem !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  #root .db-root .db-header__center .db-title__org {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
     display: block !important;
     width: max-content !important;
     max-width: 100% !important;
@@ -157,6 +192,20 @@ code {
 
   #root .db-root .db-header__center .db-subtitle {
     display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0.75rem 0 0 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    font-size: 0 !important;
+  }
+
+  #root .db-root .db-header__center .db-subtitle::after {
+    content: "Your Portfolio at a glance today";
+    display: block !important;
+    font-size: 0.875rem !important;
+    line-height: 1.45 !important;
+    color: #64748B !important;
     width: max-content !important;
     max-width: 100% !important;
     margin: 0.65rem auto 0 !important;
@@ -167,6 +216,10 @@ code {
   #root .db-root .db-header__center .db-actions {
     display: flex !important;
     flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    margin: 1rem auto 0 !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
     justify-content: center !important;
