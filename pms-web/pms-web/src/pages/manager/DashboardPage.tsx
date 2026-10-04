@@ -2208,6 +2208,10 @@ function DashboardPage() {
                 <button
                   type="button"
                   className="db-btn db-btn--primary"
+                  style={{
+                    margin: 0,
+                    flex: "0 0 auto",
+                  }}
                   onClick={() => navigate("/manager/properties/add")}
                 >
                   <Plus />
