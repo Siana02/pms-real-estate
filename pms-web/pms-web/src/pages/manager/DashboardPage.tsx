@@ -9,7 +9,9 @@ const styles = `
     min-height: 100vh;
     box-sizing: border-box;
     padding: 2rem;
-    background: #fffdf7;
+    background:
+      radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.9) 0%, transparent 34%),
+      linear-gradient(135deg, #fffdf7 0%, #f4f8fc 48%, #eaf3fb 100%);
     color: #163b66;
   }
 
