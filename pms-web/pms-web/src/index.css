@@ -166,6 +166,15 @@ code {
     margin: 0.75rem 0 0 !important;
     text-align: center !important;
     white-space: normal !important;
+    font-size: 0 !important;
+  }
+
+  #root .db-root .db-header__center .db-subtitle::after {
+    content: "Your Portfolio at a glance today";
+    display: block !important;
+    font-size: 0.875rem !important;
+    line-height: 1.45 !important;
+    color: #64748B !important;
   }
 
   #root .db-root .db-header__center .db-actions {
