@@ -5,25 +5,6 @@ import { Building2, LogOut, Menu, X } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 
 const styles = `
-:root {
-  --dl-bg: #030712;
-  --dl-rail: rgba(9, 14, 28, 0.94);
-  --dl-glass: rgba(255, 255, 255, 0.05);
-  --dl-glass-strong: rgba(255, 255, 255, 0.1);
-  --dl-border: rgba(255, 255, 255, 0.1);
-  --dl-border-soft: rgba(255, 255, 255, 0.06);
-  --dl-text: #f8fafc;
-  --dl-blue: #3b82f6;
-  --dl-radius-sm: 0.75rem;
-  --dl-rail-w: 17rem;
-  --dl-topbar-h: 4rem;
-  --dl-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-}
-
-.dl-root,
-.dl-root * { box-sizing: border-box; }
-
 .dl-root {
   position: relative;
   min-height: 100vh;
@@ -33,24 +14,11 @@ const styles = `
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dl-topbar button,
-.dl-rail button {
-  font-family: inherit;
-  color: inherit;
-  border: none;
-  background: none;
-  cursor: pointer;
+.dl-root,
+.dl-root * {
+  box-sizing: border-box;
 }
 
-.dl-topbar a:focus-visible,
-.dl-topbar button:focus-visible,
-.dl-rail a:focus-visible,
-.dl-rail button:focus-visible {
-  outline: 2px solid var(--dl-blue);
-  outline-offset: 2px;
-}
-
-/* ---------- topbar (mobile / tablet) ---------- */
 .dl-topbar {
   position: sticky;
   top: 0;
@@ -59,10 +27,10 @@ const styles = `
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  height: var(--dl-topbar-h);
+  height: 4rem;
   padding: 0 1rem;
-  border-bottom: 1px solid var(--dl-border-soft);
-  background: rgba(3, 7, 18, 0.85);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  background: rgba(3,7,18,0.85);
   backdrop-filter: blur(18px);
 }
 
@@ -80,13 +48,11 @@ const styles = `
   justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
-  border-radius: var(--dl-radius-sm);
-  border: 1px solid var(--dl-border);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(79, 70, 229, 0.3));
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(79,70,229,0.3));
   color: #bfdbfe;
 }
-
-.dl-brand__mark svg { width: 1.125rem; height: 1.125rem; }
 
 .dl-brand__name {
   font-size: 1.0625rem;
@@ -95,7 +61,7 @@ const styles = `
   white-space: nowrap;
 }
 
-.dl-brand__name span { color: var(--dl-blue); }
+.dl-brand__name span { color: #3b82f6; }
 
 .dl-topbar__actions {
   display: flex;
@@ -109,27 +75,27 @@ const styles = `
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: var(--dl-radius-sm);
-  border: 1px solid var(--dl-border);
-  background: var(--dl-glass);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
   color: #e2e8f0;
+  cursor: pointer;
   transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
 
 .dl-iconbtn:hover {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: var(--dl-glass-strong);
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.1);
 }
 
 .dl-iconbtn svg { width: 1.125rem; height: 1.125rem; }
 
 .dl-iconbtn--danger:hover {
-  border-color: rgba(248, 113, 113, 0.4);
-  background: rgba(127, 29, 29, 0.3);
+  border-color: rgba(248,113,113,0.4);
+  background: rgba(127,29,29,0.3);
   color: #fecaca;
 }
 
-/* ---------- rail ---------- */
 .dl-rail {
   position: fixed;
   top: 0;
@@ -138,12 +104,12 @@ const styles = `
   z-index: 60;
   display: flex;
   flex-direction: column;
-  width: min(var(--dl-rail-w), 86vw);
-  border-right: 1px solid var(--dl-border-soft);
-  background: var(--dl-rail);
+  width: 17rem;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  background: rgba(9,14,28,0.94);
   backdrop-filter: blur(22px);
   transform: translateX(-100%);
-  transition: transform 0.3s ease, width 0.25s ease;
+  transition: transform 0.3s ease;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -157,58 +123,49 @@ const styles = `
   z-index: 1;
 }
 
-/* ---------- overlay ---------- */
 .dl-overlay {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(2, 6, 16, 0.65);
+  background: rgba(2,6,16,0.65);
   backdrop-filter: blur(2px);
-  animation: dl-fade 0.2s ease-out;
 }
 
-@keyframes dl-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* ---------- content ---------- */
 .dl-main {
-  min-height: calc(100vh - var(--dl-topbar-h));
-  min-height: calc(100dvh - var(--dl-topbar-h));
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
 }
 
-/* ---------- desktop ---------- */
 @media (min-width: 1024px) {
   .dl-topbar,
   .dl-overlay,
   .dl-rail__close { display: none; }
 
   .dl-rail {
-    width: var(--dl-rail-w);
     transform: translateX(0);
   }
 
   .dl-main {
-    min-height: 100vh;
-    min-height: 100dvh;
-    margin-left: var(--dl-rail-w);
+    margin-left: 17rem;
+    width: calc(100% - 17rem);
+  }
+}
+
+@media (max-width: 1023px) {
+  .dl-rail {
+    width: min(17rem, 86vw);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dl-topbar *,
-  .dl-topbar *::before,
-  .dl-topbar *::after,
   .dl-rail *,
-  .dl-rail *::before,
-  .dl-rail *::after {
+  .dl-overlay {
     animation-duration: 0.001ms;
     transition-duration: 0.001ms;
   }
 }
-
 `;
 
 interface DashboardLayoutProps {
