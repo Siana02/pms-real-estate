@@ -128,7 +128,7 @@ class DashboardController extends Controller
         $totalUnits = $units->count();
         $occupiedUnits = $activeLeases->pluck('unit_id')->unique()->count();
         $monthlyRent = (float) $activeLeases->sum('monthly_rent');
-        $netRevenue = $monthlyRent - (float) $maintenanceCostThisMonth - (float) $expensesThisMonth;
+        $netRevenue = $monthlyRent;
 
         return response()->json([
             'organization' => $organization ? [
@@ -153,6 +153,7 @@ class DashboardController extends Controller
                 'monthly_maintenance' => (float) $maintenanceCostThisMonth,
                 'monthly_expenses' => (float) $expensesThisMonth,
                 'net_revenue' => $netRevenue,
+                'cash_collected_this_month' => (float) $paymentsThisMonth,
                 'idle_rent' => max((float) $units->sum('monthly_rent') - $monthlyRent, 0),
                 'committed_maintenance' => (float) $committedMaintenance,
             ],
