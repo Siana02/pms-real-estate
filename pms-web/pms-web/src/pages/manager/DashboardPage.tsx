@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { CloudSun, Moon, Sun } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { CloudSun, Moon, Plus, RefreshCw, Sun } from "lucide-react";
 
 const styles = `
   @import url("https://fonts.googleapis.com/css2?family=Edu+QLD+Hand&family=Kulim+Park:wght@300;400;500;600;700&display=swap");
@@ -132,6 +133,61 @@ const styles = `
     50% { border-color: #6d9bc4; }
   }
 
+  .manager-dashboard__actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.9rem;
+    margin: 1.4rem auto 0;
+  }
+
+  .manager-dashboard__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 8.5rem;
+    padding: 0.7rem 1.1rem;
+    border: 1px solid #b8cee2;
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.72);
+    color: #245b88;
+    font-family: "Kulim Park", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 5px 14px rgba(55, 94, 125, 0.08);
+    transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  }
+
+  .manager-dashboard__action:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 7px 18px rgba(55, 94, 125, 0.12);
+  }
+
+  .manager-dashboard__action:focus-visible {
+    outline: 2px solid #4b8bc4;
+    outline-offset: 2px;
+  }
+
+  .manager-dashboard__action svg {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 1.9;
+  }
+
+  @media (max-width: 520px) {
+    .manager-dashboard__actions {
+      flex-direction: column;
+    }
+
+    .manager-dashboard__action {
+      width: min(100%, 12rem);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .manager-dashboard__greeting-text,
     .manager-dashboard__intro-text {
@@ -148,6 +204,7 @@ type Organization = {
 };
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [organization, setOrganization] = useState<Organization | null>(null);
 
   const greeting = useMemo(() => {
@@ -209,6 +266,28 @@ export default function DashboardPage() {
           <span className="manager-dashboard__intro-text">
             Manage your properties with ease
           </span>
+        </div>
+
+        <div className="manager-dashboard__actions">
+          <button
+            type="button"
+            className="manager-dashboard__action"
+            onClick={() => window.location.reload()}
+            aria-label="Refresh dashboard"
+          >
+            <RefreshCw aria-hidden="true" />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            className="manager-dashboard__action"
+            onClick={() => navigate("/manager/properties/add")}
+            aria-label="Add property"
+          >
+            <Plus aria-hidden="true" />
+            <span>Add Property</span>
+          </button>
         </div>
       </main>
     </>
