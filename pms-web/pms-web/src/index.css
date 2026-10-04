@@ -110,6 +110,7 @@ code {
   background: var(--code-bg);
 }
 
+/* Manager dashboard header hierarchy — desktop. */
 /* Manager dashboard header hierarchy. */
 @media (min-width: 1024px) {
   #root .db-root .db-header {
