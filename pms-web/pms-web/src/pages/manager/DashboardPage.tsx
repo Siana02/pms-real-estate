@@ -1680,7 +1680,7 @@ function ageLabel(date: string): string {
 .db-backdrop,.db-orb{display:none!important}
 .db-shell{width:100%!important;max-width:none!important;margin:0!important;padding:3rem 3.5rem 5rem!important;gap:2.5rem!important}
 .db-header{position:relative!important;display:block!important;width:100%!important;margin:0!important;padding:0!important;min-height:10rem!important}
-.db-header__greeting{position:absolute!important;top:.15rem!important;left:0!important;margin:0!important;z-index:2!important}
+.db-header__greeting{position:relative!important;display:block!important;top:auto!important;left:auto!important;margin:0!important;padding:0!important;align-self:flex-start!important;text-align:left!important;z-index:2!important}
 .db-eyebrow{display:inline-flex!important;align-items:center!important;gap:.45rem!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#64748B!important;font-size:.7rem!important;font-weight:600!important;line-height:1!important;letter-spacing:.15em!important;text-transform:uppercase!important;white-space:nowrap!important}
 .db-eyebrow svg{width:.82rem!important;height:.82rem!important;color:#94A3B8!important;stroke-width:1.4!important}
 .db-header__center{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;width:100%!important;min-width:0!important;text-align:center!important}
