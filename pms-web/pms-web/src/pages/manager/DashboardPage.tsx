@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../../layouts/DashboardLayout";
 import { CloudSun, Moon, Plus, RefreshCw, Sun } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
@@ -248,7 +249,8 @@ export default function DashboardPage() {
     <>
       <style>{styles}</style>
 
-      <main className="manager-dashboard">
+      <DashboardLayout>
+        <main className="manager-dashboard">
         <div className="manager-dashboard__greeting">
           <span className="manager-dashboard__greeting-icon" aria-hidden="true">
             {greetingIcon}
@@ -291,7 +293,8 @@ export default function DashboardPage() {
             <span>Add Property</span>
           </button>
         </div>
-      </main>
+        </main>
+      </DashboardLayout>
     </>
   );
 }
