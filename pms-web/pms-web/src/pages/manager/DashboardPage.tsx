@@ -2844,7 +2844,26 @@ function DashboardPage() {
                         >
                           <div
                             className="db-bar__fill"
-                            style={{ width: `${rate}%` }}
+                            style={{ width: `${rate}%
+/* FINAL DESKTOP ACTION ROW FIX */
+.db-actions{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:max-content!important;
+  max-width:100%!important;
+  margin:0 auto!important;
+  padding:0!important;
+  gap:.85rem!important;
+  align-self:center!important;
+}
+.db-actions .db-btn{
+  flex:0 0 auto!important;
+  margin:0!important;
+}
+` }}
                           />
                         </div>
                         <span>{rate}% full</span>
