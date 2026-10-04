@@ -1336,6 +1336,13 @@ function DashboardPage() {
                               </span>
 
                               <div className="manager-dashboard__maintenance-actions">
+                                <button
+                                  type="button"
+                                  className="manager-dashboard__mini-button"
+                                  onClick={() => navigate(`/manager/maintenance?request=${item.id}`)}
+                                >
+                                  View details
+                                </button>
                                 {item.tenant?.phone && (
                                   <a
                                     className="manager-dashboard__mini-button"
