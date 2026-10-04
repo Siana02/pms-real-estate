@@ -2106,14 +2106,23 @@ function DashboardPage() {
  
         <div className="db-shell">
           {/* ---------- header ---------- */}
-          <header className="db-header">
-            <div className="db-header__greeting">
-              <span className="db-eyebrow">
-                {timeOfDayIcon}
-                {greeting()}
-              </span>
-            </div>
+          <div
+            className="db-header__greeting"
+            style={{
+              display: "block",
+              width: "100%",
+              margin: 0,
+              padding: 0,
+              textAlign: "left",
+            }}
+          >
+            <span className="db-eyebrow">
+              {timeOfDayIcon}
+              {greeting()}
+            </span>
+          </div>
 
+          <header className="db-header">
             <div
               className="db-header__center"
               style={{
