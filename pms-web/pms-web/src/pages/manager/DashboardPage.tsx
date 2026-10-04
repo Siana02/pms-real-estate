@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { CloudSun, Moon, Plus, RefreshCw, Sun } from "lucide-react";
-import DashboardLayout from "../../layouts/DashboardLayout";
+
 import { apiRequest } from "../../services/api";
 
 const styles = `
