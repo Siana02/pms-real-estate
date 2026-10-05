@@ -1247,16 +1247,6 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="rg-oauth__icon" aria-hidden="true">
-      <path
-        fill="#f8fafc"
-        d="M16.4 12.7c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.6 2.1-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.2 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7c1.1 0 1.9-1 2.6-2.1.8-1.2 1.2-2.3 1.2-2.4-.1 0-2.2-.9-2.2-3.3ZM14.2 5.9c.6-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.6.6-1.1 1.7-1 2.6 1 .1 2-.5 2.7-1.2Z"
-      />
-    </svg>
-  );
-}
 
 
 /* ------------------------------------------------------------------ */
@@ -1523,7 +1513,7 @@ function RegisterPage() {
     };
   }, []);
 
-  function startOAuth(provider: "google" | "apple") {
+  function startOAuth(provider: "google") {
     const backendOrigin = API_BASE.replace(/\/api$/, "");
     window.location.href = `${backendOrigin}/auth/${provider}/redirect?mode=register&role=${role}`;
   }
@@ -2075,15 +2065,6 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                   >
                     <GoogleIcon />
                     Google
-                  </button>
-                  <button
-                    type="button"
-                    className="rg-oauth__btn"
-                    aria-label="Sign up with Apple"
-                    onClick={() => startOAuth("apple")}
-                  >
-                    <AppleIcon />
-                    Apple
                   </button>
                 </div>
 
