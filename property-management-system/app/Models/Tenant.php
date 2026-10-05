@@ -11,6 +11,7 @@ class Tenant extends Model
     use HasFactory;
 
     protected $fillable = [
+        'preferred_location',
         'organization_id',
         'property_id',
         'unit_id',
