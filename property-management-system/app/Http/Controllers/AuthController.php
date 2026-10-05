@@ -12,7 +12,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -351,8 +350,8 @@ public function usernameAvailable(Request $request)
         $email = strtolower(trim((string) $oauthUser->getEmail()));
         $name = trim((string) ($oauthUser->getName() ?: $email));
 
-        if ($providerId === '' || $email === '') {
-            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('The provider did not return a usable email address.'));
+        if ($providerId === '') {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('The provider did not return a usable identity.'));
         }
 
         $mode = session()->pull('oauth_mode', 'login');
@@ -366,6 +365,10 @@ public function usernameAvailable(Request $request)
             $code = Str::random(64);
             Cache::put('oauth:login:' . hash('sha256', $code), ['user_id' => $account->user->id], now()->addMinutes(2));
             return redirect()->to($this->frontendUrl() . '/login?oauth_code=' . rawurlencode($code));
+        }
+
+        if ($email === '') {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('The provider did not return an email address. Please use another sign-in method.'));
         }
 
         $existingEmail = User::whereRaw('LOWER(email) = ?', [$email])->first();
