@@ -937,6 +937,8 @@ function LoginPage() {
   async function handlePasskeyLogin() {
     if (passkeyLoading) return;
 
+    Passkeys.configure({ fetch: { credentials: "include" } });
+
     setError("");
     setMessage("");
     setPasskeyLoading(true);
