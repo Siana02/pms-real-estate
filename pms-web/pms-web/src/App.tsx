@@ -13,7 +13,7 @@ import ManagerUnitsPage from "./pages/manager/ManagerUnitsPage";
 import ManagerLeasesPage from "./pages/manager/ManagerLeasesPage";
 import ManagerPaymentsPage from "./pages/manager/ManagerPaymentsPage";
 import ManagerExpensesPage from "./pages/manager/ManagerExpensesPage";
-import ManagerMaintenancePage from "./pages/manager/ManagerMaintenancePageV2";
+import ManagerMaintenancePage from "./pages/manager/ManagerMaintenancePage";
 import ManagerSettingsPage from "./pages/manager/ManagerSettingsPage";
 import TenantDashboardPage from "./pages/tenant/TenantDashboardPage";
 import MyHomePage from "./pages/tenant/MyHomePage";
