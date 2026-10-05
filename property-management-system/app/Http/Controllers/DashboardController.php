@@ -94,9 +94,10 @@ class DashboardController extends Controller
             fn (MaintenanceRequest $item) => (float) ($item->estimated_cost ?? 0)
         );
 
+        // The dashboard is an operational overview, so only active maintenance work belongs here.
+        // Completed/cancelled requests remain available from the full Maintenance workspace.
         $dashboardMaintenanceItems = $openMaintenance
             ->values()
-            ->concat($maintenance->reject(fn (MaintenanceRequest $item) => in_array($item->status, ['open', 'in_progress'], true))->values())
             ->take(5)
             ->values();
 
