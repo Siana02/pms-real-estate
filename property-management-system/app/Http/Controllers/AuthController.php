@@ -69,6 +69,7 @@ public function usernameAvailable(Request $request)
                 'next_of_kin_phone' => ['nullable', 'string', 'max:50'],
                 'email' => ['required', 'email', 'max:255', 'unique:users,email'],
                 'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'oauth_registration_code' => ['nullable', 'string', 'size:64'],
             ]);
 
             $user = DB::transaction(function () use ($validated) {
@@ -185,6 +186,8 @@ public function usernameAvailable(Request $request)
                 return $user;
             });
 
+            $this->linkOauthRegistration($request, $user);
+
             $token = $user->createToken('auth-token')->plainTextToken;
 
             return response()->json([
@@ -220,6 +223,7 @@ public function usernameAvailable(Request $request)
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'country' => ['required', 'string', 'max:255'],
+            'oauth_registration_code' => ['nullable', 'string', 'size:64'],
         ]);
 
         $result = DB::transaction(function () use ($validated) {
@@ -247,6 +251,8 @@ public function usernameAvailable(Request $request)
                 'token' => $token,
             ];
         });
+
+        $this->linkOauthRegistration($request, $result['user']);
 
         return response()->json([
             'message' => 'Account created successfully.',
@@ -419,6 +425,27 @@ public function usernameAvailable(Request $request)
             'provider' => $pending['provider'],
             'email' => $pending['email'],
             'name' => $pending['name'],
+        ]);
+    }
+
+    private function linkOauthRegistration(Request $request, User $user): void
+    {
+        $code = trim((string) $request->input('oauth_registration_code', ''));
+        if ($code === '') {
+            return;
+        }
+
+        $pending = Cache::pull('oauth:registration:' . hash('sha256', $code));
+
+        abort_unless(is_array($pending), 422, 'This social registration link has expired. Please start again.');
+
+        SocialAccount::create([
+            'user_id' => $user->id,
+            'provider' => $pending['provider'],
+            'provider_id' => $pending['provider_id'],
+            'email' => $pending['email'] ?? $user->email,
+            'name' => $pending['name'] ?? $user->name,
+            'avatar' => $pending['avatar'] ?? null,
         ]);
     }
 
