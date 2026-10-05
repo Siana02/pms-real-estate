@@ -1896,6 +1896,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
               email,
               password,
               password_confirmation: password,
+              oauth_registration_code: oauthRegistrationCode || null,
             }
       ),
     })) as {
