@@ -1258,16 +1258,6 @@ function AppleIcon() {
   );
 }
 
-function GitHubIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="rg-oauth__icon" aria-hidden="true">
-      <path
-        fill="#f8fafc"
-        d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48l-.01-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.99 1.03-2.69-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.03a9.5 9.5 0 0 1 5 0c1.91-1.3 2.75-1.03 2.75-1.03.55 1.38.2 2.4.1 2.65.64.7 1.03 1.6 1.03 2.69 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.86l-.01 2.75c0 .26.18.58.69.48A10 10 0 0 0 12 2Z"
-      />
-    </svg>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  CONSTANTS & HELPERS                                                */
@@ -1494,6 +1484,8 @@ function RegisterPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [preferredLocation, setPreferredLocation] = useState("");
+  const [oauthRegistrationCode, setOauthRegistrationCode] = useState("");
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
@@ -1501,6 +1493,42 @@ function RegisterPage() {
   const [success, setSuccess] = useState("");
 
   const usernameRequest = useRef(0);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthCode = params.get("oauth_code");
+    if (!oauthCode) return;
+
+    let cancelled = false;
+
+    apiRequest(`/oauth/pending/${encodeURIComponent(oauthCode)}`)
+      .then((payload) => {
+        if (cancelled) return;
+        const data = payload as { provider?: string; email?: string; name?: string; role?: string };
+        setOauthRegistrationCode(oauthCode);
+        if (data.email) setEmail(data.email);
+        if (data.name) setName(data.name);
+        if (data.role === "tenant" || data.role === "manager") setRole(data.role);
+        window.history.replaceState({}, "", "/register");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "This social registration link has expired.");
+          window.history.replaceState({}, "", "/register");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function startOAuth(provider: "google" | "apple") {
+    const backendOrigin = API_BASE.replace(/\/api$/, "");
+    window.location.href = `${backendOrigin}/auth/${provider}/redirect?mode=register&role=${role}`;
+  }
+
+
 
   useEffect(() => {
     if (role !== "tenant") return;
@@ -1742,7 +1770,7 @@ function RegisterPage() {
 
   const stepValid: Record<number, boolean> = {
     1: role === "tenant"
-      ? tenantOrgValid && tenantPropertyValid && tenantUnitValid && unitAvailabilityValid
+      ? tenantOrgValid && tenantPropertyValid && tenantUnitValid && unitAvailabilityValid && Boolean(preferredLocation)
       : orgValid,
     2:
       role === "tenant"
@@ -1763,6 +1791,7 @@ function RegisterPage() {
       markTouched("organizationId");
       markTouched("propertyId");
       markTouched("unitId");
+      if (role === "tenant") markTouched("preferredLocation");
     }
     if (step === 2) {
       markTouched("name");
@@ -1851,9 +1880,12 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
               employer_phone: employerPhone || null,
               next_of_kin_name: nextOfKinName || null,
               next_of_kin_phone: nextOfKinPhone || null,
+              preferred_location: preferredLocation,
+              oauth_registration_code: oauthRegistrationCode || null,
               email,
               password,
               password_confirmation: password,
+              oauth_registration_code: oauthRegistrationCode || null,
             }
           : {
               role,
@@ -1894,6 +1926,8 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     setPassword("");
     setShowPassword(false);
     setAcceptedTerms(false);
+    setPreferredLocation("");
+    setOauthRegistrationCode("");
     setStep(1);
 
     // Redirect to login page after 2 seconds
@@ -2037,6 +2071,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                     type="button"
                     className="rg-oauth__btn"
                     aria-label="Sign up with Google"
+                    onClick={() => startOAuth("google")}
                   >
                     <GoogleIcon />
                     Google
@@ -2045,17 +2080,10 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                     type="button"
                     className="rg-oauth__btn"
                     aria-label="Sign up with Apple"
+                    onClick={() => startOAuth("apple")}
                   >
                     <AppleIcon />
                     Apple
-                  </button>
-                  <button
-                    type="button"
-                    className="rg-oauth__btn"
-                    aria-label="Sign up with GitHub"
-                  >
-                    <GitHubIcon />
-                    GitHub
                   </button>
                 </div>
 
@@ -2278,7 +2306,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                             setOrganizationName(event.target.value)
                           }
                           onBlur={() => markTouched("organizationName")}
-                          placeholder="e.g. Siana Properties Ltd"
+                          placeholder="e.g. ABC Properties Limited"
                           aria-invalid={touched.organizationName && !orgValid}
                           className={`rg-input${
                             touched.organizationName && !orgValid
@@ -2529,6 +2557,35 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                       </p>
                     )}
                   </div>
+
+                      <div>
+                        <label className="rg-label" htmlFor="preferred-location">
+                          Where are you looking for a home?
+                        </label>
+                        <div className="rg-input-wrap">
+                          <Globe2 className="rg-input-icon" />
+                          <select
+                            id="preferred-location"
+                            name="preferred_location"
+                            className="rg-select"
+                            value={preferredLocation}
+                            onChange={(event) => setPreferredLocation(event.target.value)}
+                            onBlur={() => markTouched("preferredLocation")}
+                            aria-invalid={touched.preferredLocation && !preferredLocation}
+                          >
+                            <option value="">Select a location</option>
+                            <option value="Nairobi">Nairobi</option>
+                            <option value="Watamu">Watamu</option>
+                          </select>
+                        </div>
+                        {touched.preferredLocation && !preferredLocation ? (
+                          <p className="rg-help rg-help--error" role="alert">
+                            <AlertCircle />Choose where you are looking for a home.
+                          </p>
+                        ) : (
+                          <p className="rg-help">More locations can be added as the platform expands.</p>
+                        )}
+                      </div>
 
                   {role === "tenant" && (
                     <>
