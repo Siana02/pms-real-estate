@@ -118,6 +118,7 @@ public function usernameAvailable(Request $request)
                     'employer_phone' => $validated['employer_phone'] ?? null,
                     'next_of_kin_name' => $validated['next_of_kin_name'] ?? null,
                     'next_of_kin_phone' => $validated['next_of_kin_phone'] ?? null,
+                    'preferred_location' => $validated['preferred_location'],
                     'status' => 'pending',
                 ];
 
@@ -179,7 +180,6 @@ public function usernameAvailable(Request $request)
                         'unit_id' => $validated['unit_id'],
                         'requested_move_in_date' => $validated['requested_move_in_date'] ?? null,
                         'requested_move_out_date' => $validated['requested_move_out_date'] ?? null,
-                    'preferred_location' => $validated['preferred_location'],
                     ], (int) $validated['organization_id'], $tenant);
                 }
 
