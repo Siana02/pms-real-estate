@@ -1881,7 +1881,6 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
               next_of_kin_name: nextOfKinName || null,
               next_of_kin_phone: nextOfKinPhone || null,
               preferred_location: preferredLocation,
-              oauth_registration_code: oauthRegistrationCode || null,
               email,
               password,
               password_confirmation: password,
