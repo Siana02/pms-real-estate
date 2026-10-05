@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -945,8 +945,8 @@ function LoginPage() {
       const response = (await Passkeys.verify({
         remember,
         routes: {
-          options: `${API_BASE.replace(/\\/api$/, "")}/passkeys/login/options`,
-          submit: `${API_BASE.replace(/\\/api$/, "")}/passkeys/login`,
+          options: `${API_BASE.replace(/\/api$/, "")}/passkeys/login/options`,
+          submit: `${API_BASE.replace(/\/api$/, "")}/passkeys/login`,
         },
       })) as {
         token?: string;
