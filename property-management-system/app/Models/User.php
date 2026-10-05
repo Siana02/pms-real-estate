@@ -9,12 +9,14 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Organization;
 use App\Models\Tenant;
+use Laravel\Passkeys\Contracts\PasskeyUser;
+use Laravel\Passkeys\PasskeyAuthenticatable;
 
 
-class User extends Authenticatable
+class User extends Authenticatable implements PasskeyUser
 {
     use HasFactory, Notifiable;
-    use HasApiTokens;
+    use HasApiTokens, PasskeyAuthenticatable;
 
     protected $fillable = [
         'organization_id',
