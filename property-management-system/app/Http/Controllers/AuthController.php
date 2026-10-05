@@ -332,7 +332,7 @@ public function usernameAvailable(Request $request)
         $mode = $request->query('mode', 'login');
         abort_unless(in_array($mode, ['login', 'register'], true), 422);
 
-        session(['oauth_mode' => $mode]);
+        session(['oauth_mode' => $mode, 'oauth_role' => $request->query('role')]);
 
         return Socialite::driver($provider)->redirect();
     }
@@ -356,6 +356,7 @@ public function usernameAvailable(Request $request)
         }
 
         $mode = session()->pull('oauth_mode', 'login');
+        $oauthRole = session()->pull('oauth_role', null);
         $account = SocialAccount::with('user')
             ->where('provider', $provider)
             ->where('provider_id', $providerId)
@@ -383,6 +384,7 @@ public function usernameAvailable(Request $request)
             'email' => $email,
             'name' => $name,
             'avatar' => $oauthUser->getAvatar(),
+            'role' => in_array($oauthRole, ['manager', 'tenant'], true) ? $oauthRole : 'manager',
         ], now()->addMinutes(10));
 
         return redirect()->to($this->frontendUrl() . '/register?oauth_code=' . rawurlencode($code));
@@ -425,6 +427,7 @@ public function usernameAvailable(Request $request)
             'provider' => $pending['provider'],
             'email' => $pending['email'],
             'name' => $pending['name'],
+            'role' => $pending['role'] ?? 'manager',
         ]);
     }
 
