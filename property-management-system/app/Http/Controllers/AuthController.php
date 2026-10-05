@@ -6,10 +6,14 @@ use App\Models\User;
 use App\Models\Organization;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Models\SocialAccount;
 use App\Services\LeaseProvisioner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
+use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -55,6 +59,7 @@ public function usernameAvailable(Request $request)
                 ],
                 'requested_move_in_date' => ['required', 'date', 'after_or_equal:today'],
                 'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
+                'preferred_location' => ['required', 'string', 'in:Nairobi,Watamu'],
                 'name' => ['required', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'national_id' => ['nullable', 'string', 'max:100'],
@@ -173,6 +178,7 @@ public function usernameAvailable(Request $request)
                         'unit_id' => $validated['unit_id'],
                         'requested_move_in_date' => $validated['requested_move_in_date'] ?? null,
                         'requested_move_out_date' => $validated['requested_move_out_date'] ?? null,
+                    'preferred_location' => $validated['preferred_location'],
                     ], (int) $validated['organization_id'], $tenant);
                 }
 
@@ -311,6 +317,115 @@ public function usernameAvailable(Request $request)
         ],
     ]);
 }
+
+
+    public function redirectToProvider(Request $request, string $provider)
+    {
+        abort_unless(in_array($provider, ['google', 'apple'], true), 404);
+
+        $mode = $request->query('mode', 'login');
+        abort_unless(in_array($mode, ['login', 'register'], true), 422);
+
+        session(['oauth_mode' => $mode]);
+
+        return Socialite::driver($provider)->redirect();
+    }
+
+    public function handleProviderCallback(Request $request, string $provider)
+    {
+        abort_unless(in_array($provider, ['google', 'apple'], true), 404);
+
+        try {
+            $oauthUser = Socialite::driver($provider)->user();
+        } catch (\Throwable $e) {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('We could not complete that sign-in. Please try again.'));
+        }
+
+        $providerId = (string) $oauthUser->getId();
+        $email = strtolower(trim((string) $oauthUser->getEmail()));
+        $name = trim((string) ($oauthUser->getName() ?: $email));
+
+        if ($providerId === '' || $email === '') {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('The provider did not return a usable email address.'));
+        }
+
+        $mode = session()->pull('oauth_mode', 'login');
+        $account = SocialAccount::with('user')
+            ->where('provider', $provider)
+            ->where('provider_id', $providerId)
+            ->first();
+
+        if ($account?->user) {
+            $code = Str::random(64);
+            Cache::put('oauth:login:' . hash('sha256', $code), ['user_id' => $account->user->id], now()->addMinutes(2));
+            return redirect()->to($this->frontendUrl() . '/login?oauth_code=' . rawurlencode($code));
+        }
+
+        $existingEmail = User::whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($existingEmail) {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('An account already exists with this email. Sign in with your password first, then connect ' . ucfirst($provider) . ' from your account settings.'));
+        }
+
+        if ($mode === 'login') {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('No account is linked to this ' . ucfirst($provider) . ' identity yet. Create an account first.'));
+        }
+
+        $code = Str::random(64);
+        Cache::put('oauth:registration:' . hash('sha256', $code), [
+            'provider' => $provider,
+            'provider_id' => $providerId,
+            'email' => $email,
+            'name' => $name,
+            'avatar' => $oauthUser->getAvatar(),
+        ], now()->addMinutes(10));
+
+        return redirect()->to($this->frontendUrl() . '/register?oauth_code=' . rawurlencode($code));
+    }
+
+    public function exchangeOauthCode(Request $request)
+    {
+        $validated = $request->validate(['code' => ['required', 'string', 'size:64']]);
+        $pending = Cache::pull('oauth:login:' . hash('sha256', $validated['code']));
+        abort_unless(is_array($pending) && isset($pending['user_id']), 422, 'This sign-in link has expired. Please try again.');
+
+        $user = User::findOrFail((int) $pending['user_id']);
+        $organization = Organization::find($user->organization_id);
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login successful.',
+            'token' => $token,
+            'organization' => $organization,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'organization_id' => $user->organization_id,
+                'tenant_id' => $user->tenant_id,
+                'must_change_password' => (bool) $user->must_change_password,
+            ],
+        ]);
+    }
+
+    public function pendingOauthRegistration(string $code)
+    {
+        abort_unless(preg_match('/^[A-Za-z0-9]{64}$/', $code) === 1, 422, 'Invalid OAuth registration code.');
+        $pending = Cache::get('oauth:registration:' . hash('sha256', $code));
+        abort_unless(is_array($pending), 422, 'This registration link has expired. Please start again.');
+
+        return response()->json([
+            'provider' => $pending['provider'],
+            'email' => $pending['email'],
+            'name' => $pending['name'],
+        ]);
+    }
+
+    private function frontendUrl(): string
+    {
+        return rtrim((string) config('services.frontend.url'), '/');
+    }
 
     /**
      * Change the authenticated user's password. Used both for the
