@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 
 import { ApiError, apiRequest, API_BASE } from "../services/api";
-import { Passkeys } from "@laravel/passkeys";
 
 /* ------------------------------------------------------------------ */
 /*  STYLES — vanilla CSS                                               */
@@ -913,6 +912,19 @@ const STATS = [
   { icon: Building2, value: "12,000+", label: "Units on-boarded" },
 ];
 
+function decodeBase64Url(value: string): ArrayBuffer {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0)).buffer;
+}
+
+function encodeBase64Url(value: ArrayBuffer): string {
+  const bytes = new Uint8Array(value);
+  let binary = "";
+  bytes.forEach((byte) => (binary += String.fromCharCode(byte)));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 /* ------------------------------------------------------------------ */
 /*  COMPONENT                                                          */
 /* ------------------------------------------------------------------ */
@@ -937,24 +949,71 @@ function LoginPage() {
   async function handlePasskeyLogin() {
     if (passkeyLoading) return;
 
-    Passkeys.configure({ fetch: { credentials: "include" } });
-
     setError("");
     setMessage("");
     setPasskeyLoading(true);
 
     try {
-      const response = (await Passkeys.verify({
-        remember,
-        routes: {
-          options: `${API_BASE.replace(/\/api$/, "")}/passkeys/login/options`,
-          submit: `${API_BASE.replace(/\/api$/, "")}/passkeys/login`,
+      if (!window.PublicKeyCredential) {
+        throw new Error("Passkeys are not supported by this browser.");
+      }
+
+      const backendOrigin = API_BASE.replace(/\/api$/, "");
+      const optionsResponse = await fetch(`${backendOrigin}/passkeys/login/options`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ remember }),
+      });
+      const optionsPayload = await optionsResponse.json();
+      if (!optionsResponse.ok) {
+        throw new Error(optionsPayload.message ?? "Could not start passkey sign-in.");
+      }
+
+      const requestOptions = optionsPayload.publicKey ?? optionsPayload;
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          ...requestOptions,
+          challenge: decodeBase64Url(requestOptions.challenge),
+          allowCredentials: requestOptions.allowCredentials?.map(
+            (item: { id: string; type: PublicKeyCredentialType; transports?: AuthenticatorTransport[] }) => ({
+              ...item,
+              id: decodeBase64Url(item.id),
+            })
+          ),
         },
-      })) as {
+      }) as PublicKeyCredential | null;
+
+      if (!credential) throw new Error("Passkey sign-in was cancelled.");
+
+      const assertion = credential.response as AuthenticatorAssertionResponse;
+      const verifyResponse = await fetch(`${backendOrigin}/passkeys/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: credential.id,
+          rawId: encodeBase64Url(credential.rawId),
+          type: credential.type,
+          response: {
+            clientDataJSON: encodeBase64Url(assertion.clientDataJSON),
+            authenticatorData: encodeBase64Url(assertion.authenticatorData),
+            signature: encodeBase64Url(assertion.signature),
+            userHandle: assertion.userHandle ? encodeBase64Url(assertion.userHandle) : null,
+          },
+          clientExtensionResults: credential.getClientExtensionResults(),
+          remember,
+        }),
+      });
+      const response = (await verifyResponse.json()) as {
         token?: string;
         organization?: unknown;
         user?: { role?: string; must_change_password?: boolean };
       };
+
+      if (!verifyResponse.ok) {
+        throw new Error((response as { message?: string }).message ?? "Passkey verification failed.");
+      }
 
       if (!response?.token || !response.user) {
         throw new Error("Passkey authentication completed without a valid application session.");
@@ -989,7 +1048,7 @@ function LoginPage() {
   }
 
   function startOAuth(provider: "google" | "apple") {
-    const backendOrigin = API_BASE.replace(//api$/, "");
+    const backendOrigin = API_BASE.replace(/\/api$/, "");
     window.location.href = `${backendOrigin}/auth/${provider}/redirect?mode=login`;
   }
 
