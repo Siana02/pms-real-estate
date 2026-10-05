@@ -16,7 +16,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-import { ApiError, apiRequest } from "../services/api";
+import { ApiError, apiRequest, API_BASE } from "../services/api";
+import { Passkeys } from "@laravel/passkeys";
 
 /* ------------------------------------------------------------------ */
 /*  STYLES — vanilla CSS                                               */
@@ -931,6 +932,119 @@ function LoginPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+
+  async function handlePasskeyLogin() {
+    if (passkeyLoading) return;
+
+    setError("");
+    setMessage("");
+    setPasskeyLoading(true);
+
+    try {
+      const response = (await Passkeys.verify({
+        remember,
+        routes: {
+          options: `${API_BASE.replace(/\\/api$/, "")}/passkeys/login/options`,
+          submit: `${API_BASE.replace(/\\/api$/, "")}/passkeys/login`,
+        },
+      })) as {
+        token?: string;
+        organization?: unknown;
+        user?: { role?: string; must_change_password?: boolean };
+      };
+
+      if (!response?.token || !response.user) {
+        throw new Error("Passkey authentication completed without a valid application session.");
+      }
+
+      const store = remember ? localStorage : sessionStorage;
+      store.setItem("token", response.token);
+      store.setItem("user", JSON.stringify(response.user));
+
+      if (response.organization) {
+        store.setItem("organization", JSON.stringify(response.organization));
+      }
+
+      const role = (response.user.role ?? "").toString().trim().toLowerCase();
+      const redirectPath =
+        response.user.must_change_password === true
+          ? "/password-setup"
+          : role === "tenant"
+          ? "/tenant/dashboard"
+          : "/manager/dashboard";
+
+      window.location.href = redirectPath;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Passkey sign-in was not completed. Try your password instead."
+      );
+    } finally {
+      setPasskeyLoading(false);
+    }
+  }
+
+  function startOAuth(provider: "google" | "apple") {
+    const backendOrigin = API_BASE.replace(//api$/, "");
+    window.location.href = `${backendOrigin}/auth/${provider}/redirect?mode=login`;
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("oauth_error");
+    const oauthCode = params.get("oauth_code");
+
+    if (oauthError) {
+      setError(oauthError);
+      window.history.replaceState({}, "", "/login");
+      return;
+    }
+
+    if (!oauthCode) return;
+
+    let cancelled = false;
+
+    apiRequest("/oauth/exchange", {
+      method: "POST",
+      body: JSON.stringify({ code: oauthCode }),
+    })
+      .then((payload) => {
+        if (cancelled) return;
+        const data = payload as {
+          token: string;
+          organization?: unknown;
+          user?: { role?: string; must_change_password?: boolean };
+        };
+        const store = remember ? localStorage : sessionStorage;
+        store.setItem("token", data.token);
+        store.setItem("user", JSON.stringify(data.user));
+
+        if (data.organization) {
+          store.setItem("organization", JSON.stringify(data.organization));
+        }
+
+        const role = (data.user?.role ?? "").toString().trim().toLowerCase();
+        window.history.replaceState({}, "", "/login");
+        window.location.href =
+          data.user?.must_change_password === true
+            ? "/password-setup"
+            : role === "tenant"
+            ? "/tenant/dashboard"
+            : "/manager/dashboard";
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "OAuth sign-in could not be completed.");
+          window.history.replaceState({}, "", "/login");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleLoginChange(value: string) {
     setLogin(value);
@@ -1094,9 +1208,9 @@ function LoginPage() {
             </div>
 
             {/* Passwordless / SSO first */}
-            <button type="button" className="lg-sso__btn lg-passkey">
+            <button type="button" className="lg-sso__btn lg-passkey" onClick={() => void handlePasskeyLogin()} disabled={passkeyLoading}>
               <Fingerprint className="lg-sso__icon" />
-              <span>Continue with a passkey</span>
+              <span>{passkeyLoading ? "Authenticating…" : "Continue with a passkey"}</span>
             </button>
 
             <div className="lg-divider">
@@ -1108,6 +1222,7 @@ function LoginPage() {
                 type="button"
                 className="lg-sso__btn"
                 aria-label="Continue with Google"
+                onClick={() => startOAuth("google")}
               >
                 <GoogleIcon />
                 <span>Google</span>
@@ -1116,6 +1231,7 @@ function LoginPage() {
                 type="button"
                 className="lg-sso__btn"
                 aria-label="Continue with Apple"
+                onClick={() => startOAuth("apple")}
               >
                 <AppleIcon />
                 <span>Apple</span>
