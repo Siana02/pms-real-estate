@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   Filter,
   History,
-  Phone,
   RefreshCw,
   Search,
   UserRound,
@@ -23,73 +22,34 @@ import {
   formatDate,
   formatMoney,
   formatNumber,
-  initials,
   readCurrency,
   rows,
   titleCase,
   toRecord,
 } from "../../services/format";
 
-type RequestUpdate = {
-  id: number;
-  type: string;
-  status: string | null;
-  message: string;
-  created_at: string | null;
-};
-
+type RequestUpdate = { id: number; type: string; status: string | null; message: string; created_at: string | null };
 type RequestRecord = {
-  id: number;
-  title: string;
-  description: string;
-  priority: string;
-  status: string;
-  assigned_to: string | null;
-  scheduled_date: string | null;
-  scheduled_time: string | null;
-  tenant_availability: string | null;
-  availability_start_at: string | null;
-  availability_end_at: string | null;
-  estimated_cost: number;
-  cost_responsibility: string | null;
-  reported_date: string | null;
-  completed_date: string | null;
-  notes: string | null;
-  updates?: RequestUpdate[];
-  property: { id: number; name: string } | null;
-  unit: { id: number; unit_number: string } | null;
-  tenant: { id: number; name: string; phone: string | null } | null;
+  id: number; title: string; description: string; priority: string; status: string; assigned_to: string | null;
+  scheduled_date: string | null; scheduled_time: string | null; tenant_availability: string | null;
+  availability_start_at: string | null; availability_end_at: string | null; estimated_cost: number;
+  cost_responsibility: string | null; reported_date: string | null; completed_date: string | null; notes: string | null;
+  updates?: RequestUpdate[]; property: { id: number; name: string } | null;
+  unit: { id: number; unit_number: string } | null; tenant: { id: number; name: string; phone: string | null } | null;
 };
-
-type FormState = {
-  status: string;
-  assigned_to: string;
-  scheduled_date: string;
-  scheduled_time: string;
-  estimated_cost: string;
-  cost_responsibility: string;
-  notes: string;
-};
+type FormState = { status: string; assigned_to: string; scheduled_date: string; scheduled_time: string; estimated_cost: string; cost_responsibility: string; notes: string };
 
 const priorityWeight: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-const statusLabels: Record<string, string> = {
-  open: "Received",
-  in_progress: "In progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
+const statusLabels: Record<string, string> = { open: "Received", in_progress: "In progress", completed: "Completed", cancelled: "Cancelled" };
 
 const styles = `
 .mm-page{--mm-ink:#18212b;--mm-muted:#667382;--mm-border:#dfe6ed;--mm-surface:#fff;--mm-soft:#f6f9fc;--mm-blue:#245f91;--mm-blue-soft:#eaf4fc;--mm-green:#147a4b;--mm-green-soft:#e9f7ef;--mm-amber:#996400;--mm-amber-soft:#fff6df;--mm-red:#b42318;--mm-red-soft:#fff0ef;max-width:1280px;margin:0 auto;padding:clamp(1rem,2.4vw,2rem);color:var(--mm-ink)}
 .mm-page *{box-sizing:border-box}.mm-page button,.mm-page input,.mm-page select,.mm-page textarea{font:inherit}.mm-header{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:1.35rem}.mm-kicker{display:inline-flex;align-items:center;gap:.45rem;color:var(--mm-blue);font-size:.72rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.mm-kicker svg{width:15px;height:15px}.mm-title{margin:.3rem 0 .25rem;font-size:clamp(1.65rem,3vw,2.35rem);line-height:1.08;letter-spacing:-.035em}.mm-subtitle{max-width:720px;margin:0;color:var(--mm-muted);font-size:.94rem;line-height:1.55}.mm-refresh{display:inline-flex;align-items:center;gap:.5rem;padding:.7rem .9rem;border:1px solid var(--mm-border);border-radius:.8rem;background:rgba(255,255,255,.9);color:var(--mm-ink);font-weight:700;cursor:pointer;box-shadow:0 7px 22px rgba(21,44,66,.06);transition:transform .18s ease,box-shadow .18s ease,background .18s ease}.mm-refresh:hover{transform:translateY(-2px);box-shadow:0 11px 28px rgba(21,44,66,.1);background:#fff}.mm-refresh:disabled{opacity:.55;cursor:not-allowed;transform:none}.mm-spin{animation:mm-spin .8s linear infinite}@keyframes mm-spin{to{transform:rotate(360deg)}}
-.mm-alert{display:flex;align-items:flex-start;gap:.65rem;padding:.85rem 1rem;border:1px solid #f1c6c1;border-radius:.9rem;background:var(--mm-red-soft);color:#8e2118;margin-bottom:1rem}.mm-alert svg{flex:none;width:18px;height:18px;margin-top:.05rem}
-.mm-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin-bottom:1.2rem}.mm-stat{position:relative;overflow:hidden;padding:1rem 1.05rem;border:1px solid var(--mm-border);border-radius:1rem;background:linear-gradient(145deg,#fff,#f8fbfd);box-shadow:0 10px 28px rgba(22,48,70,.055);animation:mm-rise .42s ease both}.mm-stat:nth-child(2){animation-delay:.04s}.mm-stat:nth-child(3){animation-delay:.08s}.mm-stat:nth-child(4){animation-delay:.12s}.mm-stat:after{content:"";position:absolute;right:-30px;bottom:-38px;width:90px;height:90px;border-radius:50%;background:rgba(36,95,145,.055)}.mm-stat__label{margin:0;color:var(--mm-muted);font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}.mm-stat__value{margin:.3rem 0 0;font-size:1.55rem;font-weight:850;letter-spacing:-.03em}.mm-stat__hint{margin:.2rem 0 0;color:var(--mm-muted);font-size:.72rem}.mm-stat--attention .mm-stat__value{color:var(--mm-red)}.mm-stat--cost .mm-stat__value{color:var(--mm-blue)}@keyframes mm-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.mm-alert{display:flex;align-items:flex-start;gap:.65rem;padding:.85rem 1rem;border:1px solid #f1c6c1;border-radius:.9rem;background:var(--mm-red-soft);color:#8e2118;margin-bottom:1rem}.mm-alert svg{flex:none;width:18px;height:18px;margin-top:.05rem}.mm-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin-bottom:1.2rem}.mm-stat{position:relative;overflow:hidden;padding:1rem 1.05rem;border:1px solid var(--mm-border);border-radius:1rem;background:linear-gradient(145deg,#fff,#f8fbfd);box-shadow:0 10px 28px rgba(22,48,70,.055);animation:mm-rise .42s ease both}.mm-stat:nth-child(2){animation-delay:.04s}.mm-stat:nth-child(3){animation-delay:.08s}.mm-stat:nth-child(4){animation-delay:.12s}.mm-stat:after{content:"";position:absolute;right:-30px;bottom:-38px;width:90px;height:90px;border-radius:50%;background:rgba(36,95,145,.055)}.mm-stat__label{margin:0;color:var(--mm-muted);font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase}.mm-stat__value{margin:.3rem 0 0;font-size:1.55rem;font-weight:850;letter-spacing:-.03em}.mm-stat__hint{margin:.2rem 0 0;color:var(--mm-muted);font-size:.72rem}.mm-stat--attention .mm-stat__value{color:var(--mm-red)}.mm-stat--cost .mm-stat__value{color:var(--mm-blue)}@keyframes mm-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .mm-workspace{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:1rem;align-items:start}.mm-main,.mm-side{border:1px solid var(--mm-border);border-radius:1.1rem;background:var(--mm-surface);box-shadow:0 12px 36px rgba(24,45,64,.055)}.mm-main{overflow:hidden}.mm-main__head{padding:1.05rem 1.1rem;border-bottom:1px solid var(--mm-border)}.mm-section-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}.mm-section-title{display:flex;align-items:center;gap:.5rem;margin:0;font-size:1rem}.mm-section-title svg{width:18px;height:18px;color:var(--mm-blue)}.mm-count{color:var(--mm-muted);font-size:.78rem}.mm-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:.65rem;margin-top:.85rem}.mm-search{display:flex;align-items:center;gap:.55rem;min-width:0;padding:.68rem .8rem;border:1px solid var(--mm-border);border-radius:.75rem;background:var(--mm-soft);transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}.mm-search:focus-within{background:#fff;border-color:#9fc3df;box-shadow:0 0 0 3px rgba(36,95,145,.08)}.mm-search svg{width:17px;height:17px;color:var(--mm-muted);flex:none}.mm-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--mm-ink)}.mm-select{min-width:150px;padding:.68rem .8rem;border:1px solid var(--mm-border);border-radius:.75rem;background:#fff;color:var(--mm-ink);outline:0}.mm-select:focus{border-color:#9fc3df;box-shadow:0 0 0 3px rgba(36,95,145,.08)}
-.mm-filters{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.75rem}.mm-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .68rem;border:1px solid var(--mm-border);border-radius:999px;background:#fff;color:#586575;font-size:.73rem;font-weight:750;cursor:pointer;transition:all .16s ease}.mm-chip:hover{border-color:#b7c9d8;transform:translateY(-1px)}.mm-chip--active{border-color:#9fc3df;background:var(--mm-blue-soft);color:var(--mm-blue)}.mm-chip__count{min-width:1.2rem;text-align:center;font-size:.66rem;opacity:.8}
-.mm-list{display:flex;flex-direction:column}.mm-row{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:1rem 1.1rem;border:0;border-top:1px solid var(--mm-border);background:#fff;text-align:left;cursor:pointer;transition:background .18s ease,transform .18s ease,box-shadow .18s ease}.mm-row:first-child{border-top:0}.mm-row:hover{background:#fbfdff;box-shadow:inset 3px 0 0 #a7cbe7}.mm-row:focus-visible{outline:3px solid rgba(36,95,145,.18);outline-offset:-3px}.mm-icon{display:grid;place-items:center;width:2.55rem;height:2.55rem;border-radius:.8rem;background:var(--mm-blue-soft);color:var(--mm-blue);transition:transform .2s ease}.mm-row:hover .mm-icon{transform:scale(1.06) rotate(-3deg)}.mm-row__main{min-width:0}.mm-row__title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.92rem;font-weight:800}.mm-row__meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.32rem;color:var(--mm-muted);font-size:.73rem;line-height:1.4}.mm-row__meta span{white-space:nowrap}.mm-row__right{display:flex;align-items:center;gap:.55rem}.mm-pill{display:inline-flex;align-items:center;padding:.34rem .58rem;border-radius:999px;font-size:.68rem;font-weight:850;white-space:nowrap}.mm-pill--urgent{background:var(--mm-red-soft);color:var(--mm-red)}.mm-pill--high{background:var(--mm-amber-soft);color:var(--mm-amber)}.mm-pill--medium{background:var(--mm-blue-soft);color:var(--mm-blue)}.mm-pill--low{background:#f0f3f5;color:#65717c}.mm-pill--progress{background:var(--mm-blue-soft);color:var(--mm-blue)}.mm-pill--done{background:var(--mm-green-soft);color:var(--mm-green)}.mm-chevron{width:16px;height:16px;color:#a2afbb;transition:transform .18s ease}.mm-row:hover .mm-chevron{transform:translateX(3px)}
-.mm-side{padding:1rem;position:sticky;top:1rem}.mm-side__title{margin:0;font-size:.82rem;font-weight:850}.mm-side__copy{margin:.35rem 0 .9rem;color:var(--mm-muted);font-size:.74rem;line-height:1.5}.mm-side__item{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.72rem 0;border-top:1px solid var(--mm-border)}.mm-side__item span{color:var(--mm-muted);font-size:.75rem}.mm-side__item strong{font-size:.82rem}.mm-empty{padding:3.5rem 1.25rem;text-align:center;color:var(--mm-muted)}.mm-empty__icon{display:grid;place-items:center;width:3rem;height:3rem;margin:0 auto .8rem;border-radius:1rem;background:var(--mm-soft);color:var(--mm-blue)}.mm-empty h3{margin:0;color:var(--mm-ink);font-size:1rem}.mm-empty p{max-width:430px;margin:.35rem auto 0;font-size:.8rem;line-height:1.55}.mm-skeleton{height:70px;margin:0;border-top:1px solid var(--mm-border);background:linear-gradient(90deg,#f6f8fa 25%,#eef3f7 50%,#f6f8fa 75%);background-size:200% 100%;animation:mm-shimmer 1.2s infinite}.mm-skeleton:first-child{border-top:0}@keyframes mm-shimmer{to{background-position:-200% 0}}
-.mm-drawer{position:fixed;inset:0;z-index:120;display:flex;justify-content:flex-end;background:rgba(13,28,42,.42);backdrop-filter:blur(5px);animation:mm-fade .2s ease}.mm-panel{width:min(720px,100%);height:100%;display:flex;flex-direction:column;background:#fff;box-shadow:-24px 0 70px rgba(12,29,44,.22);animation:mm-slide .28s cubic-bezier(.22,.8,.25,1)}@keyframes mm-fade{from{opacity:0}to{opacity:1}}@keyframes mm-slide{from{transform:translateX(32px);opacity:.7}to{transform:translateX(0);opacity:1}}.mm-panel__head{display:flex;justify-content:space-between;gap:1rem;padding:1.1rem 1.2rem;border-bottom:1px solid var(--mm-border);background:linear-gradient(135deg,#fff,#f8fbfd)}.mm-panel__heading{min-width:0}.mm-panel__kicker{display:flex;align-items:center;gap:.45rem;color:var(--mm-muted);font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em}.mm-panel__title{margin:.35rem 0 .2rem;font-size:1.2rem;line-height:1.2;letter-spacing:-.02em}.mm-panel__sub{margin:0;color:var(--mm-muted);font-size:.75rem;line-height:1.45}.mm-close{display:grid;place-items:center;flex:none;width:2.35rem;height:2.35rem;border:1px solid var(--mm-border);border-radius:.75rem;background:#fff;color:#52606e;cursor:pointer;transition:transform .18s ease,background .18s ease}.mm-close:hover{transform:rotate(4deg);background:var(--mm-soft)}.mm-panel__body{flex:1;overflow:auto;padding:1.1rem 1.2rem 1.35rem}.mm-block{margin-bottom:1rem}.mm-block:last-child{margin-bottom:0}.mm-block__title{display:flex;align-items:center;justify-content:space-between;gap:.7rem;margin:0 0 .55rem;font-size:.76rem;font-weight:850;letter-spacing:.03em}.mm-description{padding:.9rem 1rem;border:1px solid var(--mm-border);border-radius:.9rem;background:var(--mm-soft);color:#344251;font-size:.84rem;line-height:1.65}.mm-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}.mm-fact{padding:.72rem .8rem;border:1px solid var(--mm-border);border-radius:.8rem;background:#fff}.mm-fact span{display:block;color:var(--mm-muted);font-size:.67rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.mm-fact strong{display:block;margin-top:.22rem;overflow-wrap:anywhere;font-size:.78rem}.mm-cost{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem;border:1px solid #cfe2f1;border-radius:.9rem;background:#f5faff}.mm-cost__label{color:var(--mm-muted);font-size:.7rem;font-weight:750}.mm-cost__value{margin-top:.15rem;font-size:1.1rem;font-weight:850;color:var(--mm-blue)}.mm-responsibility{padding:.42rem .62rem;border-radius:999px;background:#fff;border:1px solid #cfe2f1;color:var(--mm-blue);font-size:.68rem;font-weight:850}.mm-history{border:1px solid var(--mm-border);border-radius:.9rem;background:#fff;overflow:hidden}.mm-history__head{display:flex;align-items:center;gap:.5rem;padding:.75rem .85rem;background:var(--mm-soft);border-bottom:1px solid var(--mm-border);font-size:.76rem;font-weight:850}.mm-history__head svg{width:16px;height:16px;color:var(--mm-blue)}.mm-timeline{padding:.2rem .9rem .75rem}.mm-event{position:relative;display:grid;grid-template-columns:14px 1fr;gap:.65rem;padding:.7rem 0}.mm-event:not(:last-child):before{content:"";position:absolute;left:6px;top:22px;bottom:-6px;width:1px;background:#d8e2ea}.mm-event__dot{width:13px;height:13px;margin-top:.18rem;border:3px solid #fff;border-radius:50%;background:#5b8eb8;box-shadow:0 0 0 1px #9fc3df;z-index:1}.mm-event__title{font-size:.75rem;font-weight:850}.mm-event__message{margin-top:.18rem;color:#4f5e6b;font-size:.74rem;line-height:1.5}.mm-event__date{display:block;margin-top:.2rem;color:#8a96a1;font-size:.66rem}.mm-history__empty{padding:1rem;color:var(--mm-muted);font-size:.75rem}.mm-window{padding:.8rem .9rem;border:1px solid #cfe2f1;border-radius:.85rem;background:#f6faff}.mm-window__label{display:flex;align-items:center;gap:.4rem;color:var(--mm-blue);font-size:.68rem;font-weight:850;text-transform:uppercase}.mm-window__label svg{width:14px;height:14px}.mm-window strong{display:block;margin-top:.28rem;font-size:.8rem}.mm-window span{display:block;margin-top:.15rem;color:var(--mm-muted);font-size:.7rem}
-.mm-form{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.mm-field{min-width:0}.mm-field--full{grid-column:1/-1}.mm-label{display:block;margin:0 0 .32rem;color:#52606d;font-size:.7rem;font-weight:850}.mm-input,.mm-form select,.mm-form textarea{width:100%;min-width:0;border:1px solid var(--mm-border);border-radius:.72rem;background:#fff;color:var(--mm-ink);padding:.68rem .75rem;outline:0;transition:border-color .18s ease,box-shadow .18s ease}.mm-form textarea{resize:vertical;min-height:96px;line-height:1.5}.mm-input:focus,.mm-form select:focus,.mm-form textarea:focus{border-color:#9fc3df;box-shadow:0 0 0 3px rgba(36,95,145,.08)}.mm-help{margin:.5rem 0 0;color:#7a8793;font-size:.68rem;line-height:1.45}.mm-panel__foot{display:flex;justify-content:flex-end;gap:.6rem;padding:.9rem 1.2rem;border-top:1px solid var(--mm-border);background:#fff}.mm-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.68rem .9rem;border:1px solid var(--mm-border);border-radius:.72rem;background:#fff;color:#4d5b68;font-weight:800;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}.mm-btn:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(20,43,62,.08)}.mm-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}.mm-btn--primary{border-color:#245f91;background:#245f91;color:#fff}.mm-btn--primary:hover{background:#1f547f}.mm-btn svg{width:16px;height:16px}
+.mm-filters{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.75rem}.mm-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .68rem;border:1px solid var(--mm-border);border-radius:999px;background:#fff;color:#586575;font-size:.73rem;font-weight:750;cursor:pointer;transition:all .16s ease}.mm-chip:hover{border-color:#b7c9d8;transform:translateY(-1px)}.mm-chip--active{border-color:#9fc3df;background:var(--mm-blue-soft);color:var(--mm-blue)}.mm-chip__count{min-width:1.2rem;text-align:center;font-size:.66rem;opacity:.8}.mm-list{display:flex;flex-direction:column}.mm-row{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.85rem;padding:1rem 1.1rem;border:0;border-top:1px solid var(--mm-border);background:#fff;text-align:left;cursor:pointer;transition:background .18s ease,transform .18s ease,box-shadow .18s ease}.mm-row:first-child{border-top:0}.mm-row:hover{background:#fbfdff;box-shadow:inset 3px 0 0 #a7cbe7}.mm-row:focus-visible{outline:3px solid rgba(36,95,145,.18);outline-offset:-3px}.mm-icon{display:grid;place-items:center;width:2.55rem;height:2.55rem;border-radius:.8rem;background:var(--mm-blue-soft);color:var(--mm-blue);transition:transform .2s ease}.mm-row:hover .mm-icon{transform:scale(1.06) rotate(-3deg)}.mm-row__main{min-width:0}.mm-row__title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.92rem;font-weight:800}.mm-row__meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.32rem;color:var(--mm-muted);font-size:.73rem;line-height:1.4}.mm-row__meta span{white-space:nowrap}.mm-row__right{display:flex;align-items:center;gap:.55rem}.mm-pill{display:inline-flex;align-items:center;padding:.34rem .58rem;border-radius:999px;font-size:.68rem;font-weight:850;white-space:nowrap}.mm-pill--urgent{background:var(--mm-red-soft);color:var(--mm-red)}.mm-pill--high{background:var(--mm-amber-soft);color:var(--mm-amber)}.mm-pill--medium{background:var(--mm-blue-soft);color:var(--mm-blue)}.mm-pill--low{background:#f0f3f5;color:#65717c}.mm-pill--progress{background:var(--mm-blue-soft);color:var(--mm-blue)}.mm-pill--done{background:var(--mm-green-soft);color:var(--mm-green)}.mm-chevron{width:16px;height:16px;color:#a2afbb;transition:transform .18s ease}.mm-row:hover .mm-chevron{transform:translateX(3px)}
+.mm-side{padding:1rem;position:sticky;top:1rem}.mm-side__title{margin:0;font-size:.82rem;font-weight:850}.mm-side__copy{margin:.35rem 0 .9rem;color:var(--mm-muted);font-size:.74rem;line-height:1.5}.mm-side__item{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.72rem 0;border-top:1px solid var(--mm-border)}.mm-side__item span{color:var(--mm-muted);font-size:.75rem}.mm-side__item strong{font-size:.82rem}.mm-empty{padding:3.5rem 1.25rem;text-align:center;color:var(--mm-muted)}.mm-empty__icon{display:grid;place-items:center;width:3rem;height:3rem;margin:0 auto .8rem;border-radius:1rem;background:var(--mm-soft);color:var(--mm-blue)}.mm-empty h3{margin:0;color:var(--mm-ink);font-size:1rem}.mm-empty p{max-width:430px;margin:.35rem auto 0;font-size:.8rem;line-height:1.55}.mm-skeleton{height:70px;border-top:1px solid var(--mm-border);background:linear-gradient(90deg,#f6f8fa 25%,#eef3f7 50%,#f6f8fa 75%);background-size:200% 100%;animation:mm-shimmer 1.2s infinite}.mm-skeleton:first-child{border-top:0}@keyframes mm-shimmer{to{background-position:-200% 0}}
+.mm-drawer{position:fixed;inset:0;z-index:120;display:flex;justify-content:flex-end;background:rgba(13,28,42,.42);backdrop-filter:blur(5px);animation:mm-fade .2s ease}.mm-panel{width:min(720px,100%);height:100%;display:flex;flex-direction:column;background:#fff;box-shadow:-24px 0 70px rgba(12,29,44,.22);animation:mm-slide .28s cubic-bezier(.22,.8,.25,1)}@keyframes mm-fade{from{opacity:0}to{opacity:1}}@keyframes mm-slide{from{transform:translateX(32px);opacity:.7}to{transform:translateX(0);opacity:1}}.mm-panel__head{display:flex;justify-content:space-between;gap:1rem;padding:1.1rem 1.2rem;border-bottom:1px solid var(--mm-border);background:linear-gradient(135deg,#fff,#f8fbfd)}.mm-panel__heading{min-width:0}.mm-panel__kicker{display:flex;align-items:center;gap:.45rem;color:var(--mm-muted);font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em}.mm-panel__title{margin:.35rem 0 .2rem;font-size:1.2rem;line-height:1.2;letter-spacing:-.02em}.mm-panel__sub{margin:0;color:var(--mm-muted);font-size:.75rem;line-height:1.45}.mm-close{display:grid;place-items:center;flex:none;width:2.35rem;height:2.35rem;border:1px solid var(--mm-border);border-radius:.75rem;background:#fff;color:#52606e;cursor:pointer;transition:transform .18s ease,background .18s ease}.mm-close:hover{transform:rotate(4deg);background:var(--mm-soft)}.mm-panel__body{flex:1;overflow:auto;padding:1.1rem 1.2rem 1.35rem}.mm-block{margin-bottom:1rem}.mm-block:last-child{margin-bottom:0}.mm-block__title{display:flex;align-items:center;justify-content:space-between;gap:.7rem;margin:0 0 .55rem;font-size:.76rem;font-weight:850;letter-spacing:.03em}.mm-description{padding:.9rem 1rem;border:1px solid var(--mm-border);border-radius:.9rem;background:var(--mm-soft);color:#344251;font-size:.84rem;line-height:1.65}.mm-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}.mm-fact{padding:.72rem .8rem;border:1px solid var(--mm-border);border-radius:.8rem;background:#fff}.mm-fact span{display:block;color:var(--mm-muted);font-size:.67rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.mm-fact strong{display:block;margin-top:.22rem;overflow-wrap:anywhere;font-size:.78rem}.mm-cost{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem;border:1px solid #cfe2f1;border-radius:.9rem;background:#f5faff}.mm-cost__label{color:var(--mm-muted);font-size:.7rem;font-weight:750}.mm-cost__value{margin-top:.15rem;font-size:1.1rem;font-weight:850;color:var(--mm-blue)}.mm-responsibility{padding:.42rem .62rem;border-radius:999px;background:#fff;border:1px solid #cfe2f1;color:var(--mm-blue);font-size:.68rem;font-weight:850}.mm-window{padding:.8rem .9rem;border:1px solid #cfe2f1;border-radius:.85rem;background:#f6faff}.mm-window__label{display:flex;align-items:center;gap:.4rem;color:var(--mm-blue);font-size:.68rem;font-weight:850;text-transform:uppercase}.mm-window__label svg{width:14px;height:14px}.mm-window strong{display:block;margin-top:.28rem;font-size:.8rem}.mm-window span{display:block;margin-top:.15rem;color:var(--mm-muted);font-size:.7rem}.mm-history{border:1px solid var(--mm-border);border-radius:.9rem;background:#fff;overflow:hidden}.mm-history__head{display:flex;align-items:center;gap:.5rem;padding:.75rem .85rem;background:var(--mm-soft);border-bottom:1px solid var(--mm-border);font-size:.76rem;font-weight:850}.mm-history__head svg{width:16px;height:16px;color:var(--mm-blue)}.mm-timeline{padding:.2rem .9rem .75rem}.mm-event{position:relative;display:grid;grid-template-columns:14px 1fr;gap:.65rem;padding:.7rem 0}.mm-event:not(:last-child):before{content:"";position:absolute;left:6px;top:22px;bottom:-6px;width:1px;background:#d8e2ea}.mm-event__dot{width:13px;height:13px;margin-top:.18rem;border:3px solid #fff;border-radius:50%;background:#5b8eb8;box-shadow:0 0 0 1px #9fc3df;z-index:1}.mm-event__title{font-size:.75rem;font-weight:850}.mm-event__message{margin-top:.18rem;color:#4f5e6b;font-size:.74rem;line-height:1.5}.mm-event__date{display:block;margin-top:.2rem;color:#8a96a1;font-size:.66rem}.mm-history__empty{padding:1rem;color:var(--mm-muted);font-size:.75rem}.mm-form{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.mm-field{min-width:0}.mm-field--full{grid-column:1/-1}.mm-label{display:block;margin:0 0 .32rem;color:#52606d;font-size:.7rem;font-weight:850}.mm-input,.mm-form select,.mm-form textarea{width:100%;min-width:0;border:1px solid var(--mm-border);border-radius:.72rem;background:#fff;color:var(--mm-ink);padding:.68rem .75rem;outline:0;transition:border-color .18s ease,box-shadow .18s ease}.mm-form textarea{resize:vertical;min-height:96px;line-height:1.5}.mm-input:focus,.mm-form select:focus,.mm-form textarea:focus{border-color:#9fc3df;box-shadow:0 0 0 3px rgba(36,95,145,.08)}.mm-help{margin:.5rem 0 0;color:#7a8793;font-size:.68rem;line-height:1.45}.mm-panel__foot{display:flex;justify-content:flex-end;gap:.6rem;padding:.9rem 1.2rem;border-top:1px solid var(--mm-border);background:#fff}.mm-btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.68rem .9rem;border:1px solid var(--mm-border);border-radius:.72rem;background:#fff;color:#4d5b68;font-weight:800;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}.mm-btn:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(20,43,62,.08)}.mm-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}.mm-btn--primary{border-color:#245f91;background:#245f91;color:#fff}.mm-btn--primary:hover{background:#1f547f}.mm-btn svg{width:16px;height:16px}
 @media(max-width:1000px){.mm-workspace{grid-template-columns:1fr}.mm-side{position:static;display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}.mm-side__title,.mm-side__copy{grid-column:1/-1}.mm-side__item{padding:.6rem 0}}
 @media(max-width:720px){.mm-page{padding:.85rem}.mm-header{align-items:flex-start;flex-direction:column}.mm-refresh{width:100%}.mm-summary{grid-template-columns:1fr 1fr}.mm-toolbar{grid-template-columns:1fr}.mm-select{width:100%}.mm-row{grid-template-columns:auto minmax(0,1fr);padding:.85rem}.mm-row__right{grid-column:2;justify-content:space-between;margin-top:-.25rem}.mm-chevron{display:none}.mm-facts,.mm-form{grid-template-columns:1fr}.mm-field--full{grid-column:auto}.mm-panel__head,.mm-panel__body,.mm-panel__foot{padding-left:.9rem;padding-right:.9rem}.mm-side{grid-template-columns:1fr}}
 @media(max-width:460px){.mm-summary{grid-template-columns:1fr}.mm-row__meta{display:block}.mm-row__meta span{display:block;margin-top:.12rem}.mm-chip{flex:1;justify-content:center}.mm-panel__foot{flex-direction:column-reverse}.mm-btn{width:100%}}
@@ -98,146 +58,56 @@ const styles = `
 
 function parse(payload: unknown): RequestRecord[] {
   return rows(payload).map((r) => {
-    const t = toRecord(r.tenant);
-    const u = toRecord(r.unit);
-    const p = toRecord(r.property);
+    const t = toRecord(r.tenant), u = toRecord(r.unit), p = toRecord(r.property);
     const tenantName = asString(t.name) || [asString(t.first_name), asString(t.last_name)].filter(Boolean).join(" ");
     return {
-      id: asNumber(r.id),
-      title: asString(r.title) || "Maintenance request",
-      description: asString(r.description),
-      priority: asString(r.priority) || "medium",
-      status: asString(r.status) || "open",
-      assigned_to: asString(r.assigned_to) || null,
-      scheduled_date: asString(r.scheduled_date) || null,
-      scheduled_time: asString(r.scheduled_time) || null,
-      tenant_availability: asString(r.tenant_availability) || null,
-      availability_start_at: asString(r.availability_start_at) || null,
-      availability_end_at: asString(r.availability_end_at) || null,
-      estimated_cost: asNumber(r.estimated_cost),
-      cost_responsibility: asString(r.cost_responsibility) || null,
-      reported_date: asString(r.reported_date) || null,
-      completed_date: asString(r.completed_date) || null,
-      notes: asString(r.notes) || null,
+      id: asNumber(r.id), title: asString(r.title) || "Maintenance request", description: asString(r.description), priority: asString(r.priority) || "medium", status: asString(r.status) || "open",
+      assigned_to: asString(r.assigned_to) || null, scheduled_date: asString(r.scheduled_date) || null, scheduled_time: asString(r.scheduled_time) || null,
+      tenant_availability: asString(r.tenant_availability) || null, availability_start_at: asString(r.availability_start_at) || null, availability_end_at: asString(r.availability_end_at) || null,
+      estimated_cost: asNumber(r.estimated_cost), cost_responsibility: asString(r.cost_responsibility) || null, reported_date: asString(r.reported_date) || null,
+      completed_date: asString(r.completed_date) || null, notes: asString(r.notes) || null,
       property: asString(p.name) ? { id: asNumber(p.id), name: asString(p.name) } : null,
       unit: asString(u.unit_number) ? { id: asNumber(u.id), unit_number: asString(u.unit_number) } : null,
       tenant: tenantName ? { id: asNumber(t.id), name: tenantName, phone: asString(t.phone) || null } : null,
     };
   });
 }
-
 const active = (r: RequestRecord) => r.status === "open" || r.status === "in_progress";
 const priorityClass = (p: string) => p === "urgent" ? "mm-pill mm-pill--urgent" : p === "high" ? "mm-pill mm-pill--high" : p === "low" ? "mm-pill mm-pill--low" : "mm-pill mm-pill--medium";
-const statusClass = (s: string) => s === "completed" ? "mm-pill mm-pill--done" : s === "in_progress" ? "mm-pill mm-pill--progress" : priorityClass(s === "open" ? "medium" : "low");
+const statusClass = (s: string) => s === "completed" ? "mm-pill mm-pill--done" : "mm-pill mm-pill--progress";
+const formatEventDate = (value: string | null) => value ? new Date(value).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
+const emptyForm = (r: RequestRecord): FormState => ({ status: r.status, assigned_to: r.assigned_to ?? "", scheduled_date: r.scheduled_date ?? "", scheduled_time: r.scheduled_time?.slice(0, 5) ?? "", estimated_cost: r.estimated_cost > 0 ? String(r.estimated_cost) : "", cost_responsibility: r.cost_responsibility ?? "", notes: r.notes ?? "" });
 
-function formatEventDate(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
-}
-
-function emptyForm(request: RequestRecord): FormState {
-  return {
-    status: request.status,
-    assigned_to: request.assigned_to ?? "",
-    scheduled_date: request.scheduled_date ?? "",
-    scheduled_time: request.scheduled_time?.slice(0, 5) ?? "",
-    estimated_cost: request.estimated_cost > 0 ? String(request.estimated_cost) : "",
-    cost_responsibility: request.cost_responsibility ?? "",
-    notes: request.notes ?? "",
-  };
-}
-
-function RequestPanel({ request, currency, historyLoading, saving, error, form, setForm, onClose, onSave }: {
-  request: RequestRecord;
-  currency: string;
-  historyLoading: boolean;
-  saving: boolean;
-  error: string;
-  form: FormState;
-  setForm: React.Dispatch<React.SetStateAction<FormState>>;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  const scheduled = form.scheduled_date
-    ? `${formatDate(form.scheduled_date)}${form.scheduled_time ? ` · ${form.scheduled_time}` : ""}`
-    : "Not scheduled";
-
-  return (
-    <div className="mm-drawer" role="dialog" aria-modal="true" aria-label={`${request.title} maintenance request`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <aside className="mm-panel">
-        <div className="mm-panel__head">
-          <div className="mm-panel__heading">
-            <div className="mm-panel__kicker"><Wrench /> Maintenance request</div>
-            <h2 className="mm-panel__title">{request.title}</h2>
-            <p className="mm-panel__sub">{request.property?.name ?? "Property"} · {request.unit?.unit_number ?? "Unit"} · reported {formatDate(request.reported_date)}</p>
-          </div>
-          <button className="mm-close" type="button" onClick={onClose} aria-label="Close request"><X /></button>
-        </div>
-
-        <div className="mm-panel__body">
-          {error && <div className="mm-alert" role="alert"><AlertCircle /><span>{error}</span></div>}
-
-          <section className="mm-block">
-            <h3 className="mm-block__title">Tenant report</h3>
-            <div className="mm-description">{request.description || "No further detail was provided by the tenant."}</div>
-          </section>
-
-          <section className="mm-block">
-            <h3 className="mm-block__title">Request details</h3>
-            <div className="mm-facts">
-              <div className="mm-fact"><span>Tenant</span><strong>{request.tenant?.name ?? "—"}</strong></div>
-              <div className="mm-fact"><span>Phone</span><strong>{request.tenant?.phone ? <a href={`tel:${request.tenant.phone}`}>{request.tenant.phone}</a> : "—"}</strong></div>
-              <div className="mm-fact"><span>Priority</span><strong>{titleCase(request.priority)}</strong></div>
-              <div className="mm-fact"><span>Status</span><strong>{statusLabels[request.status] ?? titleCase(request.status)}</strong></div>
-              <div className="mm-fact"><span>Reported</span><strong>{formatDate(request.reported_date)}</strong></div>
-              <div className="mm-fact"><span>Completed</span><strong>{formatDate(request.completed_date)}</strong></div>
-            </div>
-          </section>
-
-          <section className="mm-block">
-            <div className="mm-cost">
-              <div><div className="mm-cost__label">Estimated repair cost</div><div className="mm-cost__value">{formatMoney(request.estimated_cost, currency)}</div></div>
-              <span className="mm-responsibility">{request.cost_responsibility ? `${titleCase(request.cost_responsibility)} responsible` : "Responsibility pending"}</span>
-            </div>
-          </section>
-
-          {(request.scheduled_date || request.tenant_availability) && <section className="mm-block"><div className="mm-window"><div className="mm-window__label"><CalendarDays /> Tenant visit</div><strong>{scheduled}</strong><span>{request.tenant_availability ? `Tenant response: ${titleCase(request.tenant_availability)}` : "Awaiting tenant response"}</span></div></section>}
-
-          <section className="mm-block">
-            <h3 className="mm-block__title"><span>Request history</span>{historyLoading && <span className="mm-count">Loading…</span>}</h3>
-            <div className="mm-history">
-              <div className="mm-history__head"><History /> Persistent activity timeline</div>
-              {historyLoading ? <div className="mm-history__empty">Loading the recorded request history…</div> : request.updates?.length ? (
-                <div className="mm-timeline">{request.updates.map((event) => <div className="mm-event" key={event.id}><span className="mm-event__dot"/><div><div className="mm-event__title">{titleCase(event.type)}{event.status ? ` · ${statusLabels[event.status] ?? titleCase(event.status)}` : ""}</div><div className="mm-event__message">{event.message || "Request updated."}</div><small className="mm-event__date">{formatEventDate(event.created_at)}</small></div></div>)}</div>
-              ) : <div className="mm-history__empty">No history has been recorded for this request yet.</div>}
-            </div>
-          </section>
-
-          <section className="mm-block">
-            <h3 className="mm-block__title">Manager update</h3>
-            <div className="mm-form">
-              <div className="mm-field"><label className="mm-label" htmlFor="mm-status">Status</label><select id="mm-status" value={form.status} onChange={(e) => setForm((v) => ({ ...v, status: e.target.value }))}><option value="open">Received</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
-              <div className="mm-field"><label className="mm-label" htmlFor="mm-assigned">Assigned to</label><input id="mm-assigned" className="mm-input" value={form.assigned_to} onChange={(e) => setForm((v) => ({ ...v, assigned_to: e.target.value }))} placeholder="Caretaker, technician or vendor" /></div>
-              <div className="mm-field"><label className="mm-label" htmlFor="mm-date">Fix date</label><input id="mm-date" className="mm-input" type="date" value={form.scheduled_date} onChange={(e) => setForm((v) => ({ ...v, scheduled_date: e.target.value }))} /></div>
-              <div className="mm-field"><label className="mm-label" htmlFor="mm-time">Fix time</label><input id="mm-time" className="mm-input" type="time" value={form.scheduled_time} disabled={!form.scheduled_date} onChange={(e) => setForm((v) => ({ ...v, scheduled_time: e.target.value }))} /></div>
-              <div className="mm-field"><label className="mm-label" htmlFor="mm-cost">Estimated cost</label><input id="mm-cost" className="mm-input" type="number" min="0" step="0.01" value={form.estimated_cost} onChange={(e) => setForm((v) => ({ ...v, estimated_cost: e.target.value }))} placeholder="Expected repair cost" /></div>
-              <div className="mm-field"><label className="mm-label" htmlFor="mm-responsibility">Cost responsibility</label><select id="mm-responsibility" value={form.cost_responsibility} onChange={(e) => setForm((v) => ({ ...v, cost_responsibility: e.target.value }))}><option value="">Not decided</option><option value="tenant">Tenant</option><option value="landlord">Landlord</option></select></div>
-              <div className="mm-field mm-field--full"><label className="mm-label" htmlFor="mm-notes">Manager notes</label><textarea id="mm-notes" value={form.notes} onChange={(e) => setForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Record what was inspected, agreed or needs to happen next." /></div>
-            </div>
-            <p className="mm-help">Maintenance responsibility can only be assigned to the tenant or landlord. The property manager is never a maintenance cost bearer. Scheduling a new visit resets the tenant availability response so the tenant can confirm the new time.</p>
-          </section>
-        </div>
-
-        <div className="mm-panel__foot"><button className="mm-btn" type="button" onClick={onClose}>Close</button><button className="mm-btn mm-btn--primary" type="button" onClick={onSave} disabled={saving}>{saving ? <RefreshCw className="mm-spin" /> : <CheckCircle2 />}{saving ? "Saving…" : "Save update"}</button></div>
-      </aside>
-    </div>
-  );
+function RequestPanel({ request, currency, historyLoading, saving, error, form, setForm, onClose, onSave }: { request: RequestRecord; currency: string; historyLoading: boolean; saving: boolean; error: string; form: FormState; setForm: Dispatch<SetStateAction<FormState>>; onClose: () => void; onSave: () => void }) {
+  useEffect(() => { const handler = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); }; document.addEventListener("keydown", handler); return () => document.removeEventListener("keydown", handler); }, [onClose]);
+  const scheduled = form.scheduled_date ? `${formatDate(form.scheduled_date)}${form.scheduled_time ? ` · ${form.scheduled_time}` : ""}` : "Not scheduled";
+  return <div className="mm-drawer" role="dialog" aria-modal="true" aria-label={`${request.title} maintenance request`} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <aside className="mm-panel">
+      <div className="mm-panel__head"><div className="mm-panel__heading"><div className="mm-panel__kicker"><Wrench /> Maintenance request</div><h2 className="mm-panel__title">{request.title}</h2><p className="mm-panel__sub">{request.property?.name ?? "Property"} · {request.unit?.unit_number ?? "Unit"} · reported {formatDate(request.reported_date)}</p></div><button className="mm-close" type="button" onClick={onClose} aria-label="Close request"><X /></button></div>
+      <div className="mm-panel__body">
+        {error && <div className="mm-alert" role="alert"><AlertCircle /><span>{error}</span></div>}
+        <section className="mm-block"><h3 className="mm-block__title">Tenant report</h3><div className="mm-description">{request.description || "No further detail was provided by the tenant."}</div></section>
+        <section className="mm-block"><h3 className="mm-block__title">Request details</h3><div className="mm-facts">
+          <div className="mm-fact"><span>Tenant</span><strong>{request.tenant?.name ?? "—"}</strong></div><div className="mm-fact"><span>Phone</span><strong>{request.tenant?.phone ? <a href={`tel:${request.tenant.phone}`}>{request.tenant.phone}</a> : "—"}</strong></div>
+          <div className="mm-fact"><span>Priority</span><strong>{titleCase(request.priority)}</strong></div><div className="mm-fact"><span>Status</span><strong>{statusLabels[request.status] ?? titleCase(request.status)}</strong></div>
+          <div className="mm-fact"><span>Reported</span><strong>{formatDate(request.reported_date)}</strong></div><div className="mm-fact"><span>Completed</span><strong>{formatDate(request.completed_date)}</strong></div>
+        </div></section>
+        <section className="mm-block"><div className="mm-cost"><div><div className="mm-cost__label">Estimated repair cost</div><div className="mm-cost__value">{formatMoney(request.estimated_cost, currency)}</div></div><span className="mm-responsibility">{request.cost_responsibility ? `${titleCase(request.cost_responsibility)} responsible` : "Responsibility pending"}</span></div></section>
+        {(request.scheduled_date || request.tenant_availability) && <section className="mm-block"><div className="mm-window"><div className="mm-window__label"><CalendarDays /> Tenant visit</div><strong>{scheduled}</strong><span>{request.tenant_availability ? `Tenant response: ${titleCase(request.tenant_availability)}` : "Awaiting tenant response"}</span></div></section>}
+        <section className="mm-block"><h3 className="mm-block__title"><span>Request history</span>{historyLoading && <span className="mm-count">Loading…</span>}</h3><div className="mm-history"><div className="mm-history__head"><History /> Persistent activity timeline</div>{historyLoading ? <div className="mm-history__empty">Loading the recorded request history…</div> : request.updates?.length ? <div className="mm-timeline">{request.updates.map((event) => <div className="mm-event" key={event.id}><span className="mm-event__dot"/><div><div className="mm-event__title">{titleCase(event.type)}{event.status ? ` · ${statusLabels[event.status] ?? titleCase(event.status)}` : ""}</div><div className="mm-event__message">{event.message || "Request updated."}</div><small className="mm-event__date">{formatEventDate(event.created_at)}</small></div></div>)}</div> : <div className="mm-history__empty">No history has been recorded for this request yet.</div>}</div></section>
+        <section className="mm-block"><h3 className="mm-block__title">Manager update</h3><div className="mm-form">
+          <div className="mm-field"><label className="mm-label" htmlFor="mm-status">Status</label><select id="mm-status" value={form.status} onChange={(e) => setForm((v) => ({ ...v, status: e.target.value }))}><option value="open">Received</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+          <div className="mm-field"><label className="mm-label" htmlFor="mm-assigned">Assigned to</label><input id="mm-assigned" className="mm-input" value={form.assigned_to} onChange={(e) => setForm((v) => ({ ...v, assigned_to: e.target.value }))} placeholder="Caretaker, technician or vendor" /></div>
+          <div className="mm-field"><label className="mm-label" htmlFor="mm-date">Fix date</label><input id="mm-date" className="mm-input" type="date" value={form.scheduled_date} onChange={(e) => setForm((v) => ({ ...v, scheduled_date: e.target.value }))} /></div>
+          <div className="mm-field"><label className="mm-label" htmlFor="mm-time">Fix time</label><input id="mm-time" className="mm-input" type="time" value={form.scheduled_time} disabled={!form.scheduled_date} onChange={(e) => setForm((v) => ({ ...v, scheduled_time: e.target.value }))} /></div>
+          <div className="mm-field"><label className="mm-label" htmlFor="mm-cost">Estimated cost</label><input id="mm-cost" className="mm-input" type="number" min="0" step="0.01" value={form.estimated_cost} onChange={(e) => setForm((v) => ({ ...v, estimated_cost: e.target.value }))} placeholder="Expected repair cost" /></div>
+          <div className="mm-field"><label className="mm-label" htmlFor="mm-responsibility">Cost responsibility</label><select id="mm-responsibility" value={form.cost_responsibility} onChange={(e) => setForm((v) => ({ ...v, cost_responsibility: e.target.value }))}><option value="">Not decided</option><option value="tenant">Tenant</option><option value="landlord">Landlord</option></select></div>
+          <div className="mm-field mm-field--full"><label className="mm-label" htmlFor="mm-notes">Manager notes</label><textarea id="mm-notes" value={form.notes} onChange={(e) => setForm((v) => ({ ...v, notes: e.target.value }))} placeholder="Record what was inspected, agreed or needs to happen next." /></div>
+        </div><p className="mm-help">Maintenance responsibility can only be assigned to the tenant or landlord. The property manager is never a maintenance cost bearer. Scheduling a new visit resets the tenant availability response so the tenant can confirm the new time.</p></section>
+      </div>
+      <div className="mm-panel__foot"><button className="mm-btn" type="button" onClick={onClose}>Close</button><button className="mm-btn mm-btn--primary" type="button" onClick={onSave} disabled={saving}>{saving ? <RefreshCw className="mm-spin" /> : <CheckCircle2 />}{saving ? "Saving…" : "Save update"}</button></div>
+    </aside>
+  </div>;
 }
 
 export default function ManagerMaintenancePage() {
@@ -256,177 +126,44 @@ export default function ManagerMaintenancePage() {
   const [panelError, setPanelError] = useState("");
   const [form, setForm] = useState<FormState>({ status: "open", assigned_to: "", scheduled_date: "", scheduled_time: "", estimated_cost: "", cost_responsibility: "", notes: "" });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setRequests(parse(await apiRequest("/maintenance-requests")));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load maintenance requests.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  const load = useCallback(async () => { setLoading(true); setError(""); try { setRequests(parse(await apiRequest("/maintenance-requests"))); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load maintenance requests."); } finally { setLoading(false); } }, []);
   useEffect(() => { void load(); }, [load]);
 
   const openRequest = useCallback(async (request: RequestRecord, fromUrl = false) => {
-    setSelected(request);
-    setForm(emptyForm(request));
-    setPanelError("");
-    setHistoryLoading(true);
+    setSelected(request); setForm(emptyForm(request)); setPanelError(""); setHistoryLoading(true);
     if (!fromUrl) setSearchParams({ request: String(request.id) });
     try {
       const payload = await apiRequest(`/maintenance-requests/${request.id}`);
       const record = toRecord(payload);
-      const updates = rows(record.updates).map((u) => ({
-        id: asNumber(u.id),
-        type: asString(u.type),
-        status: asString(u.status) || null,
-        message: asString(u.message),
-        created_at: asString(u.created_at) || null,
-      }));
-      setSelected({ ...request, ...parse(record), updates: updates.length ? updates : [] });
-    } catch (cause) {
-      setPanelError(cause instanceof Error ? cause.message : "Could not load the request history.");
-    } finally {
-      setHistoryLoading(false);
-    }
+      const updates = rows(record.updates).map((u) => ({ id: asNumber(u.id), type: asString(u.type), status: asString(u.status) || null, message: asString(u.message), created_at: asString(u.created_at) || null }));
+      setSelected({ ...request, updates });
+    } catch (cause) { setPanelError(cause instanceof Error ? cause.message : "Could not load the request history."); }
+    finally { setHistoryLoading(false); }
   }, [setSearchParams]);
 
-  useEffect(() => {
-    if (!requestParam || loading || selected) return;
-    const match = requests.find((request) => String(request.id) === requestParam);
-    if (match) void openRequest(match, true);
-  }, [requestParam, loading, requests, selected, openRequest]);
+  useEffect(() => { if (!requestParam || loading || selected) return; const match = requests.find((request) => String(request.id) === requestParam); if (match) void openRequest(match, true); }, [requestParam, loading, requests, selected, openRequest]);
+  const closeRequest = useCallback(() => { setSelected(null); setPanelError(""); if (searchParams.has("request")) setSearchParams({}); }, [searchParams, setSearchParams]);
 
-  const closeRequest = useCallback(() => {
-    setSelected(null);
-    setPanelError("");
-    if (searchParams.has("request")) setSearchParams({});
-  }, [searchParams, setSearchParams]);
-
-  const counts = useMemo(() => ({
-    all: requests.length,
-    needs_action: requests.filter(active).length,
-    open: requests.filter((r) => r.status === "open").length,
-    in_progress: requests.filter((r) => r.status === "in_progress").length,
-    completed: requests.filter((r) => r.status === "completed").length,
-    cancelled: requests.filter((r) => r.status === "cancelled").length,
-  }), [requests]);
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return requests.filter((r) => {
-      if (status === "needs_action" && !active(r)) return false;
-      if (status !== "all" && status !== "needs_action" && r.status !== status) return false;
-      if (priority !== "all" && r.priority !== priority) return false;
-      if (!needle) return true;
-      return [r.title, r.description, r.property?.name, r.unit?.unit_number, r.tenant?.name, r.assigned_to].filter(Boolean).join(" ").toLowerCase().includes(needle);
-    }).sort((a, b) => (priorityWeight[a.priority] ?? 9) - (priorityWeight[b.priority] ?? 9) || ((a.reported_date ?? "") < (b.reported_date ?? "") ? 1 : -1));
-  }, [requests, status, priority, query]);
-
+  const counts = useMemo(() => ({ all: requests.length, needs_action: requests.filter(active).length, open: requests.filter((r) => r.status === "open").length, in_progress: requests.filter((r) => r.status === "in_progress").length, completed: requests.filter((r) => r.status === "completed").length, cancelled: requests.filter((r) => r.status === "cancelled").length }), [requests]);
+  const visible = useMemo(() => { const needle = query.trim().toLowerCase(); return requests.filter((r) => { if (status === "needs_action" && !active(r)) return false; if (status !== "all" && status !== "needs_action" && r.status !== status) return false; if (priority !== "all" && r.priority !== priority) return false; if (!needle) return true; return [r.title, r.description, r.property?.name, r.unit?.unit_number, r.tenant?.name, r.assigned_to].filter(Boolean).join(" ").toLowerCase().includes(needle); }).sort((a, b) => (priorityWeight[a.priority] ?? 9) - (priorityWeight[b.priority] ?? 9) || ((a.reported_date ?? "") < (b.reported_date ?? "") ? 1 : -1)); }, [requests, status, priority, query]);
   const activeRows = useMemo(() => requests.filter(active), [requests]);
   const completed = useMemo(() => requests.filter((r) => r.status === "completed"), [requests]);
-  const totals = useMemo(() => ({
-    urgent: activeRows.filter((r) => r.priority === "urgent").length,
-    unassigned: activeRows.filter((r) => !r.assigned_to).length,
-    activeCost: activeRows.reduce((sum, r) => sum + r.estimated_cost, 0),
-    completedCost: completed.reduce((sum, r) => sum + r.estimated_cost, 0),
-  }), [activeRows, completed]);
+  const totals = useMemo(() => ({ urgent: activeRows.filter((r) => r.priority === "urgent").length, unassigned: activeRows.filter((r) => !r.assigned_to).length, activeCost: activeRows.reduce((sum, r) => sum + r.estimated_cost, 0), completedCost: completed.reduce((sum, r) => sum + r.estimated_cost, 0) }), [activeRows, completed]);
 
   async function saveRequest() {
-    if (!selected || saving) return;
-    setSaving(true);
-    setPanelError("");
+    if (!selected || saving) return; setSaving(true); setPanelError("");
     try {
-      await apiRequest(`/maintenance-requests/${selected.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: form.status,
-          assigned_to: form.assigned_to.trim() || null,
-          scheduled_date: form.scheduled_date || null,
-          scheduled_time: form.scheduled_date && form.scheduled_time ? form.scheduled_time : null,
-          estimated_cost: form.estimated_cost ? Number(form.estimated_cost) : null,
-          cost_responsibility: form.cost_responsibility || null,
-          notes: form.notes.trim() || null,
-        }),
-      });
-      const updatedId = selected.id;
-      setSelected(null);
-      setSearchParams({});
-      await load();
-      const updated = requests.find((r) => r.id === updatedId);
-      if (updated) setRequests((current) => current);
-    } catch (cause) {
-      setPanelError(cause instanceof Error ? cause.message : "Could not save the maintenance update.");
-    } finally {
-      setSaving(false);
-    }
+      await apiRequest(`/maintenance-requests/${selected.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: form.status, assigned_to: form.assigned_to.trim() || null, scheduled_date: form.scheduled_date || null, scheduled_time: form.scheduled_date && form.scheduled_time ? form.scheduled_time : null, estimated_cost: form.estimated_cost ? Number(form.estimated_cost) : null, cost_responsibility: form.cost_responsibility || null, notes: form.notes.trim() || null }) });
+      setSelected(null); setSearchParams({}); await load();
+    } catch (cause) { setPanelError(cause instanceof Error ? cause.message : "Could not save the maintenance update."); }
+    finally { setSaving(false); }
   }
 
-  return (
-    <DashboardLayout>
-      <style>{styles}</style>
-      <main className="mm-page">
-        <header className="mm-header">
-          <div>
-            <div className="mm-kicker"><Wrench /> Property operations</div>
-            <h1 className="mm-title">Maintenance</h1>
-            <p className="mm-subtitle">Review tenant reports, act on current work, and keep a complete record of every repair from first report to resolution.</p>
-          </div>
-          <button className="mm-refresh" type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "mm-spin" : undefined} />{loading ? "Refreshing…" : "Refresh"}</button>
-        </header>
-
-        {error && <div className="mm-alert" role="alert"><AlertCircle /><span>{error}</span></div>}
-
-        <section className="mm-summary" aria-label="Maintenance summary">
-          <article className="mm-stat mm-stat--attention"><p className="mm-stat__label">Needs attention</p><p className="mm-stat__value">{formatNumber(counts.needs_action)}</p><p className="mm-stat__hint">Received or in progress</p></article>
-          <article className="mm-stat"><p className="mm-stat__label">Urgent</p><p className="mm-stat__value">{formatNumber(totals.urgent)}</p><p className="mm-stat__hint">Active high-priority issues</p></article>
-          <article className="mm-stat"><p className="mm-stat__label">Unassigned</p><p className="mm-stat__value">{formatNumber(totals.unassigned)}</p><p className="mm-stat__hint">Work still needs an owner</p></article>
-          <article className="mm-stat mm-stat--cost"><p className="mm-stat__label">Active repair estimates</p><p className="mm-stat__value">{formatMoney(totals.activeCost, currency)}</p><p className="mm-stat__hint">Tenant/landlord responsibility tracked separately</p></article>
-        </section>
-
-        <div className="mm-workspace">
-          <section className="mm-main" aria-label="Maintenance requests">
-            <div className="mm-main__head">
-              <div className="mm-section-head"><h2 className="mm-section-title"><Filter /> Requests</h2><span className="mm-count">{visible.length} shown · {counts.all} total</span></div>
-              <div className="mm-toolbar">
-                <div className="mm-search"><Search /><input aria-label="Search maintenance requests" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search issue, tenant, property or assigned person…" /></div>
-                <select className="mm-select" aria-label="Filter status" value={status} onChange={(e) => setStatus(e.target.value)}><option value="needs_action">Needs attention</option><option value="all">All requests</option><option value="open">Received</option><option value="in_progress">In progress</option><option value="completed">Completed history</option><option value="cancelled">Cancelled history</option></select>
-              </div>
-              <div className="mm-filters" role="group" aria-label="Filter priority">
-                {["all", "urgent", "high", "medium", "low"].map((value) => <button key={value} className={`mm-chip${priority === value ? " mm-chip--active" : ""}`} type="button" onClick={() => setPriority(value)} aria-pressed={priority === value}>{value === "all" ? "Any priority" : titleCase(value)}{value === "all" ? null : <span className="mm-chip__count">{requests.filter((r) => r.priority === value).length}</span>}</button>)}
-              </div>
-            </div>
-
-            <div className="mm-list">
-              {loading ? [1,2,3,4].map((key) => <div className="mm-skeleton" key={key} />) : visible.length === 0 ? (
-                <div className="mm-empty"><div className="mm-empty__icon"><Wrench /></div><h3>{requests.length === 0 ? "No maintenance requests yet" : status === "needs_action" ? "Nothing needs attention right now" : "No requests match these filters"}</h3><p>{requests.length === 0 ? "Requests submitted by tenants will appear here automatically with their property, unit and tenant details." : "Use the status, priority or search controls above to find another request or review completed history."}</p></div>
-              ) : visible.map((request) => (
-                <button className="mm-row" type="button" key={request.id} onClick={() => void openRequest(request)}>
-                  <span className="mm-icon"><Wrench size={17} /></span>
-                  <span className="mm-row__main"><span className="mm-row__title">{request.title}</span><span className="mm-row__meta"><span>{request.property?.name ?? "Property"} · {request.unit?.unit_number ?? "Unit"}</span><span>{request.tenant?.name ?? "Tenant"}</span><span>{formatDate(request.reported_date)}</span>{request.assigned_to && <span><UserRound size={11} style={{ verticalAlign: "-.1rem", marginRight: ".18rem" }} />{request.assigned_to}</span>}</span></span>
-                  <span className="mm-row__right"><span className={request.status === "completed" || request.status === "in_progress" ? statusClass(request.status) : priorityClass(request.priority)}>{request.status === "completed" ? "Completed" : request.status === "in_progress" ? "In progress" : request.status === "open" ? titleCase(request.priority) : titleCase(request.status)}</span><ChevronRight className="mm-chevron" /></span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <aside className="mm-side" aria-label="Maintenance overview">
-            <h2 className="mm-side__title">Maintenance overview</h2>
-            <p className="mm-side__copy">The dashboard is the quick-access view. This page is the complete operational record, including resolved work.</p>
-            <div className="mm-side__item"><span>Received</span><strong>{counts.open}</strong></div>
-            <div className="mm-side__item"><span>In progress</span><strong>{counts.in_progress}</strong></div>
-            <div className="mm-side__item"><span>Completed history</span><strong>{counts.completed}</strong></div>
-            <div className="mm-side__item"><span>Cancelled</span><strong>{counts.cancelled}</strong></div>
-            <div className="mm-side__item"><span>Completed estimates</span><strong>{formatMoney(totals.completedCost, currency)}</strong></div>
-          </aside>
-        </div>
-      </main>
-
-      {selected && <RequestPanel request={selected} currency={currency} historyLoading={historyLoading} saving={saving} error={panelError} form={form} setForm={setForm} onClose={closeRequest} onSave={() => void saveRequest()} />}
-    </DashboardLayout>
-  );
+  return <DashboardLayout><style>{styles}</style><main className="mm-page">
+    <header className="mm-header"><div><div className="mm-kicker"><Wrench /> Property operations</div><h1 className="mm-title">Maintenance</h1><p className="mm-subtitle">Review tenant reports, act on current work, and keep a complete record of every repair from first report to resolution.</p></div><button className="mm-refresh" type="button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "mm-spin" : undefined} />{loading ? "Refreshing…" : "Refresh"}</button></header>
+    {error && <div className="mm-alert" role="alert"><AlertCircle /><span>{error}</span></div>}
+    <section className="mm-summary" aria-label="Maintenance summary"><article className="mm-stat mm-stat--attention"><p className="mm-stat__label">Needs attention</p><p className="mm-stat__value">{formatNumber(counts.needs_action)}</p><p className="mm-stat__hint">Received or in progress</p></article><article className="mm-stat"><p className="mm-stat__label">Urgent</p><p className="mm-stat__value">{formatNumber(totals.urgent)}</p><p className="mm-stat__hint">Active high-priority issues</p></article><article className="mm-stat"><p className="mm-stat__label">Unassigned</p><p className="mm-stat__value">{formatNumber(totals.unassigned)}</p><p className="mm-stat__hint">Work still needs an owner</p></article><article className="mm-stat mm-stat--cost"><p className="mm-stat__label">Active repair estimates</p><p className="mm-stat__value">{formatMoney(totals.activeCost, currency)}</p><p className="mm-stat__hint">Tenant/landlord responsibility tracked separately</p></article></section>
+    <div className="mm-workspace"><section className="mm-main" aria-label="Maintenance requests"><div className="mm-main__head"><div className="mm-section-head"><h2 className="mm-section-title"><Filter /> Requests</h2><span className="mm-count">{visible.length} shown · {counts.all} total</span></div><div className="mm-toolbar"><div className="mm-search"><Search /><input aria-label="Search maintenance requests" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search issue, tenant, property or assigned person…" /></div><select className="mm-select" aria-label="Filter status" value={status} onChange={(e) => setStatus(e.target.value)}><option value="needs_action">Needs attention</option><option value="all">All requests</option><option value="open">Received</option><option value="in_progress">In progress</option><option value="completed">Completed history</option><option value="cancelled">Cancelled history</option></select></div><div className="mm-filters" role="group" aria-label="Filter priority">{["all", "urgent", "high", "medium", "low"].map((value) => <button key={value} className={`mm-chip${priority === value ? " mm-chip--active" : ""}`} type="button" onClick={() => setPriority(value)} aria-pressed={priority === value}>{value === "all" ? "Any priority" : titleCase(value)}{value === "all" ? null : <span className="mm-chip__count">{requests.filter((r) => r.priority === value).length}</span>}</button>)}</div></div><div className="mm-list">{loading ? [1,2,3,4].map((key) => <div className="mm-skeleton" key={key} />) : visible.length === 0 ? <div className="mm-empty"><div className="mm-empty__icon"><Wrench /></div><h3>{requests.length === 0 ? "No maintenance requests yet" : status === "needs_action" ? "Nothing needs attention right now" : "No requests match these filters"}</h3><p>{requests.length === 0 ? "Requests submitted by tenants will appear here automatically with their property, unit and tenant details." : "Use the status, priority or search controls above to find another request or review completed history."}</p></div> : visible.map((request) => <button className="mm-row" type="button" key={request.id} onClick={() => void openRequest(request)}><span className="mm-icon"><Wrench size={17} /></span><span className="mm-row__main"><span className="mm-row__title">{request.title}</span><span className="mm-row__meta"><span>{request.property?.name ?? "Property"} · {request.unit?.unit_number ?? "Unit"}</span><span>{request.tenant?.name ?? "Tenant"}</span><span>{formatDate(request.reported_date)}</span>{request.assigned_to && <span><UserRound size={11} style={{ verticalAlign: "-.1rem", marginRight: ".18rem" }} />{request.assigned_to}</span>}</span></span><span className="mm-row__right"><span className={request.status === "completed" || request.status === "in_progress" ? statusClass(request.status) : priorityClass(request.priority)}>{request.status === "completed" ? "Completed" : request.status === "in_progress" ? "In progress" : request.status === "open" ? titleCase(request.priority) : titleCase(request.status)}</span><ChevronRight className="mm-chevron" /></span></button>)}</div></section>
+      <aside className="mm-side" aria-label="Maintenance overview"><h2 className="mm-side__title">Maintenance overview</h2><p className="mm-side__copy">The dashboard is the quick-access view. This page is the complete operational record, including resolved work.</p><div className="mm-side__item"><span>Received</span><strong>{counts.open}</strong></div><div className="mm-side__item"><span>In progress</span><strong>{counts.in_progress}</strong></div><div className="mm-side__item"><span>Completed history</span><strong>{counts.completed}</strong></div><div className="mm-side__item"><span>Cancelled</span><strong>{counts.cancelled}</strong></div><div className="mm-side__item"><span>Completed estimates</span><strong>{formatMoney(totals.completedCost, currency)}</strong></div></aside></div>
+  </main>{selected && <RequestPanel request={selected} currency={currency} historyLoading={historyLoading} saving={saving} error={panelError} form={form} setForm={setForm} onClose={closeRequest} onSave={() => void saveRequest()} />}</DashboardLayout>;
 }
