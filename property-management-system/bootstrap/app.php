@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
         return route('login');
     });
 
+    $middleware->validateCsrfTokens(except: [
+        'passkeys/login',
+        'passkeys/login/options',
+    ]);
+
     $middleware->alias([
         'role' => \App\Http\Middleware\EnsureUserHasRole::class,
     ]);
