@@ -159,14 +159,14 @@ class LeaseProvisioner
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'monthly_rent' => $data['monthly_rent'],
-                'deposit_amount' => $data['deposit_amount'] ?? $unit->monthly_rent,
+                'deposit_amount' => $data['deposit_amount'] ?? $unit->deposit_amount,
                 'status' => $status,
                 'notes' => $data['notes'] ?? null,
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
             ]);
 
-            $amountRequired = (float) ($data['deposit_amount'] ?? $unit->monthly_rent);
+            $amountRequired = (float) ($data['deposit_amount'] ?? $unit->deposit_amount);
             $amountPaid = (float) ($data['deposit_paid_amount'] ?? (
                 filter_var($data['deposit_paid'] ?? false, FILTER_VALIDATE_BOOL)
                     ? $amountRequired
