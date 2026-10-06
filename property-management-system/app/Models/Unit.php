@@ -15,6 +15,7 @@ class Unit extends Model
         'unit_number',
         'unit_type',
         'monthly_rent',
+        'deposit_amount',
         'status',
         'description',
     ];
