@@ -173,7 +173,10 @@ class UnitController extends Controller
             abort(403, 'You do not have access to this property.');
         }
 
-        $unit = Unit::create($validated);
+        $unit = Unit::create([
+            ...$validated,
+            'deposit_amount' => $validated['deposit_amount'] ?? $validated['monthly_rent'],
+        ]);
 
         return response()->json([
             'message' => 'Unit created successfully.',
