@@ -246,7 +246,7 @@ class LeaseProvisioner
             $this->assertNoOverlap($unit, $startDate, $endDate, $lease->id);
 
             $monthlyRent = $data['monthly_rent'] ?? $unit->monthly_rent;
-            $depositAmount = $data['deposit_amount'] ?? $unit->monthly_rent;
+            $depositAmount = $data['deposit_amount'] ?? $unit->deposit_amount;
             $agreement = $this->buildAgreementTemplate(
                 $organizationId,
                 $property,
