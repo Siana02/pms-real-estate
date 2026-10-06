@@ -95,7 +95,7 @@ class UnitController extends Controller
                 ->whereDoesntHave('tenants', fn ($query) => $query->where('status', 'pending'))
                 ->orderBy('monthly_rent')
                 ->orderBy('unit_number')
-                ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent'])
+                ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent', 'deposit_amount'])
                 ->filter(fn (Unit $unit) => $availability($unit)['available'])
                 ->values()
                 ->take(5)
@@ -108,6 +108,7 @@ class UnitController extends Controller
                 'unit_number' => $selectedUnit->unit_number,
                 'unit_type' => $selectedUnit->unit_type,
                 'monthly_rent' => $selectedUnit->monthly_rent,
+                'deposit_amount' => $selectedUnit->deposit_amount,
             ],
             'available' => $selectedAvailability['available'],
             'next_available_date' => $selectedAvailability['next_available_date'],
