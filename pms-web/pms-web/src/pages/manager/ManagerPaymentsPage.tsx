@@ -24,11 +24,7 @@ import {
   titleCase,
   toRecord,
 } from "../../services/format";
- 
-/* ------------------------------------------------------------------ */
-/*  TYPES & PARSING                                                     */
-/* ------------------------------------------------------------------ */
- 
+
 interface PaymentRecord {
   id: number;
   lease_id: number;
@@ -42,21 +38,26 @@ interface PaymentRecord {
   reference: string | null;
   notes: string | null;
 }
- 
+
+interface LeaseOption {
+  id: number;
+  label: string;
+}
+
 const TYPES = ["all", "rent", "deposit", "utility", "other"];
- 
+
 const RANGES: { id: string; label: string; days: number }[] = [
   { id: "30", label: "Last 30 days", days: 30 },
   { id: "90", label: "Last 90 days", days: 90 },
   { id: "365", label: "Last 12 months", days: 365 },
   { id: "all", label: "All time", days: 0 },
 ];
- 
+
 function parsePayments(payload: unknown): PaymentRecord[] {
   return rows(payload).map((record) => {
     const unit = toRecord(record.unit);
     const unitNumber = asString(unit.unit_number);
- 
+
     return {
       id: asNumber(record.id),
       lease_id: asNumber(record.lease_id),
@@ -74,17 +75,45 @@ function parsePayments(payload: unknown): PaymentRecord[] {
     };
   });
 }
- 
+
+function parseLeaseOptions(payload: unknown): LeaseOption[] {
+  return rows(payload)
+    .filter((record) => {
+      const status = asString(record.status).toLowerCase();
+      return status !== "ended" && status !== "terminated";
+    })
+    .map((record) => {
+      const tenant = toRecord(record.tenant);
+      const property = toRecord(record.property);
+      const unit = toRecord(record.unit);
+      const tenantName = asString(tenant.name);
+      const propertyName = asString(property.name);
+      const unitNumber = asString(unit.unit_number);
+
+      return {
+        id: asNumber(record.id),
+        label: [
+          tenantName || `Lease #${asNumber(record.id)}`,
+          unitNumber ? `· ${unitNumber}` : "",
+          propertyName ? `· ${propertyName}` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      };
+    })
+    .filter((lease) => lease.id > 0);
+}
+
 /* ------------------------------------------------------------------ */
 /*  RECORD PAYMENT DRAWER                                               */
 /* ------------------------------------------------------------------ */
- 
+
 interface RecordDrawerProps {
-  leases: { id: number; label: string }[];
+  leases: LeaseOption[];
   onClose: () => void;
   onCreated: () => void;
 }
- 
+
 function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) {
   const [leaseId, setLeaseId] = useState(
     leases.length > 0 ? String(leases[0].id) : ""
@@ -97,24 +126,24 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
- 
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
- 
+
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
- 
+
   const valid = leaseId.length > 0 && Number(amount) > 0 && date.length > 0;
- 
+
   async function handleSubmit() {
     if (!valid || saving) return;
- 
+
     setSaving(true);
     setError("");
- 
+
     try {
       await apiRequest("/payments", {
         method: "POST",
@@ -129,7 +158,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
           notes: notes.trim() || null,
         }),
       });
- 
+
       onCreated();
     } catch (cause) {
       setError(
@@ -139,7 +168,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
       setSaving(false);
     }
   }
- 
+
   return (
     <div
       className="mg-drawer"
@@ -168,7 +197,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
             <X />
           </button>
         </div>
- 
+
         <div className="mg-drawer__body">
           {error && (
             <div className="mg-alert" role="alert">
@@ -176,7 +205,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
               <span>{error}</span>
             </div>
           )}
- 
+
           <div className="mg-field">
             <label className="mg-label" htmlFor="pm-lease">
               Lease
@@ -194,7 +223,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
               ))}
             </select>
           </div>
- 
+
           <div className="mg-grid2">
             <div className="mg-field">
               <label className="mg-label" htmlFor="pm-amount">
@@ -210,7 +239,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
                 placeholder="45000"
               />
             </div>
- 
+
             <div className="mg-field">
               <label className="mg-label" htmlFor="pm-date">
                 Payment date
@@ -224,7 +253,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
               />
             </div>
           </div>
- 
+
           <div className="mg-grid2">
             <div className="mg-field">
               <label className="mg-label" htmlFor="pm-method">
@@ -243,7 +272,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
                 <option value="other">Other</option>
               </select>
             </div>
- 
+
             <div className="mg-field">
               <label className="mg-label" htmlFor="pm-type">
                 Type
@@ -261,7 +290,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
               </select>
             </div>
           </div>
- 
+
           <div className="mg-field">
             <label className="mg-label" htmlFor="pm-ref">
               Reference
@@ -274,7 +303,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
               placeholder="M-PESA code, slip or receipt number"
             />
           </div>
- 
+
           <div className="mg-field">
             <label className="mg-label" htmlFor="pm-notes">
               Notes
@@ -288,7 +317,7 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
             />
           </div>
         </div>
- 
+
         <div className="mg-drawer__foot">
           <button type="button" className="mg-btn mg-btn--subtle" onClick={onClose}>
             Cancel
@@ -307,29 +336,35 @@ function RecordPaymentDrawer({ leases, onClose, onCreated }: RecordDrawerProps) 
     </div>
   );
 }
- 
+
 /* ------------------------------------------------------------------ */
 /*  PAGE                                                                */
 /* ------------------------------------------------------------------ */
- 
+
 function ManagerPaymentsPage() {
   const currency = useMemo(readCurrency, []);
- 
+
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [leaseOptions, setLeaseOptions] = useState<LeaseOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
   const [range, setRange] = useState("90");
   const [drawer, setDrawer] = useState(false);
- 
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
- 
+
     try {
-      const payload = await apiRequest("/payments");
-      setPayments(parsePayments(payload));
+      const [paymentsPayload, leasesPayload] = await Promise.all([
+        apiRequest("/payments"),
+        apiRequest("/leases"),
+      ]);
+
+      setPayments(parsePayments(paymentsPayload));
+      setLeaseOptions(parseLeaseOptions(leasesPayload));
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not load payments."
@@ -338,47 +373,47 @@ function ManagerPaymentsPage() {
       setLoading(false);
     }
   }, []);
- 
+
   useEffect(() => {
     void load();
   }, [load]);
- 
+
   const inRange = useCallback(
     (payment: PaymentRecord) => {
       const selected = RANGES.find((item) => item.id === range);
       if (!selected || selected.days === 0) return true;
- 
+
       const age = daysBetween(payment.payment_date);
       return age === null || Math.abs(age) <= selected.days;
     },
     [range]
   );
- 
+
   const scoped = useMemo(
     () => payments.filter(inRange),
     [payments, inRange]
   );
- 
+
   const counts = useMemo(() => {
     const byType: Record<string, number> = { all: scoped.length };
- 
+
     TYPES.slice(1).forEach((value) => {
       byType[value] = scoped.filter(
         (payment) => payment.payment_type === value
       ).length;
     });
- 
+
     return byType;
   }, [scoped]);
- 
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
- 
+
     return scoped
       .filter((payment) => {
         if (type !== "all" && payment.payment_type !== type) return false;
         if (!needle) return true;
- 
+
         return [
           payment.tenant?.name ?? "",
           payment.property?.name ?? "",
@@ -392,7 +427,7 @@ function ManagerPaymentsPage() {
       })
       .sort((a, b) => (a.payment_date ?? "") < (b.payment_date ?? "") ? 1 : -1);
   }, [scoped, type, query]);
- 
+
   const totals = useMemo(() => {
     const collected = scoped.reduce((sum, payment) => sum + payment.amount, 0);
     const rent = scoped
@@ -401,7 +436,7 @@ function ManagerPaymentsPage() {
     const deposits = scoped
       .filter((payment) => payment.payment_type === "deposit")
       .reduce((sum, payment) => sum + payment.amount, 0);
- 
+
     return {
       collected,
       rent,
@@ -410,30 +445,12 @@ function ManagerPaymentsPage() {
       average: scoped.length > 0 ? Math.round(collected / scoped.length) : 0,
     };
   }, [scoped]);
- 
-  const leaseOptions = useMemo(() => {
-    const map = new Map<number, string>();
- 
-    payments.forEach((payment) => {
-      if (payment.lease_id === 0) return;
-      const label = [
-        payment.tenant?.name ?? `Lease #${payment.lease_id}`,
-        payment.unit ? `· ${payment.unit.unit_number}` : "",
-        payment.property ? `· ${payment.property.name}` : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      map.set(payment.lease_id, label);
-    });
- 
-    return Array.from(map, ([id, label]) => ({ id, label }));
-  }, [payments]);
- 
+
   return (
     <DashboardLayout>
       <div className="mg-root">
         <style>{managerStyles}</style>
- 
+
         <div className="mg-shell">
           <header className="mg-header">
             <div>
@@ -448,7 +465,7 @@ function ManagerPaymentsPage() {
                 are separated so your rent collection stays honest.
               </p>
             </div>
- 
+
             <div className="mg-actions">
               <button
                 type="button"
@@ -459,7 +476,7 @@ function ManagerPaymentsPage() {
                 <RefreshCw className={loading ? "mg-spin" : undefined} />
                 Refresh
               </button>
- 
+
               <button
                 type="button"
                 className="mg-btn mg-btn--primary"
@@ -471,14 +488,14 @@ function ManagerPaymentsPage() {
               </button>
             </div>
           </header>
- 
+
           {error && (
             <div className="mg-alert" role="alert">
               <AlertCircle />
               <span>{error}</span>
             </div>
           )}
- 
+
           <section className="mg-stats" aria-label="Collection summary">
             <article className="mg-stat">
               <p className="mg-stat__label">Collected</p>
@@ -510,7 +527,7 @@ function ManagerPaymentsPage() {
               </p>
             </article>
           </section>
- 
+
           <div className="mg-toolbar">
             <div className="mg-search">
               <Search />
@@ -526,7 +543,7 @@ function ManagerPaymentsPage() {
                 placeholder="Search by tenant, unit, reference or method…"
               />
             </div>
- 
+
             <div className="mg-field" style={{ flex: "0 0 12rem" }}>
               <label className="mg-label" htmlFor="pm-range" hidden>
                 Period
@@ -544,7 +561,7 @@ function ManagerPaymentsPage() {
                 ))}
               </select>
             </div>
- 
+
             <div className="mg-chips" role="group" aria-label="Filter by type">
               {TYPES.map((value) => (
                 <button
@@ -560,7 +577,7 @@ function ManagerPaymentsPage() {
               ))}
             </div>
           </div>
- 
+
           <section className="mg-panel">
             <div className="mg-panel__head">
               <h2 className="mg-panel__title">
@@ -571,7 +588,7 @@ function ManagerPaymentsPage() {
                 {visible.length} of {payments.length}
               </span>
             </div>
- 
+
             {loading ? (
               <div className="mg-panel__body">
                 {[0, 1, 2, 3].map((key) => (
@@ -665,7 +682,7 @@ function ManagerPaymentsPage() {
             )}
           </section>
         </div>
- 
+
         {drawer && (
           <RecordPaymentDrawer
             leases={leaseOptions}
@@ -680,5 +697,5 @@ function ManagerPaymentsPage() {
     </DashboardLayout>
   );
 }
- 
+
 export default ManagerPaymentsPage;
