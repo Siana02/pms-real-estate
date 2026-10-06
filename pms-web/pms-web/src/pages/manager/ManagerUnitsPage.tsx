@@ -5,6 +5,7 @@ import {
   Building2,
   DoorOpen,
   Plus,
+  Pencil,
   RefreshCw,
   Search,
   Wrench,
@@ -43,6 +44,7 @@ interface UnitRecord {
   tenant: { id: number; name: string } | null;
   lease_end_date: string | null;
   open_maintenance_requests: number;
+  description: string;
 }
  
 const STATUSES = ["all", "occupied", "vacant", "maintenance"];
@@ -62,6 +64,7 @@ function parseUnits(payload: unknown): UnitRecord[] {
     tenant: namedRef(record.tenant, "name"),
     lease_end_date: asString(record.lease_end_date) || null,
     open_maintenance_requests: asNumber(record.open_maintenance_requests),
+    description: asString(record.description),
   }));
 }
  
@@ -78,15 +81,17 @@ function statusBadge(status: string): string {
 interface AddUnitDrawerProps {
   properties: { id: number; name: string }[];
   lockedPropertyId: number | null;
+  editingUnit?: UnitRecord | null;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }
  
 function AddUnitDrawer({
   properties,
   lockedPropertyId,
+  editingUnit,
   onClose,
-  onCreated,
+  onSaved,
 }: AddUnitDrawerProps) {
   const [propertyId, setPropertyId] = useState(
     lockedPropertyId
@@ -95,11 +100,12 @@ function AddUnitDrawer({
       ? String(properties[0].id)
       : ""
   );
-  const [unitNumber, setUnitNumber] = useState("");
-  const [unitType, setUnitType] = useState("");
-  const [rent, setRent] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("vacant");
+  const [unitNumber, setUnitNumber] = useState(editingUnit?.unit_number ?? "");
+  const [unitType, setUnitType] = useState(editingUnit?.unit_type ?? "");
+  const [rent, setRent] = useState(editingUnit ? String(editingUnit.monthly_rent) : "");
+  const [deposit, setDeposit] = useState(editingUnit ? String(editingUnit.deposit_amount) : "");
+  const [description, setDescription] = useState(editingUnit?.description ?? "");
+  const [status, setStatus] = useState(editingUnit?.status || "vacant");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
  
@@ -117,7 +123,10 @@ function AddUnitDrawer({
   }, [onClose]);
  
   const valid =
-    propertyId.length > 0 && unitNumber.trim().length > 0 && Number(rent) > 0;
+    propertyId.length > 0 &&
+    unitNumber.trim().length > 0 &&
+    Number(rent) >= 0 &&
+    Number(deposit) >= 0;
  
   async function handleSubmit() {
     if (!valid || saving) return;
@@ -126,20 +135,24 @@ function AddUnitDrawer({
     setError("");
  
     try {
-      await apiRequest("/units", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          property_id: Number(propertyId),
-          unit_number: unitNumber.trim(),
-          unit_type: unitType.trim() || null,
-          monthly_rent: Number(rent),
-          description: description.trim() || null,
-          status,
-        }),
-      });
+      await apiRequest(
+        editingUnit ? "/units/" + editingUnit.id : "/units",
+        {
+          method: editingUnit ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            property_id: Number(propertyId),
+            unit_number: unitNumber.trim(),
+            unit_type: unitType.trim() || null,
+            monthly_rent: Number(rent),
+            deposit_amount: Number(deposit),
+            description: description.trim() || null,
+            status,
+          }),
+        }
+      );
  
-      onCreated();
+      onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not add the unit.");
     } finally {
@@ -161,11 +174,12 @@ function AddUnitDrawer({
         <div className="mg-drawer__head">
           <div>
             <h2 className="mg-drawer__title">
-              {lockedProperty ? `Add a unit to ${lockedProperty.name}` : "Add a unit"}
+              {editingUnit ? `Edit unit ${editingUnit.unit_number}` : lockedProperty ? `Add a unit to ${lockedProperty.name}` : "Add a unit"}
             </h2>
             <p className="mg-drawer__sub">
-              Units always belong to a property and carry the rent a lease is
-              written against.
+              {editingUnit
+                ? "Update the standard pricing and details for this unit."
+                : "Units always belong to a property and carry the standard pricing a lease will use by default."}
             </p>
           </div>
           <button
@@ -190,11 +204,11 @@ function AddUnitDrawer({
             <label className="mg-label" htmlFor="un-property">
               Property
             </label>
-            {lockedProperty ? (
+            {editingUnit || lockedProperty ? (
               <input
                 id="un-property"
                 className="mg-input"
-                value={lockedProperty.name}
+                value={(editingUnit ? editingUnit.property?.name : lockedProperty?.name) || "Current property"}
                 disabled
                 readOnly
               />
@@ -213,8 +227,7 @@ function AddUnitDrawer({
               </select>
             )}
             <p className="mg-hint">
-              Every unit must sit under an existing property — add a
-              property first if you don&apos;t see it listed.
+              The property stays unchanged when editing a unit.
             </p>
           </div>
  
@@ -263,7 +276,25 @@ function AddUnitDrawer({
                 placeholder="45000"
               />
               <p className="mg-hint">
-                The default rent a lease on this unit will use.
+                The standard rent a new lease will use unless a lease-specific amount is agreed.
+              </p>
+            </div>
+ 
+            <div className="mg-field">
+              <label className="mg-label" htmlFor="un-deposit">
+                Standard deposit
+              </label>
+              <input
+                id="un-deposit"
+                className="mg-input"
+                type="number"
+                min="0"
+                value={deposit}
+                onChange={(event) => setDeposit(event.target.value)}
+                placeholder="45000"
+              />
+              <p className="mg-hint">
+                The standard deposit expected for this unit.
               </p>
             </div>
  
@@ -312,8 +343,8 @@ function AddUnitDrawer({
             onClick={() => void handleSubmit()}
             disabled={!valid || saving}
           >
-            <Plus />
-            {saving ? "Adding…" : "Add unit"}
+            {editingUnit ? <Pencil /> : <Plus />}
+            {saving ? "Saving…" : editingUnit ? "Save changes" : "Add unit"}
           </button>
         </div>
       </div>
@@ -340,6 +371,7 @@ function ManagerUnitsPage() {
   const [status, setStatus] = useState("all");
   const [drawer, setDrawer] = useState(false);
   const [drawerPropertyId, setDrawerPropertyId] = useState<number | null>(null);
+  const [editingUnit, setEditingUnit] = useState<UnitRecord | null>(null);
  
   const propertyFilter = params.get("property") ?? "";
  
@@ -374,7 +406,14 @@ function ManagerUnitsPage() {
   }, [load]);
  
   function openAddUnit(propertyId: number | null) {
+    setEditingUnit(null);
     setDrawerPropertyId(propertyId);
+    setDrawer(true);
+  }
+
+  function openEditUnit(unit: UnitRecord) {
+    setEditingUnit(unit);
+    setDrawerPropertyId(unit.property?.id ?? null);
     setDrawer(true);
   }
  
@@ -674,6 +713,7 @@ function ManagerUnitsPage() {
                             Rent
                           </th>
                           <th scope="col">Status</th>
+                          <th scope="col" aria-label="Actions"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -719,6 +759,17 @@ function ManagerUnitsPage() {
                                 </span>
                               )}
                             </td>
+                            <td data-label="Actions" className="mg-num">
+                              <button
+                                type="button"
+                                className="mg-iconbtn"
+                                onClick={() => openEditUnit(unit)}
+                                aria-label={"Edit unit " + unit.unit_number}
+                                title="Edit unit"
+                              >
+                                <Pencil />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -734,9 +785,14 @@ function ManagerUnitsPage() {
           <AddUnitDrawer
             properties={properties}
             lockedPropertyId={drawerPropertyId}
-            onClose={() => setDrawer(false)}
-            onCreated={() => {
+            editingUnit={editingUnit}
+            onClose={() => {
               setDrawer(false);
+              setEditingUnit(null);
+            }}
+            onSaved={() => {
+              setDrawer(false);
+              setEditingUnit(null);
               void load();
             }}
           />
