@@ -76,7 +76,7 @@ class LeaseProvisioner
                 'requested_move_out_date' => $requestedEnd,
                 'end_date' => null,
                 'monthly_rent' => $unit->monthly_rent,
-                'deposit_amount' => $unit->monthly_rent,
+                'deposit_amount' => $unit->deposit_amount,
                 'status' => 'pending',
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
@@ -86,7 +86,7 @@ class LeaseProvisioner
                 'organization_id' => $organizationId,
                 'lease_id' => $lease->id,
                 'tenant_id' => $tenant->id,
-                'amount_required' => $unit->monthly_rent,
+                'amount_required' => $unit->deposit_amount,
                 'amount_paid' => 0,
                 'status' => 'unpaid',
             ]);
@@ -148,7 +148,7 @@ class LeaseProvisioner
                 $data['monthly_rent'],
                 $startDate,
                 $endDate,
-                $data['deposit_amount'] ?? $unit->monthly_rent
+                $data['deposit_amount'] ?? $unit->deposit_amount
             );
 
             $lease = Leases::create([
@@ -445,7 +445,7 @@ class LeaseProvisioner
             "Next of kin: " . ($tenant->next_of_kin_name ?: 'Not provided'),
             "Next of kin phone: " . ($tenant->next_of_kin_phone ?: 'Not provided'),
             'Monthly rent (unit default): ' . number_format((float) $monthlyRent, 2),
-            'Security deposit (default): ' . number_format((float) $monthlyRent, 2),
+            'Security deposit (default): ' . number_format((float) $unit->deposit_amount, 2),
             'Requested lease start: ' . ($requestedStart ?: 'Not provided'),
             'Requested lease end: ' . ($requestedEnd ?: 'Open-ended / to be confirmed'),
             '',
