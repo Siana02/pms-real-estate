@@ -41,6 +41,7 @@ class PropertyController extends Controller
             'units.*.unit_type' => 'nullable|string|max:255',
             'units.*.status' => 'required|in:vacant,occupied,reserved,maintenance',
             'units.*.monthly_rent' => 'nullable|numeric|min:0',
+            'units.*.deposit_amount' => 'nullable|numeric|min:0',
             'units.*.description' => 'nullable|string',
 
             'units.*.tenant' => 'nullable|array',
@@ -78,6 +79,7 @@ class PropertyController extends Controller
                     'unit_number' => $payload['unit_number'],
                     'unit_type' => $payload['unit_type'] ?? null,
                     'monthly_rent' => $payload['monthly_rent'] ?? 0,
+                    'deposit_amount' => $payload['deposit_amount'] ?? ($payload['monthly_rent'] ?? 0),
                     'status' => $payload['status'],
                     'description' => $payload['description'] ?? null,
                 ]);
