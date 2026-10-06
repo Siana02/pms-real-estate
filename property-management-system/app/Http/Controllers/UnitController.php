@@ -26,7 +26,7 @@ class UnitController extends Controller
             })
             ->whereDoesntHave('tenants', fn ($query) => $query->where('status', 'pending'))
             ->orderBy('unit_number')
-            ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent']);
+            ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent', 'deposit_amount']);
 
         return response()->json($units);
     }
@@ -162,6 +162,7 @@ class UnitController extends Controller
             'unit_number' => 'required|string|max:255',
             'unit_type' => 'nullable|string|max:255',
             'monthly_rent' => 'required|numeric|min:0',
+            'deposit_amount' => 'nullable|numeric|min:0',
             'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
@@ -198,6 +199,7 @@ class UnitController extends Controller
             'unit_number' => 'sometimes|required|string|max:255',
             'unit_type' => 'nullable|string|max:255',
             'monthly_rent' => 'sometimes|required|numeric|min:0',
+            'deposit_amount' => 'sometimes|required|numeric|min:0',
             'status' => 'nullable|in:vacant,occupied,reserved,maintenance',
             'description' => 'nullable|string',
         ]);
