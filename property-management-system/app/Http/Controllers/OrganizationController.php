@@ -74,6 +74,8 @@ class OrganizationController extends Controller
         }
 
         $response = response()->file($disk->path($organization->logo_path));
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
 
         if ($origin = request()->header('Origin')) {
             $allowedOrigin = config('cors.allowed_origins', []);
