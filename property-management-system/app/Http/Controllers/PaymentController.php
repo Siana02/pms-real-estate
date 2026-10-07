@@ -52,6 +52,7 @@ class PaymentController extends Controller
 
     public function show(Request $request, Payment $payment)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $this->authorizeOrganization($request, $payment);
 
         return response()->json(
