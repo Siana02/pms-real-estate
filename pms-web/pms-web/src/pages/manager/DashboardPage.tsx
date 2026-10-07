@@ -1136,18 +1136,25 @@ function DashboardPage() {
                     </p>
                   </button>
 
-                  <button type="button" className="manager-dashboard__card manager-dashboard__stat manager-dashboard__stat--button" onClick={() => navigate("/manager/payments")} aria-label="Open payments">
-                    <div>
-                      <span className="manager-dashboard__stat-icon"><CheckCircle2 /></span>
-                      <p className="manager-dashboard__stat-label">Net monthly revenue</p>
-                      <p className="manager-dashboard__stat-value">
-                        {money(stats?.net_revenue ?? 0, currency)}
-                      </p>
+                  {canViewFinancials ? (
+                    <button type="button" className="manager-dashboard__card manager-dashboard__stat manager-dashboard__stat--button" onClick={() => navigate("/manager/payments")} aria-label="Open payments">
+                      <div>
+                        <span className="manager-dashboard__stat-icon"><CheckCircle2 /></span>
+                        <p className="manager-dashboard__stat-label">Net monthly revenue</p>
+                        <p className="manager-dashboard__stat-value">{money(stats?.net_revenue ?? 0, currency)}</p>
+                      </div>
+                      <p className="manager-dashboard__stat-note">Financial overview</p>
+                    </button>
+                  ) : (
+                    <div className="manager-dashboard__card manager-dashboard__stat">
+                      <div>
+                        <span className="manager-dashboard__stat-icon"><CheckCircle2 /></span>
+                        <p className="manager-dashboard__stat-label">Financial overview</p>
+                        <p className="manager-dashboard__stat-value">Restricted</p>
+                      </div>
+                      <p className="manager-dashboard__stat-note">Owner/admin only</p>
                     </div>
-                    <p className="manager-dashboard__stat-note">
-                      {money(stats?.cash_collected_this_month ?? 0, currency)} collected this month
-                    </p>
-                  </button>
+                  )}
                 </section>
 
                 <section className="manager-dashboard__split">
