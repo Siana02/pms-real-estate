@@ -170,6 +170,7 @@ const styles = `
 /* ---------- nav ---------- */
 .sb-nav {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
@@ -188,6 +189,7 @@ const styles = `
  
 .sb-link {
   position: relative;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -195,9 +197,9 @@ const styles = `
   padding: 0.55rem 0.7rem;
   border: 0;
   border-radius: 0;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: #77828d;
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: #4b5865;
   transition: color 0.2s ease, background-color 0.2s ease,
     border-color 0.2s ease;
 }
@@ -210,14 +212,14 @@ const styles = `
 }
  
 .sb-link:hover {
-  color: #26313c;
+  color: #172b3f;
   background: #f6f7f7;
 }
  
 .sb-link--active {
   position: relative;
   border: 0;
-  background: transparent;
+  background: #f5f7f8;
   color: #172b3f;
   font-weight: 650;
 }
