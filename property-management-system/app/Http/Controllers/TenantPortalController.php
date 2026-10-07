@@ -773,8 +773,8 @@ class TenantPortalController extends Controller
             'end_date' => $lease->end_date?->toDateString(),
             'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
             'requested_move_out_date' => $lease->requested_move_out_date?->toDateString(),
-            'monthly_rent' => $monthlyRent,
-            'deposit_amount' => $depositAmount,
+            'monthly_rent' => number_format($monthlyRent, 2, '.', ''),
+            'deposit_amount' => number_format($depositAmount, 2, '.', ''),
             'rent_due_day' => 5,
             'organization' => $organization ? [
                 'id' => $organization->id,
