@@ -76,17 +76,22 @@ class LeaseProvisioner
                 'requested_move_out_date' => $requestedEnd,
                 'end_date' => null,
                 'monthly_rent' => $unit->monthly_rent,
-                'deposit_amount' => $unit->deposit_amount,
+                'deposit_amount' => ((float) $unit->deposit_amount > 0 ? $unit->deposit_amount : $unit->monthly_rent),
                 'status' => 'pending',
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
+            ]);
+
+            DB::table('leases')->where('id', $lease->id)->update([
+                'requested_move_in_date' => $requestedStart,
+                'requested_move_out_date' => $requestedEnd,
             ]);
 
             Deposit::create([
                 'organization_id' => $organizationId,
                 'lease_id' => $lease->id,
                 'tenant_id' => $tenant->id,
-                'amount_required' => $unit->deposit_amount,
+                'amount_required' => ((float) $unit->deposit_amount > 0 ? $unit->deposit_amount : $unit->monthly_rent),
                 'amount_paid' => 0,
                 'status' => 'unpaid',
             ]);
