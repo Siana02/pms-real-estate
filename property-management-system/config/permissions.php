@@ -27,6 +27,16 @@ return [
         'requests.manage' => ['Administration', 'Review employee requests'],
         'requests.create' => ['Operations', 'Create requests for owner review'],
     ],
+    'employee_grantable' => [
+        'properties.manage',
+        'units.manage',
+        'tenants.manage',
+        'leases.manage',
+        'maintenance.manage',
+        'payments.record',
+        'requests.create',
+    ],
+
     'role_defaults' => [
         'property_manager' => [
             'properties.manage', 'units.manage', 'tenants.manage', 'leases.manage',
