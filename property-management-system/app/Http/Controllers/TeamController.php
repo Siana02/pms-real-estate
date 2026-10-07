@@ -138,6 +138,7 @@ class TeamController extends Controller
         $this->authorizeEmployee($request, $user);
 
         abort_if($user->status === 'deactivated', 422, 'This employee is already deactivated.');
+        abort_if($user->status === 'invited', 422, 'Pending invitations should be resent or allowed to expire rather than deactivated.');
 
         $user->update(['status' => 'deactivated']);
         $user->tokens()->delete();
