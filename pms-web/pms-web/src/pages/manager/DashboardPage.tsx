@@ -842,13 +842,13 @@ type DashboardStats = {
   occupancy: number;
   active_tenants: number;
   active_leases: number;
-  monthly_rent: number;
-  monthly_revenue: number;
-  monthly_maintenance: number;
-  monthly_expenses: number;
-  net_revenue: number;
-  idle_rent: number;
-  committed_maintenance: number;
+  monthly_rent?: number | null;
+  monthly_revenue?: number | null;
+  monthly_maintenance?: number | null;
+  monthly_expenses?: number | null;
+  net_revenue?: number | null;
+  idle_rent?: number | null;
+  committed_maintenance?: number | null;
 };
 
 type RevenuePoint = { label: string; value: number };
@@ -862,8 +862,8 @@ type PropertyRecord = {
   occupied_units: number;
   vacant_units: number;
   active_tenants: number;
-  monthly_revenue: number;
-  potential_monthly_revenue: number;
+  monthly_revenue?: number | null;
+  potential_monthly_revenue?: number | null;
   occupancy: number;
 };
 
@@ -889,6 +889,7 @@ type MaintenanceItem = {
 type DashboardPayload = {
   organization: Organization;
   stats: DashboardStats;
+  can_view_financials: boolean;
   revenue_trend: RevenuePoint[];
   maintenance: {
     needs_action: number;
@@ -988,6 +989,7 @@ function DashboardPage() {
   const currency = organization?.currency || "KES";
   const stats = dashboard?.stats;
   const maintenance = dashboard?.maintenance;
+  const canViewFinancials = dashboard?.can_view_financials === true;
 
   const filteredProperties = useMemo(() => {
     const needle = propertySearch.trim().toLowerCase();
