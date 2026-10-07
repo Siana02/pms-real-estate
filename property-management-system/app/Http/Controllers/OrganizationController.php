@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\Property;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Services\PermissionService;
 
 class OrganizationController extends Controller
 {
@@ -26,6 +27,7 @@ class OrganizationController extends Controller
 
     public function uploadLogo(Request $request)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'organization.branding'), 403, 'Only the owner or administrator can manage organization branding.');
         $request->validate([
             'logo' => ['required', 'file', 'image', 'mimes:png,jpg,jpeg,svg', 'max:512'],
         ]);
@@ -49,6 +51,7 @@ class OrganizationController extends Controller
 
     public function removeLogo(Request $request)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'organization.branding'), 403, 'Only the owner or administrator can manage organization branding.');
         $organization = $request->user()->organization;
         abort_if($organization === null, 404, 'Organization not found.');
 
