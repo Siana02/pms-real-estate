@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Building2, CheckCircle2, Smartphone } from "lucide-react";
-import { ApiError, apiRequest } from "../../services/api";
+import { ApiError, apiRequest } from "../services/api";
 
 type Props = { role: string };
 
