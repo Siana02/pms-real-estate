@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Leases as Lease;
 
@@ -10,6 +11,7 @@ class Organization extends Model
 {
     protected $fillable = [
         'name',
+        'owner_user_id',
         'username',
         'email',
         'phone',
@@ -26,6 +28,14 @@ class Organization extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * The primary owner who created and controls this organization.
+     */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
     }
 
     /**
