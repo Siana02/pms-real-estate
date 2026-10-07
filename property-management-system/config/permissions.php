@@ -30,12 +30,12 @@ return [
     'role_defaults' => [
         'property_manager' => [
             'properties.manage', 'units.manage', 'tenants.manage', 'leases.manage',
-            'maintenance.manage', 'payments.view', 'payments.record', 'expenses.manage',
+            'maintenance.manage', 'payments.record',
             'requests.create',
         ],
         'staff' => [
             'properties.manage', 'units.manage', 'tenants.manage', 'leases.manage',
-            'maintenance.manage', 'payments.view', 'payments.record', 'expenses.manage',
+            'maintenance.manage', 'payments.record',
             'requests.create',
         ],
         'tenant' => [],
