@@ -16,6 +16,7 @@ use App\Http\Controllers\TenantNotificationController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\EmployeeRequestController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -50,6 +51,9 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('team/{user}/permissions', [PermissionController::class, 'user']);
     Route::patch('team/{user}/permissions', [PermissionController::class, 'update']);
     Route::get('audit-logs', [AuditLogController::class, 'index']);
+    Route::get('requests', [EmployeeRequestController::class, 'index']);
+    Route::post('requests', [EmployeeRequestController::class, 'store']);
+    Route::patch('requests/{employeeRequest}', [EmployeeRequestController::class, 'update']);
     Route::apiResource('organizations', OrganizationController::class)->except(['index']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
