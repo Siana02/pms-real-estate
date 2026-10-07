@@ -140,15 +140,22 @@ class LeaseProvisioner
                 $data['status'] ?? null
             );
 
+            $monthlyRent = array_key_exists('monthly_rent', $data) && $data['monthly_rent'] !== null
+                ? (float) $data['monthly_rent']
+                : (float) $unit->monthly_rent;
+            $depositAmount = array_key_exists('deposit_amount', $data) && $data['deposit_amount'] !== null
+                ? (float) $data['deposit_amount']
+                : (float) $unit->deposit_amount;
+
             $agreement = $this->buildAgreementTemplate(
                 $organizationId,
                 $property,
                 $unit,
                 $tenant,
-                $data['monthly_rent'],
+                $monthlyRent,
                 $startDate,
                 $endDate,
-                $data['deposit_amount'] ?? $unit->deposit_amount
+                $depositAmount
             );
 
             $lease = Leases::create([
@@ -158,15 +165,15 @@ class LeaseProvisioner
                 'tenant_id' => $tenant->id,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
-                'monthly_rent' => $data['monthly_rent'],
-                'deposit_amount' => $data['deposit_amount'] ?? $unit->deposit_amount,
+                'monthly_rent' => $monthlyRent,
+                'deposit_amount' => $depositAmount,
                 'status' => $status,
                 'notes' => $data['notes'] ?? null,
                 'manager_terms' => $agreement,
                 'tenant_terms' => $agreement,
             ]);
 
-            $amountRequired = (float) ($data['deposit_amount'] ?? $unit->deposit_amount);
+            $amountRequired = $depositAmount;
             $amountPaid = (float) ($data['deposit_paid_amount'] ?? (
                 filter_var($data['deposit_paid'] ?? false, FILTER_VALIDATE_BOOL)
                     ? $amountRequired
