@@ -123,7 +123,7 @@ class UnitController extends Controller
                 'organization_id',
                 $request->user()->organization_id
             );
-        })->with(['property', 'leases.tenant', 'tenants'])->get();
+        })->with(['property', 'leases.tenant', 'leases.deposit.tenant', 'tenants'])->get();
 
         $today = CarbonImmutable::today()->toDateString();
         $units->each(function (Unit $unit) use ($today) {
@@ -168,7 +168,10 @@ class UnitController extends Controller
                 $status = 'vacant';
             }
 
-            $displayTenant = $displayLease?->tenant;
+            // The canonical tenant can be attached directly to the lease, or (for
+            // older records) through the lease deposit. Tenant names are stored as
+            // first_name/last_name, not as a single "name" column.
+            $displayTenant = $displayLease?->tenant ?? $displayLease?->deposit?->tenant;
 
             // Older pending registrations may exist before a lease is created.
             // They can still make a unit reserved, but must not be presented as
@@ -180,7 +183,10 @@ class UnitController extends Controller
             $unit->setAttribute('status', $status);
             $unit->setAttribute('tenant', $displayTenant ? [
                 'id' => $displayTenant->id,
-                'name' => $displayTenant->name,
+                'name' => trim(implode(' ', array_filter([
+                    $displayTenant->first_name ?? null,
+                    $displayTenant->last_name ?? null,
+                ]))) ?: ($displayTenant->name ?? $displayTenant->email ?? 'Tenant'),
             ] : null);
             $unit->setAttribute('lease_end_date', $displayLease?->end_date?->toDateString());
             $unit->setAttribute('pending_registration', $pendingTenant !== null);
