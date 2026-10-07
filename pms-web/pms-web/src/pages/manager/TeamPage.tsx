@@ -10,7 +10,6 @@ type Employee = {
   last_active_at: string | null; invited_at: string | null; invitation_expires_at: string | null;
 };
 type ApiResponse = { data?: Employee[]; message?: string; invitation_url?: string; email_sent?: boolean };
-const ROLE_LABELS: Record<Employee["role"], string> = { property_manager: "Property Manager", staff: "Staff" };
 const STATUS_LABELS: Record<Employee["status"], string> = { active: "Active", invited: "Invited", suspended: "Suspended", deactivated: "Deactivated" };
 
 const styles = `
