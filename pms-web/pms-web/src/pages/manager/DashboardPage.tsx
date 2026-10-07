@@ -1234,7 +1234,7 @@ function DashboardPage() {
                     </div>
 
                     <p className="manager-dashboard__occupancy-copy">
-                      {stats?.occupied_units ?? 0} occupied · {stats?.vacant_units ?? 0} vacant · {money(stats?.idle_rent ?? 0, currency)} idle rent
+                      {stats?.occupied_units ?? 0} occupied · {stats?.vacant_units ?? 0} vacant{canViewFinancials ? ` · ${money(stats?.idle_rent ?? 0, currency)} idle rent` : ""}
                     </p>
 
                     {canViewFinancials && <div className="manager-dashboard__money-list">
@@ -1269,7 +1269,7 @@ function DashboardPage() {
                     <div>
                       <p className="manager-dashboard__section-kicker">Maintenance requests</p>
                       <h2 className="manager-dashboard__panel-title">
-                        {maintenance?.needs_action ?? 0} need action · {money(maintenance?.committed_cost ?? 0, currency)} committed
+                        {maintenance?.needs_action ?? 0} need action{canViewFinancials ? ` · ${money(maintenance?.committed_cost ?? 0, currency)} committed` : ""}
                       </h2>
                     </div>
                     <button
@@ -1340,9 +1340,11 @@ function DashboardPage() {
                             )}
 
                             <div className="manager-dashboard__maintenance-footer">
-                              <span className="manager-dashboard__maintenance-cost">
-                                {money(item.estimated_cost, currency)} estimated
-                              </span>
+                              {canViewFinancials ? (
+                                <span className="manager-dashboard__maintenance-cost">
+                                  {money(item.estimated_cost, currency)} estimated
+                                </span>
+                              ) : null}
 
                               <div className="manager-dashboard__maintenance-actions">
                                 <button
