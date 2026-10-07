@@ -31,6 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
+    Route::get('organization/profile', [OrganizationController::class, 'profile']);
+    Route::post('organization/logo', [OrganizationController::class, 'uploadLogo']);
+    Route::delete('organization/logo', [OrganizationController::class, 'removeLogo']);
     Route::apiResource('organizations', OrganizationController::class)->except(['index']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
