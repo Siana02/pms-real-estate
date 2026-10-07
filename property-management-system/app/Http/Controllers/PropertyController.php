@@ -69,7 +69,7 @@ class PropertyController extends Controller
                 'description' => $validated['description'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'city' => $validated['city'] ?? null,
-                'country' => $validated['country'] ?? null,
+                'country' => $validated['country'] ?? 'Kenya',
                 'monthly_rent' => $validated['monthly_rent'] ?? 0,
             ]);
 
