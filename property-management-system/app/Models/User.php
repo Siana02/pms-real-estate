@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
@@ -12,7 +13,6 @@ use App\Models\Organization;
 use App\Models\Tenant;
 use Laravel\Passkeys\Contracts\PasskeyUser;
 use Laravel\Passkeys\PasskeyAuthenticatable;
-
 
 class User extends Authenticatable implements PasskeyUser
 {
@@ -27,6 +27,8 @@ class User extends Authenticatable implements PasskeyUser
         'email',
         'password',
         'role',
+        'status',
+        'last_active_at',
         'must_change_password',
     ];
 
@@ -35,31 +37,33 @@ class User extends Authenticatable implements PasskeyUser
         'remember_token',
     ];
 
-    /**
-     * The organization this user belongs to.
-     */
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
     }
 
-    /**
-     * The organization this user owns.
-     */
     public function ownedOrganization(): HasOne
     {
         return $this->hasOne(Organization::class, 'owner_user_id');
     }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
-    }   
+    }
+
+    public function teamInvitations(): HasMany
+    {
+        return $this->hasMany(TeamInvitation::class);
+    }
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'must_change_password' => 'boolean',
+            'last_active_at' => 'datetime',
         ];
     }
 }
