@@ -14,6 +14,8 @@ use App\Models\Leases;
 use App\Models\Payment;
 use App\Models\Expense;
 use App\Models\MaintenanceRequest;
+use App\Models\EmployeeRequest;
+use App\Models\User;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        foreach ([Property::class, Unit::class, Tenant::class, Leases::class, Payment::class, Expense::class, MaintenanceRequest::class] as $model) {
+        foreach ([Property::class, Unit::class, Tenant::class, Leases::class, Payment::class, Expense::class, MaintenanceRequest::class, EmployeeRequest::class, User::class] as $model) {
             $model::observe(AuditableObserver::class);
         }
 
