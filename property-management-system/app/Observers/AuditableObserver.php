@@ -54,6 +54,7 @@ class AuditableObserver
             $this->safeValues($model->getOriginal()),
             null
         );
+    }
 
     private function safeValues(array $values): array
     {
