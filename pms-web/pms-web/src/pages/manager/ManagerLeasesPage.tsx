@@ -57,7 +57,12 @@ interface LeaseRecord {
     next_of_kin_phone: string | null;
   } | null;
   property: { id: number; name: string } | null;
-  unit: { id: number; unit_number: string } | null;
+  unit: {
+    id: number;
+    unit_number: string;
+    standard_rent: number;
+    standard_deposit: number;
+  } | null;
   start_date: string | null;
   end_date: string | null;
   requested_move_in_date: string | null;
@@ -356,7 +361,12 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
       : null,
     property: namedRef(record.property, "name"),
     unit: unitNumber
-      ? { id: asNumber(unit.id), unit_number: unitNumber }
+      ? {
+          id: asNumber(unit.id),
+          unit_number: unitNumber,
+          standard_rent: asNumber(unit.monthly_rent),
+          standard_deposit: asNumber(unit.deposit_amount),
+        }
       : null,
     start_date: asString(record.start_date) || null,
     end_date: asString(record.end_date) || null,
@@ -1315,12 +1325,14 @@ function ManagerLeasesPage() {
                       <p className="mg-hint">Tenant requested {formatDate(selectedLease.requested_move_out_date)}.</p>
                     </div>
                     <div className="mg-field">
-                      <label className="mg-label" htmlFor="manager-rent">Monthly rent</label>
+                      <label className="mg-label" htmlFor="manager-rent">Agreed monthly rent</label>
                       <input id="manager-rent" className="mg-input" type="number" min="0" step="0.01" value={managerRentDraft} onChange={(e) => setManagerRentDraft(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                      <p className="mg-hint">Unit standard: {formatMoney(selectedLease.unit?.standard_rent ?? 0, currency)}. Change this only for the agreed price on this lease.</p>
                     </div>
                     <div className="mg-field">
-                      <label className="mg-label" htmlFor="manager-deposit-required">Security deposit required</label>
+                      <label className="mg-label" htmlFor="manager-deposit-required">Agreed security deposit</label>
                       <input id="manager-deposit-required" className="mg-input" type="number" min="0" step="0.01" value={managerDepositRequiredDraft} onChange={(e) => setManagerDepositRequiredDraft(e.target.value)} disabled={Boolean(selectedLease.manager_signed_at)} />
+                      <p className="mg-hint">Unit standard: {formatMoney(selectedLease.unit?.standard_deposit ?? 0, currency)}. This agreed amount is used by the lease's deposit record.</p>
                     </div>
                   </div>
                 </section>
