@@ -392,7 +392,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'tenant_id' => $futureTenant->id,
             'unit_id' => $unit->id,
             'status' => 'pending',
-            'requested_move_in_date' => '2026-10-01',
+            'requested_move_in_date' => $handoverDate,
         ]);
     }
 
