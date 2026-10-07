@@ -10,6 +10,7 @@ import {
   Upload,
 } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import { apiRequest } from "../../services/api";
 import { managerStyles } from "../../styles/managerUI";
 import {
   applyTheme,
@@ -232,12 +233,56 @@ function ManagerSettingsPage() {
  
   const [themeId, setThemeId] = useState(() => readThemeId());
   const [logo, setLogo] = useState<string | null>(() => readBrandLogo());
+  const [savingLogo, setSavingLogo] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
  
   useEffect(() => {
     applyTheme(themeId);
   }, [themeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOrganization() {
+      try {
+        const response = await apiRequest("/organization/profile");
+        if (cancelled || !response || typeof response !== "object") return;
+
+        const organization = response as {
+          id?: number;
+          logo_url?: string | null;
+        };
+
+        if (organization.logo_url !== undefined) {
+          setLogo(organization.logo_url);
+          saveBrandLogo(organization.logo_url);
+        }
+
+        try {
+          const existingRaw =
+            localStorage.getItem("organization") ??
+            sessionStorage.getItem("organization");
+          const existing = existingRaw ? JSON.parse(existingRaw) : {};
+          const next = { ...existing, ...organization };
+
+          localStorage.setItem("organization", JSON.stringify(next));
+          sessionStorage.setItem("organization", JSON.stringify(next));
+          window.dispatchEvent(new CustomEvent("pms:organization"));
+        } catch {
+          // The remote profile remains authoritative.
+        }
+      } catch {
+        // Keep the cached logo if the profile endpoint is unavailable.
+      }
+    }
+
+    void loadOrganization();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
  
   useEffect(() => {
     if (!notice) return;
@@ -252,43 +297,66 @@ function ManagerSettingsPage() {
     setNotice(`${applyTheme(id).name} applied across the portal.`);
   }, []);
  
-  function handleFile(file: File | undefined) {
+  async function handleFile(file: File | undefined) {
     if (!file) return;
- 
+
     setError("");
- 
+
     if (!file.type.startsWith("image/")) {
       setError("That file is not an image. Use a PNG, JPG or SVG logo.");
       return;
     }
- 
+
     if (file.size > MAX_LOGO_BYTES) {
       setError("Logos must be under 512 KB so they load instantly for everyone.");
       return;
     }
- 
-    const reader = new FileReader();
- 
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : null;
-      if (!result) {
-        setError("Could not read that file. Try a different image.");
-        return;
-      }
- 
-      saveBrandLogo(result);
-      setLogo(result);
-      setNotice("Brand logo updated.");
-    };
- 
-    reader.onerror = () => setError("Could not read that file. Try again.");
-    reader.readAsDataURL(file);
+
+    setSavingLogo(true);
+
+    try {
+      const form = new FormData();
+      form.append("logo", file);
+
+      const response = await apiRequest("/organization/logo", {
+        method: "POST",
+        body: form,
+      });
+
+      const organization =
+        response &&
+        typeof response === "object" &&
+        "organization" in response
+          ? (response as { organization?: { logo_url?: string | null } }).organization
+          : undefined;
+
+      const nextLogo = organization?.logo_url ?? null;
+      saveBrandLogo(nextLogo);
+      setLogo(nextLogo);
+      setNotice("Brand logo updated for your organization.");
+      window.dispatchEvent(new CustomEvent("pms:organization"));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not upload the logo.");
+    } finally {
+      setSavingLogo(false);
+    }
   }
- 
-  function removeLogo() {
-    saveBrandLogo(null);
-    setLogo(null);
-    setNotice("Brand logo removed.");
+
+  async function removeLogo() {
+    setError("");
+    setSavingLogo(true);
+
+    try {
+      await apiRequest("/organization/logo", { method: "DELETE" });
+      saveBrandLogo(null);
+      setLogo(null);
+      setNotice("Brand logo removed.");
+      window.dispatchEvent(new CustomEvent("pms:organization"));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not remove the logo.");
+    } finally {
+      setSavingLogo(false);
+    }
   }
  
   return (
@@ -307,8 +375,8 @@ function ManagerSettingsPage() {
               <h1 className="mg-title">Settings</h1>
               <p className="mg-subtitle">
                 Make the portal look like your company. Themes and the brand logo
-                are saved on this device and apply to every manager page
-                immediately.
+                are saved for your organization. The logo is shared across the
+                manager portal and tenant portal.
               </p>
             </div>
           </header>
@@ -405,6 +473,7 @@ function ManagerSettingsPage() {
                     type="button"
                     className="mg-btn mg-btn--primary"
                     onClick={() => fileInput.current?.click()}
+                    disabled={savingLogo}
                   >
                     <Upload />
                     {logo ? "Replace logo" : "Upload logo"}
@@ -414,7 +483,8 @@ function ManagerSettingsPage() {
                     <button
                       type="button"
                       className="mg-btn mg-btn--ghost"
-                      onClick={removeLogo}
+                      onClick={() => void removeLogo()}
+                      disabled={savingLogo}
                     >
                       <Trash2 />
                       Remove
