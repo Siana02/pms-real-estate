@@ -389,7 +389,7 @@ class LeasesController extends Controller
     private function authorizeOrganization(Request $request, Leases $lease)
     {
         abort_if(
-            $lease->organization_id !== $request->user()->organization_id,
+            (int) $lease->organization_id !== (int) $request->user()->organization_id,
             403,
             'You do not have access to this lease.'
         );
