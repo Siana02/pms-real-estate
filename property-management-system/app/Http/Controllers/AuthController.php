@@ -590,13 +590,22 @@ public function usernameAvailable(Request $request)
 
         $user = $request->user();
 
-        $storedPasswordHash = (string) DB::table('users')->where('id', $user->id)->value('password');
-        $passwordMatches = $storedPasswordHash !== '' && Hash::check($validated['current_password'], $storedPasswordHash);
+        // A user who has just authenticated with a manager-issued temporary
+        // password is already authenticated by the token created during that
+        // successful login. Do not make the first-login flow verify the
+        // temporary password a second time. Normal password changes still
+        // require the current password.
+        if (! $user->must_change_password) {
+            $passwordMatches = Hash::check(
+                $validated['current_password'],
+                (string) $user->getRawOriginal('password')
+            );
 
-        if (! $passwordMatches) {
-            return response()->json([
-                'message' => 'Your current password is incorrect.',
-            ], 422);
+            if (! $passwordMatches) {
+                return response()->json([
+                    'message' => 'Your current password is incorrect.',
+                ], 422);
+            }
         }
 
         $user->update([
