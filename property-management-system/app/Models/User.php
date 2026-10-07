@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
@@ -40,6 +41,14 @@ class User extends Authenticatable implements PasskeyUser
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * The organization this user owns.
+     */
+    public function ownedOrganization(): HasOne
+    {
+        return $this->hasOne(Organization::class, 'owner_user_id');
     }
     public function tenant(): BelongsTo
     {
