@@ -514,7 +514,7 @@ public function usernameAvailable(Request $request)
 
         $user = $request->user();
 
-        if (! Hash::check($validated['current_password'], (string) $user->getRawOriginal('password'))) {
+        if (! Hash::check($validated['current_password'], $user->password)) {
             return response()->json([
                 'message' => 'Your current password is incorrect.',
             ], 422);
