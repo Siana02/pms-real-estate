@@ -1230,7 +1230,7 @@ function DashboardPage() {
                       {stats?.occupied_units ?? 0} occupied · {stats?.vacant_units ?? 0} vacant · {money(stats?.idle_rent ?? 0, currency)} idle rent
                     </p>
 
-                    <div className="manager-dashboard__money-list">
+                    {canViewFinancials && <div className="manager-dashboard__money-list">
                       <div className="manager-dashboard__money-row">
                         <span>Rent from occupied units</span>
                         <strong>{money(stats?.monthly_rent ?? 0, currency)}</strong>
@@ -1247,9 +1247,9 @@ function DashboardPage() {
                         <span>Manager revenue</span>
                         <strong>{money(stats?.net_revenue ?? 0, currency)}</strong>
                       </div>
-                    </div>
+                    </div>}
 
-                    {(stats?.committed_maintenance ?? 0) > 0 && (
+                    {canViewFinancials && (stats?.committed_maintenance ?? 0) > 0 && (
                       <p className="manager-dashboard__commitment">
                         {money(stats?.committed_maintenance ?? 0, currency)} of open maintenance is committed. The cost is tracked separately and is not deducted from manager revenue because responsibility may belong to the landlord or tenant.
                       </p>
