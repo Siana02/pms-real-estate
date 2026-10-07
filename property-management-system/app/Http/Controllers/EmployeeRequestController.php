@@ -64,12 +64,12 @@ class EmployeeRequestController extends Controller
             abort_unless(User::where('organization_id',$user->organization_id)->whereKey($validated['assigned_to'])->exists(), 422);
         }
 
-        $item->update([
+        $employeeRequest->update([
             ...$validated,
             'resolved_at' => in_array($validated['status'], ['approved','rejected','resolved'], true) ? now() : null,
             'resolved_by' => in_array($validated['status'], ['approved','rejected','resolved'], true) ? $user->id : null,
         ]);
 
-        return response()->json(['message' => 'Request updated.', 'request' => $item->fresh()->load(['creator','assignee'])]);
+        return response()->json(['message' => 'Request updated.', 'request' => $employeeRequest->fresh()->load(['creator','assignee'])]);
     }
 }
