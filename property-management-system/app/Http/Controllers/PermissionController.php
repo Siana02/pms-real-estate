@@ -23,6 +23,7 @@ class PermissionController extends Controller
 
     public function user(Request $request, User $user)
     {
+        abort_unless(in_array($request->user()->role, ['admin', 'owner'], true), 403);
         $this->authorizeEmployee($request, $user);
 
         return response()->json([
