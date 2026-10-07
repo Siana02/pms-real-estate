@@ -16,8 +16,11 @@ class PermissionController extends Controller
         app(PermissionService::class)::syncCatalog();
 
         return response()->json([
-            'permissions' => collect(config('permissions.catalog', []))
-                ->map(fn ($value, $key) => ['key' => $key, 'name' => $value[0], 'group' => $value[1]])
+            'permissions' => collect(config('permissions.employee_grantable', []))
+                ->map(function ($key) {
+                    $value = config("permissions.catalog.{$key}");
+                    return ['key' => $key, 'name' => $value[0], 'group' => $value[1]];
+                })
                 ->values(),
         ]);
     }
@@ -41,7 +44,7 @@ class PermissionController extends Controller
         $this->authorizeEmployee($request, $user);
 
         $validated = $request->validate([
-            'permission' => ['required', 'string'],
+            'permission' => ['required', 'string', 'in:' . implode(',', config('permissions.employee_grantable', []))],
             'granted' => ['required', 'boolean'],
         ]);
 
