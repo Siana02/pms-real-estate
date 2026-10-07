@@ -847,6 +847,7 @@ type DashboardStats = {
   monthly_maintenance?: number | null;
   monthly_expenses?: number | null;
   net_revenue?: number | null;
+  cash_collected_this_month?: number | null;
   idle_rent?: number | null;
   committed_maintenance?: number | null;
 };
