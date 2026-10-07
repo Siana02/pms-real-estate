@@ -70,17 +70,19 @@ class TeamController extends Controller
             );
         }
 
-        $baseUsername = Str::slug($validated['name'], '') ?: 'staff';
-        $username = $baseUsername;
-        $counter = 1;
+        if ($existing) {
+            // Preserve the employee's username so historical activity and login
+            // identity remain stable when a deactivated account is re-invited.
+            $username = $existing->username;
+        } else {
+            $baseUsername = Str::slug($validated['name'], '') ?: 'staff';
+            $username = $baseUsername;
+            $counter = 1;
 
-        while (
-            User::where('username', $username)
-                ->when($existing, fn ($query) => $query->where('id', '!=', $existing->id))
-                ->exists()
-        ) {
-            $username = $baseUsername . $counter;
-            $counter++;
+            while (User::where('username', $username)->exists()) {
+                $username = $baseUsername . $counter;
+                $counter++;
+            }
         }
 
         $temporaryPassword = Str::random(40);
