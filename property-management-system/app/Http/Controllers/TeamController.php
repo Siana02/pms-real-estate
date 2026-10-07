@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Carbon;
 
 class TeamController extends Controller
 {
@@ -77,7 +76,7 @@ class TeamController extends Controller
 
         while (
             User::where('username', $username)
-                ->when($existing, fn ($query) => $query->whereKeyNot($existing->id))
+                ->when($existing, fn ($query) => $query->where('id', '!=', $existing->id))
                 ->exists()
         ) {
             $username = $baseUsername . $counter;
@@ -140,6 +139,9 @@ class TeamController extends Controller
 
         $user->update(['status' => 'deactivated']);
         $user->tokens()->delete();
+        $user->teamInvitations()
+            ->whereNull('accepted_at')
+            ->update(['expires_at' => now()]);
 
         return response()->json([
             'message' => 'Employee deactivated. Their historical activity remains attached to their account.',
