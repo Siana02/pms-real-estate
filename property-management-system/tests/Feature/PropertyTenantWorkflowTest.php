@@ -357,6 +357,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'role' => 'admin',
         ]);
         $managerToken = $manager->createToken('reservation-manager')->plainTextToken;
+        $handoverDate = now()->addDays(20)->toDateString();
 
         $this->withToken($managerToken)->postJson('/api/tenants', [
             'first_name' => 'Current',
@@ -365,8 +366,8 @@ class PropertyTenantWorkflowTest extends TestCase
             'phone' => '+254700000001',
             'property_id' => $property->id,
             'unit_id' => $unit->id,
-            'start_date' => '2026-09-01',
-            'end_date' => '2026-10-01',
+            'start_date' => now()->subMonth()->toDateString(),
+            'end_date' => $handoverDate,
             'monthly_rent' => 25000,
             'deposit_amount' => 25000,
             'create_login' => true,
@@ -377,8 +378,8 @@ class PropertyTenantWorkflowTest extends TestCase
             'organization_id' => $organization->id,
             'property_id' => $property->id,
             'unit_id' => $unit->id,
-            'requested_move_in_date' => '2026-10-01',
-            'requested_move_out_date' => '2027-10-01',
+            'requested_move_in_date' => $handoverDate,
+            'requested_move_out_date' => now()->addYear()->toDateString(),
             'name' => 'Future Tenant',
             'phone' => '+254700000002',
             'email' => 'future@example.test',
