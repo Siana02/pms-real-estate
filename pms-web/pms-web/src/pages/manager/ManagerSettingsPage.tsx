@@ -561,9 +561,10 @@ function ManagerSettingsPage() {
     setError("");
     setSavingLogo(true);
 
+    let fetchedSource: string | null = null;
+
     try {
       let sourceForCanvas = cropSource;
-      let fetchedSource: string | null = null;
 
       if (cropSource.startsWith("http://") || cropSource.startsWith("https://")) {
         const sourceResponse = await fetch(cropSource, { mode: "cors" });
