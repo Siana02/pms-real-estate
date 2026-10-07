@@ -562,8 +562,21 @@ function ManagerSettingsPage() {
     setSavingLogo(true);
 
     try {
+      let sourceForCanvas = cropSource;
+      let fetchedSource: string | null = null;
+
+      if (cropSource.startsWith("http://") || cropSource.startsWith("https://")) {
+        const sourceResponse = await fetch(cropSource, { mode: "cors" });
+        if (!sourceResponse.ok) {
+          throw new Error("Could not load the current logo for editing.");
+        }
+        const sourceBlob = await sourceResponse.blob();
+        fetchedSource = URL.createObjectURL(sourceBlob);
+        sourceForCanvas = fetchedSource;
+      }
+
       const image = new Image();
-      image.src = cropSource;
+      image.src = sourceForCanvas;
       await new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
         image.onerror = () => reject(new Error("Could not read that image."));
@@ -629,7 +642,9 @@ function ManagerSettingsPage() {
       window.dispatchEvent(new CustomEvent("pms:organization"));
       setNotice("Brand logo updated for your organization.");
       closeCropper();
+      if (fetchedSource) URL.revokeObjectURL(fetchedSource);
     } catch (caught) {
+      if (fetchedSource) URL.revokeObjectURL(fetchedSource);
       setError(caught instanceof Error ? caught.message : "Could not save the adjusted logo.");
     } finally {
       setSavingLogo(false);
