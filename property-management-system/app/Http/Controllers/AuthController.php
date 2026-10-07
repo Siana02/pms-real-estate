@@ -96,8 +96,8 @@ public function usernameAvailable(Request $request)
                     $today = CarbonImmutable::today()->toDateString();
                     if ($requestedStart < $today) {
                         $handoverLease = $unit->leases()
-                            ->whereNotIn('status', ['ended', 'terminated'])
                             ->whereDate('end_date', $requestedStart)
+                            ->whereNotIn('status', ['terminated'])
                             ->exists();
                         abort_unless(
                             $handoverLease,
@@ -514,7 +514,10 @@ public function usernameAvailable(Request $request)
 
         $user = $request->user();
 
-        if (! Hash::check($validated['current_password'], $user->password)) {
+        $passwordMatches = Hash::check($validated['current_password'], (string) $user->getRawOriginal('password'))
+            || Hash::check($validated['current_password'], (string) $user->password);
+
+        if (! $passwordMatches) {
             return response()->json([
                 'message' => 'Your current password is incorrect.',
             ], 422);
