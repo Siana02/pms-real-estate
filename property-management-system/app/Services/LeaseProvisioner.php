@@ -258,7 +258,7 @@ class LeaseProvisioner
             $this->assertNoOverlap($unit, $startDate, $endDate, $lease->id);
 
             $monthlyRent = $data['monthly_rent'] ?? $unit->monthly_rent;
-            $depositAmount = $data['deposit_amount'] ?? $unit->deposit_amount;
+            $depositAmount = $data['deposit_amount'] ?? (((float) $unit->deposit_amount > 0) ? $unit->deposit_amount : $unit->monthly_rent);
             $agreement = $this->buildAgreementTemplate(
                 $organizationId,
                 $property,
@@ -297,6 +297,11 @@ class LeaseProvisioner
                     'tenant_signature' => null,
                     'tenant_signed_at' => null,
                 ] : []),
+            ]);
+
+            DB::table('leases')->where('id', $lease->id)->update([
+                'requested_move_in_date' => $lease->requested_move_in_date?->toDateString(),
+                'requested_move_out_date' => $lease->requested_move_out_date?->toDateString(),
             ]);
 
             $amountRequired = (float) $depositAmount;
