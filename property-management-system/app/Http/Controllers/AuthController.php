@@ -56,7 +56,7 @@ public function usernameAvailable(Request $request)
                     Rule::exists('units', 'id')
                         ->where('property_id', $request->input('property_id')),
                 ],
-                'requested_move_in_date' => ['required', 'date', 'after_or_equal:today'],
+                'requested_move_in_date' => ['required', 'date'],
                 'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
                 'preferred_location' => ['nullable', 'string', 'in:Nairobi,Watamu'],
                 'name' => ['required', 'string', 'max:255'],
@@ -92,6 +92,20 @@ public function usernameAvailable(Request $request)
                 // A pending registration without dates is still a real lease
                 // reservation awaiting manager confirmation.
                 if (!empty($validated['requested_move_in_date'])) {
+                    $requestedStart = CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString();
+                    $today = CarbonImmutable::today()->toDateString();
+                    if ($requestedStart < $today) {
+                        $handoverLease = $unit->leases()
+                            ->whereNotIn('status', ['ended', 'terminated'])
+                            ->whereDate('end_date', $requestedStart)
+                            ->exists();
+                        abort_unless(
+                            $handoverLease,
+                            422,
+                            'The requested move in date must be today or a valid handover date.'
+                        );
+                    }
+
                     app(LeaseProvisioner::class)->assertNoOverlap(
                         $unit,
                         CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString(),
