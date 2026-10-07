@@ -57,7 +57,7 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('requests', [EmployeeRequestController::class, 'index']);
     Route::post('requests', [EmployeeRequestController::class, 'store']);
     Route::patch('requests/{employeeRequest}', [EmployeeRequestController::class, 'update']);
-    Route::apiResource('organizations', OrganizationController::class)->except(['index']);
+    Route::apiResource('organizations', OrganizationController::class)->except(['index', 'destroy']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
     Route::apiResource('tenants', TenantController::class);
