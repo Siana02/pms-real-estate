@@ -39,7 +39,7 @@ class Organization extends Model
             return null;
         }
 
-        return url('/api/organizations/' . $this->id . '/logo');
+        return url('/api/organizations/' . $this->id . '/logo?v=' . rawurlencode((string) $this->updated_at));
     }
 
     /**
