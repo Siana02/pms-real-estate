@@ -367,7 +367,7 @@ public function usernameAvailable(Request $request)
 
     public function redirectToProvider(Request $request, string $provider)
     {
-        abort_unless(in_array($provider, ['google', 'apple'], true), 404);
+        abort_unless($provider === 'google', 404);
 
         $mode = $request->query('mode', 'login');
         abort_unless(in_array($mode, ['login', 'register'], true), 422);
