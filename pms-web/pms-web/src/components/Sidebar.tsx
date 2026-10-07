@@ -93,6 +93,14 @@ const styles = `
   width: 1.125rem;
   height: 1.125rem;
 }
+
+.sb-brand__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  background: #fff;
+}
  
 .sb-brand__name {
   font-size: 1.0625rem;
@@ -268,8 +276,8 @@ const styles = `
 
 /* LUXURY SIDEBAR OVERRIDE — appended after legacy sidebar rules. */
 .sb{padding:1.65rem 1rem!important;color:#26313c!important;background:#fff!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:0!important}
-.sb-brand__mark{width:2rem!important;height:2rem!important;border:0!important;border-radius:.35rem!important;background:#0a192f!important;color:#fff!important}
-.sb-brand__name{font-size:1rem!important;color:#18202a!important;letter-spacing:.02em!important}
+.sb-brand__mark{width:2.25rem!important;height:2.25rem!important;border:1px solid #dfe4e8!important;border-radius:50%!important;background:#f1f4f6!important;color:#315f8a!important;overflow:hidden!important}
+.sb-brand__name{font-size:.82rem!important;color:#18202a!important;letter-spacing:.02em!important}
 .sb-brand__name span{color:#315f8a!important}
 .sb-org{margin-top:2rem!important;padding:.8rem 0!important;border:0!important;border-bottom:1px solid #e6e9eb!important;border-radius:0!important;background:transparent!important}
 .sb-org__avatar{width:2.15rem!important;height:2.15rem!important;border:1px solid #dfe4e8!important;border-radius:50%!important;background:#f1f4f6!important;color:#536779!important}
@@ -303,7 +311,9 @@ const NAV_ITEMS = [
 ];
  
 interface Organization {
+  id?: number;
   name?: string;
+  logo_url?: string | null;
 }
  
 interface User {
@@ -337,11 +347,21 @@ function linkClass({ isActive }: { isActive: boolean }): string {
  
 function Sidebar() {
   const navigate = useNavigate();
- 
-  const organization = useMemo(() => readStored<Organization>("organization"), []);
+  const [organization, setOrganization] = useState<Organization>(() =>
+    readStored<Organization>("organization")
+  );
   const user = useMemo(() => readStored<User>("user"), []);
  
   const orgName = organization.name || "Your organization";
+
+  useEffect(() => {
+    function refreshOrganization() {
+      setOrganization(readStored<Organization>("organization"));
+    }
+
+    window.addEventListener("pms:organization", refreshOrganization);
+    return () => window.removeEventListener("pms:organization", refreshOrganization);
+  }, []);
  
   function handleSignOut() {
     localStorage.removeItem("token");
@@ -358,11 +378,15 @@ function Sidebar() {
       <style>{styles}</style>
  
       <div className="sb-brand">
-        <span className="sb-brand__mark">
-          <Building2 />
+        <span className="sb-brand__mark" aria-hidden="true">
+          {organization.logo_url ? (
+            <img src={organization.logo_url} alt="" />
+          ) : (
+            <Building2 />
+          )}
         </span>
         <span className="sb-brand__name">
-          PMS<span>.</span>
+          {organization.id ? `ID ${organization.id}` : "Organization"}
         </span>
       </div>
  
