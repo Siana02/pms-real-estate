@@ -58,7 +58,7 @@ public function usernameAvailable(Request $request)
                 ],
                 'requested_move_in_date' => ['required', 'date', 'after_or_equal:today'],
                 'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
-                'preferred_location' => ['required', 'string', 'in:Nairobi,Watamu'],
+                'preferred_location' => ['nullable', 'string', 'in:Nairobi,Watamu'],
                 'name' => ['required', 'string', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'national_id' => ['nullable', 'string', 'max:100'],
@@ -117,7 +117,7 @@ public function usernameAvailable(Request $request)
                     'employer_phone' => $validated['employer_phone'] ?? null,
                     'next_of_kin_name' => $validated['next_of_kin_name'] ?? null,
                     'next_of_kin_phone' => $validated['next_of_kin_phone'] ?? null,
-                    'preferred_location' => $validated['preferred_location'],
+                    'preferred_location' => $validated['preferred_location'] ?? null,
                     'status' => 'pending',
                 ];
 
