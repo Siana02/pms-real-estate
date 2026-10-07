@@ -44,6 +44,8 @@ interface UnitRecord {
   tenant: { id: number; name: string } | null;
   current_tenant: { id: number; name: string } | null;
   upcoming_tenant: { id: number; name: string } | null;
+  lease_id: number | null;
+  lease_start_date: string | null;
   lease_end_date: string | null;
   open_maintenance_requests: number;
   description: string;
@@ -66,6 +68,8 @@ function parseUnits(payload: unknown): UnitRecord[] {
     tenant: namedRef(record.tenant, "name"),
     current_tenant: namedRef(record.current_tenant, "name"),
     upcoming_tenant: namedRef(record.upcoming_tenant, "name"),
+    lease_id: record.lease_id == null ? null : asNumber(record.lease_id),
+    lease_start_date: asString(record.lease_start_date) || null,
     lease_end_date: asString(record.lease_end_date) || null,
     open_maintenance_requests: asNumber(record.open_maintenance_requests),
     description: asString(record.description),
@@ -110,6 +114,8 @@ function AddUnitDrawer({
   const [deposit, setDeposit] = useState(editingUnit ? String(editingUnit.deposit_amount) : "");
   const [description, setDescription] = useState(editingUnit?.description ?? "");
   const [status, setStatus] = useState(editingUnit?.status || "vacant");
+  const [leaseStartDate, setLeaseStartDate] = useState(editingUnit?.lease_start_date ?? "");
+  const [leaseEndDate, setLeaseEndDate] = useState(editingUnit?.lease_end_date ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
  
@@ -139,6 +145,17 @@ function AddUnitDrawer({
     setError("");
  
     try {
+      if (editingUnit?.lease_id && (editingUnit.status === "occupied" || editingUnit.status === "reserved")) {
+        await apiRequest("/leases/" + editingUnit.lease_id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            start_date: leaseStartDate || null,
+            end_date: leaseEndDate || null,
+          }),
+        });
+      }
+
       await apiRequest(
         editingUnit ? "/units/" + editingUnit.id : "/units",
         {
@@ -314,13 +331,53 @@ function AddUnitDrawer({
               >
                 <option value="vacant">Vacant</option>
                 <option value="occupied">Occupied</option>
+                <option value="reserved">Reserved</option>
                 <option value="maintenance">Under maintenance</option>
               </select>
               <p className="mg-hint">
-                Occupied units still need a lease — add that from Tenants.
+                Occupied and reserved status is determined by the unit's lease dates.
               </p>
             </div>
           </div>
+
+          {editingUnit?.lease_id && (editingUnit.status === "occupied" || editingUnit.status === "reserved") && (
+            <div className="mg-grid2">
+              <div className="mg-field">
+                <label className="mg-label" htmlFor="un-lease-start">
+                  Lease start / move-in date
+                </label>
+                <input
+                  id="un-lease-start"
+                  className="mg-input"
+                  type="date"
+                  value={leaseStartDate}
+                  onChange={(event) => setLeaseStartDate(event.target.value)}
+                />
+                <p className="mg-hint">
+                  {editingUnit.status === "reserved"
+                    ? "The date the incoming tenant is scheduled to move in."
+                    : "The official date this tenant's lease started."}
+                </p>
+              </div>
+
+              <div className="mg-field">
+                <label className="mg-label" htmlFor="un-lease-end">
+                  Lease end / move-out date
+                </label>
+                <input
+                  id="un-lease-end"
+                  className="mg-input"
+                  type="date"
+                  value={leaseEndDate}
+                  min={leaseStartDate || undefined}
+                  onChange={(event) => setLeaseEndDate(event.target.value)}
+                />
+                <p className="mg-hint">
+                  Update this when the tenant requests a different move-out date.
+                </p>
+              </div>
+            </div>
+          )}
  
           <div className="mg-field">
             <label className="mg-label" htmlFor="un-description">
