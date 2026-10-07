@@ -10,32 +10,33 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-{
-    Schema::create('units', function (Blueprint $table) {
-        $table->id();
+    {
+        Schema::create('units', function (Blueprint $table) {
+            $table->id();
 
-        $table->foreignId('property_id')
-            ->constrained()
-            ->cascadeOnDelete();
+            $table->foreignId('property_id')
+                ->constrained()
+                ->cascadeOnDelete();
 
-        $table->string('unit_number');
-        $table->string('unit_type')->nullable();
+            $table->string('unit_number');
+            $table->string('unit_type')->nullable();
 
-        $table->decimal('monthly_rent', 12, 2);
+            $table->decimal('monthly_rent', 12, 2);
 
-        $table->enum('status', [
-            'vacant',
-            'occupied',
-            'maintenance'
-        ])->default('vacant');
+            $table->enum('status', [
+                'vacant',
+                'occupied',
+                'reserved',
+                'maintenance'
+            ])->default('vacant');
 
-        $table->text('description')->nullable();
+            $table->text('description')->nullable();
 
-        $table->timestamps();
+            $table->timestamps();
 
-        $table->unique(['property_id', 'unit_number']);
-    });
-}
+            $table->unique(['property_id', 'unit_number']);
+        });
+    }
 
     /**
      * Reverse the migrations.
