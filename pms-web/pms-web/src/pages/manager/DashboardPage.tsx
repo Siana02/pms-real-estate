@@ -1478,10 +1478,16 @@ function DashboardPage() {
                         </div>
 
                         <div className="manager-dashboard__property-foot">
-                          <span>Rent {money(property.monthly_revenue, currency)}</span>
-                          <span>
-                            {property.vacant_units} vacant · {money(Math.max(property.potential_monthly_revenue - property.monthly_revenue, 0), currency)} idle
-                          </span>
+                          {canViewFinancials ? (
+                            <>
+                              <span>Rent {money(property.monthly_revenue ?? 0, currency)}</span>
+                              <span>
+                                {property.vacant_units} vacant · {money(Math.max((property.potential_monthly_revenue ?? 0) - (property.monthly_revenue ?? 0), 0), currency)} idle
+                              </span>
+                            </>
+                          ) : (
+                            <span>{property.vacant_units} vacant</span>
+                          )}
                         </div>
                       </button>
                     ))}
