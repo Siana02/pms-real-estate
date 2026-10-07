@@ -42,12 +42,14 @@ interface UnitRecord {
   status: string;
   property: { id: number; name: string } | null;
   tenant: { id: number; name: string } | null;
+  current_tenant: { id: number; name: string } | null;
+  upcoming_tenant: { id: number; name: string } | null;
   lease_end_date: string | null;
   open_maintenance_requests: number;
   description: string;
 }
  
-const STATUSES = ["all", "occupied", "vacant", "maintenance"];
+const STATUSES = ["all", "occupied", "reserved", "vacant", "maintenance"];
  
 function parseUnits(payload: unknown): UnitRecord[] {
   return rows(payload).map((record) => ({
@@ -62,6 +64,8 @@ function parseUnits(payload: unknown): UnitRecord[] {
     status: asString(record.status) || "vacant",
     property: namedRef(record.property, "name"),
     tenant: namedRef(record.tenant, "name"),
+    current_tenant: namedRef(record.current_tenant, "name"),
+    upcoming_tenant: namedRef(record.upcoming_tenant, "name"),
     lease_end_date: asString(record.lease_end_date) || null,
     open_maintenance_requests: asNumber(record.open_maintenance_requests),
     description: asString(record.description),
@@ -437,6 +441,8 @@ function ManagerUnitsPage() {
         unit.unit_number,
         unit.unit_type,
         unit.property?.name ?? "",
+        unit.current_tenant?.name ?? "",
+        unit.upcoming_tenant?.name ?? "",
         unit.tenant?.name ?? "",
       ]
         .join(" ")
@@ -460,6 +466,7 @@ function ManagerUnitsPage() {
     () => ({
       all: units.length,
       occupied: units.filter((unit) => unit.status === "occupied").length,
+      reserved: units.filter((unit) => unit.status === "reserved").length,
       vacant: units.filter((unit) => unit.status === "vacant").length,
       maintenance: units.filter((unit) => unit.status === "maintenance").length,
     }),
@@ -727,13 +734,21 @@ function ManagerUnitsPage() {
                               </span>
                             </td>
                             <td data-label="Tenant">
-                              {unit.tenant ? (
+                              {unit.status === "occupied" && unit.current_tenant ? (
                                 <button
                                   type="button"
                                   className="mg-rowlink"
                                   onClick={() => navigate("/manager/tenants")}
                                 >
-                                  {unit.tenant.name}
+                                  {unit.current_tenant.name}
+                                </button>
+                              ) : unit.status === "reserved" && unit.upcoming_tenant ? (
+                                <button
+                                  type="button"
+                                  className="mg-rowlink"
+                                  onClick={() => navigate("/manager/tenants")}
+                                >
+                                  {unit.upcoming_tenant.name}
                                 </button>
                               ) : (
                                 <span className="mg-sub">Vacant</span>
