@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\PermissionService;
+use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 
 class PermissionController extends Controller
@@ -44,11 +45,13 @@ class PermissionController extends Controller
             'granted' => ['required', 'boolean'],
         ]);
 
-        app(PermissionService::class)->grant(
-            $request->user(),
+        app(PermissionService::class)->grant($request->user(), $user, $validated['permission'], $validated['granted']);
+        app(AuditLogService::class)->record(
+            'PERMISSION_CHANGED',
+            'Employee permission changed.',
             $user,
-            $validated['permission'],
-            $validated['granted']
+            null,
+            ['permission' => $validated['permission'], 'granted' => $validated['granted']]
         );
 
         return response()->json([
