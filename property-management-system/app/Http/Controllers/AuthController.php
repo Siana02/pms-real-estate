@@ -590,8 +590,8 @@ public function usernameAvailable(Request $request)
 
         $user = $request->user();
 
-        $passwordMatches = Hash::check($validated['current_password'], (string) $user->getRawOriginal('password'))
-            || Hash::check($validated['current_password'], (string) $user->password);
+        $storedPasswordHash = (string) DB::table('users')->where('id', $user->id)->value('password');
+        $passwordMatches = $storedPasswordHash !== '' && Hash::check($validated['current_password'], $storedPasswordHash);
 
         if (! $passwordMatches) {
             return response()->json([
