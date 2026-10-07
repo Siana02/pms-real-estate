@@ -12,6 +12,14 @@ class PasskeyLoginResponse implements PasskeyLoginResponse
     {
         $user = $request->user();
 
+        abort_if(
+            $user->status !== 'active',
+            403,
+            'Your account is not active. Contact the organization administrator.'
+        );
+
+        $user->forceFill(['last_active_at' => now()])->save();
+
         return response()->json([
             'message' => 'Login successful.',
             'token' => $user->createToken('auth-token')->plainTextToken,
