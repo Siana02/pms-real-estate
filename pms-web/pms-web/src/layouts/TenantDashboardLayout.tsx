@@ -386,6 +386,7 @@ const styles = `
 }
  
 .tp-side__mark svg { width: 1.0625rem; height: 1.0625rem; }
+.tp-side__logo { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; background: #fff; }
  
 .tp-side__word {
   font-size: 1.0625rem;
