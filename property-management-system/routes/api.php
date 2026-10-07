@@ -17,6 +17,7 @@ use App\Http\Controllers\TeamController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\EmployeeRequestController;
+use App\Http\Controllers\OrganizationPaymentSettingsController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -39,6 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
+    Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
+    Route::put('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'update']);
     Route::post('organization/logo', [OrganizationController::class, 'uploadLogo']);
     Route::delete('organization/logo', [OrganizationController::class, 'removeLogo']);
     Route::get('team', [TeamController::class, 'index']);
