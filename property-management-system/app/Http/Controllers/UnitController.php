@@ -132,6 +132,8 @@ class UnitController extends Controller
             if ($unit->status === 'maintenance') {
                 $unit->setAttribute('pending_registration', false);
                 $unit->setAttribute('pending_email', null);
+                $unit->setAttribute('current_tenant', null);
+                $unit->setAttribute('upcoming_tenant', null);
                 $unit->setAttribute('tenant', null);
                 $unit->setAttribute('lease_end_date', null);
                 return;
@@ -147,47 +149,78 @@ class UnitController extends Controller
                 ->sortByDesc('start_date')
                 ->first();
 
+            // A reservation can be represented by an upcoming lease, a pending
+            // lease with a future start/requested move-in date, or a pending
+            // registration that has not yet produced a lease.
             $reservedLease = $unit->leases
                 ->filter(fn ($lease) => ! in_array($lease->status, ['ended', 'terminated'], true))
-                ->filter(fn ($lease) =>
-                    $lease->status === 'upcoming' ||
-                    ($lease->status === 'pending' && $lease->start_date === null)
-                )
-                ->sortBy(fn ($lease) => $lease->start_date?->timestamp ?? PHP_INT_MAX)
+                ->filter(function ($lease) use ($today) {
+                    if ($lease->status === 'upcoming') {
+                        return true;
+                    }
+
+                    if ($lease->start_date !== null) {
+                        return $lease->start_date->toDateString() > $today;
+                    }
+
+                    return $lease->status === 'pending';
+                })
+                ->sortBy(function ($lease) {
+                    $reservationStart = $lease->start_date?->timestamp
+                        ?? $lease->requested_move_in_date?->timestamp
+                        ?? PHP_INT_MAX;
+
+                    return $reservationStart;
+                })
                 ->first();
 
-            // The displayed tenant and lease end must come from the same lease
-            // that determines the unit's occupancy/reservation state.
-            $displayLease = $activeLease ?? $reservedLease;
+            // An active lease always wins. A future reservation must never replace
+            // the tenant who is currently living in the unit.
+            $currentTenant = $activeLease?->tenant ?? $activeLease?->deposit?->tenant;
+            $upcomingTenant = $reservedLease?->tenant
+                ?? $reservedLease?->deposit?->tenant
+                ?? $pendingTenant;
 
             if ($activeLease) {
                 $status = 'occupied';
+                $displayLease = $activeLease;
+                $displayTenant = $currentTenant;
             } elseif ($reservedLease || $pendingTenant !== null) {
                 $status = 'reserved';
+                $displayLease = $reservedLease;
+                $displayTenant = $upcomingTenant;
             } else {
                 $status = 'vacant';
+                $displayLease = null;
+                $displayTenant = null;
             }
 
-            // The canonical tenant can be attached directly to the lease, or (for
-            // older records) through the lease deposit. Tenant names are stored as
-            // first_name/last_name, not as a single "name" column.
-            $displayTenant = $displayLease?->tenant ?? $displayLease?->deposit?->tenant;
-
-            // Older pending registrations may exist before a lease is created.
-            // They can still make a unit reserved, but must not be presented as
-            // an active tenant or given a fabricated lease end date.
-            if ($displayLease === null && $status === 'reserved') {
-                $displayTenant = $pendingTenant;
-            }
-
-            $unit->setAttribute('status', $status);
-            $unit->setAttribute('tenant', $displayTenant ? [
+            $tenantReference = $displayTenant ? [
                 'id' => $displayTenant->id,
                 'name' => trim(implode(' ', array_filter([
                     $displayTenant->first_name ?? null,
                     $displayTenant->last_name ?? null,
                 ]))) ?: ($displayTenant->name ?? $displayTenant->email ?? 'Tenant'),
+            ] : null;
+
+            $unit->setAttribute('status', $status);
+            $unit->setAttribute('current_tenant', $currentTenant ? [
+                'id' => $currentTenant->id,
+                'name' => trim(implode(' ', array_filter([
+                    $currentTenant->first_name ?? null,
+                    $currentTenant->last_name ?? null,
+                ]))) ?: ($currentTenant->name ?? $currentTenant->email ?? 'Tenant'),
             ] : null);
+            $unit->setAttribute('upcoming_tenant', $upcomingTenant ? [
+                'id' => $upcomingTenant->id,
+                'name' => trim(implode(' ', array_filter([
+                    $upcomingTenant->first_name ?? null,
+                    $upcomingTenant->last_name ?? null,
+                ]))) ?: ($upcomingTenant->name ?? $upcomingTenant->email ?? 'Tenant'),
+            ] : null);
+            // tenant remains the display tenant for compatibility with existing
+            // consumers: current tenant when occupied, incoming tenant when reserved.
+            $unit->setAttribute('tenant', $tenantReference);
             $unit->setAttribute('lease_end_date', $displayLease?->end_date?->toDateString());
             $unit->setAttribute('pending_registration', $pendingTenant !== null);
             $unit->setAttribute('pending_email', $pendingTenant?->email);
