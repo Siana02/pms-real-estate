@@ -17,6 +17,7 @@ class Organization extends Model
         'city',
         'country',
         'currency',
+        'logo_path',
     ];
 
     /**
@@ -25,6 +26,20 @@ class Organization extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * Public URL for the organization's logo.
+     */
+    protected $appends = ['logo_url'];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (! $this->logo_path) {
+            return null;
+        }
+
+        return url('/storage/' . ltrim($this->logo_path, '/'));
     }
 
     /**
