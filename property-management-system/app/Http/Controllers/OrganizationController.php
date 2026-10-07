@@ -63,6 +63,30 @@ class OrganizationController extends Controller
         ]);
     }
 
+    public function logo(Organization $organization)
+    {
+        abort_if(! $organization->logo_path, 404, 'Organization logo not found.');
+
+        $disk = Storage::disk('public');
+
+        if (! $disk->exists($organization->logo_path)) {
+            abort(404, 'Organization logo not found.');
+        }
+
+        $response = response()->file($disk->path($organization->logo_path));
+
+        if ($origin = request()->header('Origin')) {
+            $allowedOrigin = config('cors.allowed_origins', []);
+
+            if (in_array($origin, $allowedOrigin, true)) {
+                $response->headers->set('Access-Control-Allow-Origin', $origin);
+                $response->headers->set('Vary', 'Origin');
+            }
+        }
+
+        return $response;
+    }
+
     public function properties(Organization $organization)
     {
         return response()->json(
