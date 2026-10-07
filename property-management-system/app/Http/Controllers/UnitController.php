@@ -135,6 +135,8 @@ class UnitController extends Controller
                 $unit->setAttribute('current_tenant', null);
                 $unit->setAttribute('upcoming_tenant', null);
                 $unit->setAttribute('tenant', null);
+                $unit->setAttribute('lease_id', null);
+                $unit->setAttribute('lease_start_date', null);
                 $unit->setAttribute('lease_end_date', null);
                 return;
             }
@@ -221,6 +223,12 @@ class UnitController extends Controller
             // tenant remains the display tenant for compatibility with existing
             // consumers: current tenant when occupied, incoming tenant when reserved.
             $unit->setAttribute('tenant', $tenantReference);
+            $unit->setAttribute('lease_id', $displayLease?->id);
+            $unit->setAttribute(
+                'lease_start_date',
+                $displayLease?->start_date?->toDateString()
+                    ?? $displayLease?->requested_move_in_date?->toDateString()
+            );
             $unit->setAttribute('lease_end_date', $displayLease?->end_date?->toDateString());
             $unit->setAttribute('pending_registration', $pendingTenant !== null);
             $unit->setAttribute('pending_email', $pendingTenant?->email);
