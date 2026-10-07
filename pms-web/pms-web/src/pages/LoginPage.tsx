@@ -1328,7 +1328,7 @@ function LoginPage() {
                   <label className="lg-label" htmlFor="password">
                     Password
                   </label>
-                  <a className="lg-recover" href="#reset">
+                  <a className="lg-recover" href="/forgot-password">
                     Forgot password?
                   </a>
                 </div>
