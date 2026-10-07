@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Organization;
 use App\Models\Property;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class OrganizationController extends Controller
 {
@@ -16,6 +17,50 @@ class OrganizationController extends Controller
         $organizations = Organization::all();
 
         return response()->json($organizations);
+    }
+
+    public function profile(Request $request)
+    {
+        return response()->json($request->user()->organization);
+    }
+
+    public function uploadLogo(Request $request)
+    {
+        $request->validate([
+            'logo' => ['required', 'file', 'image', 'mimes:png,jpg,jpeg,svg', 'max:512'],
+        ]);
+
+        $organization = $request->user()->organization;
+        abort_if($organization === null, 404, 'Organization not found.');
+
+        if ($organization->logo_path) {
+            Storage::disk('public')->delete($organization->logo_path);
+        }
+
+        $path = $request->file('logo')->store('organization-logos', 'public');
+
+        $organization->update(['logo_path' => $path]);
+
+        return response()->json([
+            'message' => 'Organization logo updated successfully.',
+            'organization' => $organization->fresh(),
+        ]);
+    }
+
+    public function removeLogo(Request $request)
+    {
+        $organization = $request->user()->organization;
+        abort_if($organization === null, 404, 'Organization not found.');
+
+        if ($organization->logo_path) {
+            Storage::disk('public')->delete($organization->logo_path);
+            $organization->update(['logo_path' => null]);
+        }
+
+        return response()->json([
+            'message' => 'Organization logo removed.',
+            'organization' => $organization->fresh(),
+        ]);
     }
 
     public function properties(Organization $organization)
