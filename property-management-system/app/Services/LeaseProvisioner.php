@@ -53,6 +53,7 @@ class LeaseProvisioner
             }
 
             if ($requestedStart !== null) {
+                $this->assertReservationWindow($requestedStart);
                 $this->assertNoOverlap($unit, $requestedStart, $requestedEnd);
             }
 
@@ -384,6 +385,18 @@ class LeaseProvisioner
         }
 
         return $startDate > $today ? 'upcoming' : 'active';
+    }
+
+    private function assertReservationWindow(string $requestedStart): void
+    {
+        $today = CarbonImmutable::today();
+        $latestAllowed = $today->addDays(60);
+
+        if ($requestedStart < $today->toDateString() || $requestedStart > $latestAllowed->toDateString()) {
+            throw ValidationException::withMessages([
+                'requested_move_in_date' => 'Reservations can only be made for a move-in date within the next 60 days.',
+            ]);
+        }
     }
 
     public function assertNoOverlap(
