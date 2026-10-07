@@ -4,7 +4,10 @@ import {
   Check,
   CheckCircle2,
   Image as ImageIcon,
+  Minus,
   Palette,
+  Plus,
+  RotateCcw,
   Settings as SettingsIcon,
   Trash2,
   Upload,
@@ -119,13 +122,188 @@ const pageStyles = `
   justify-content: center;
   width: 6rem;
   height: 6rem;
-  border-radius: var(--mg-radius-md);
+  padding: 0;
+  border-radius: 50%;
   border: 1px dashed var(--pms-border);
   background: var(--pms-glass);
   overflow: hidden;
+  cursor: pointer;
+  position: relative;
 }
  
+.st-logo:hover { border-color: var(--pms-accent); }
 .st-logo img { width: 100%; height: 100%; object-fit: contain; }
+.st-logo:disabled { cursor: default; opacity: 0.7; }
+ 
+.st-crop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+}
+ 
+.st-crop__dialog {
+  width: min(100%, 34rem);
+  max-height: min(46rem, calc(100vh - 2rem));
+  overflow: auto;
+  border: 1px solid var(--pms-border);
+  border-radius: 1.25rem;
+  background: var(--pms-surface, #fff);
+  box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.25);
+}
+ 
+.st-crop__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  border-bottom: 1px solid var(--pms-border-soft);
+}
+ 
+.st-crop__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--pms-heading);
+}
+ 
+.st-crop__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pms-glass);
+  color: var(--pms-muted);
+  cursor: pointer;
+}
+ 
+.st-crop__close:hover { color: var(--pms-heading); }
+ 
+.st-crop__body { padding: 1rem 1.125rem 1.125rem; }
+ 
+.st-crop__stage {
+  width: min(100%, 22rem);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  background:
+    linear-gradient(45deg, #eef1f3 25%, transparent 25%),
+    linear-gradient(-45deg, #eef1f3 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eef1f3 75%),
+    linear-gradient(-45deg, transparent 75%, #eef1f3 75%);
+  background-size: 1.25rem 1.25rem;
+  background-position: 0 0, 0 0.625rem, 0.625rem -0.625rem, -0.625rem 0;
+  border: 1px solid var(--pms-border);
+  touch-action: none;
+  user-select: none;
+}
+ 
+.st-crop__image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+}
+ 
+.st-crop__shade {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 999px rgba(15, 23, 42, 0.04);
+  pointer-events: none;
+}
+ 
+.st-crop__hint {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--pms-muted);
+}
+ 
+.st-crop__controls {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+ 
+.st-crop__zoom {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.625rem;
+}
+ 
+.st-crop__zoom button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--pms-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--pms-heading);
+  cursor: pointer;
+}
+ 
+.st-crop__zoom button:hover { background: var(--pms-glass); }
+.st-crop__zoom input { width: 100%; accent-color: var(--pms-accent); }
+ 
+.st-crop__zoomlabel {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--pms-muted);
+}
+ 
+.st-crop__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+ 
+.st-crop__preview-circle {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--pms-border);
+  background: #fff;
+}
+ 
+.st-crop__preview-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+ 
+.st-crop__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+ 
+@media (max-width: 30rem) {
+  .st-crop { padding: 0.5rem; }
+  .st-crop__dialog { max-height: calc(100vh - 1rem); border-radius: 1rem; }
+  .st-crop__body { padding: 0.875rem; }
+}
  
 .st-logo__fallback {
   font-size: 1.25rem;
@@ -236,6 +414,13 @@ function ManagerSettingsPage() {
   const [savingLogo, setSavingLogo] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropNaturalSize, setCropNaturalSize] = useState({ width: 0, height: 0 });
+  const [cropDragging, setCropDragging] = useState(false);
+  const cropStageRef = useRef<HTMLDivElement>(null);
+  const cropDragRef = useRef({ x: 0, y: 0 });
  
   useEffect(() => {
     applyTheme(themeId);
@@ -297,6 +482,25 @@ function ManagerSettingsPage() {
     setNotice(`${applyTheme(id).name} applied across the portal.`);
   }, []);
  
+  function closeCropper() {
+    if (cropSource?.startsWith("blob:")) {
+      URL.revokeObjectURL(cropSource);
+    }
+    setCropSource(null);
+    setCropNaturalSize({ width: 0, height: 0 });
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropDragging(false);
+  }
+
+  function openCropper(source: string) {
+    setError("");
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropNaturalSize({ width: 0, height: 0 });
+    setCropSource(source);
+  }
+
   async function handleFile(file: File | undefined) {
     if (!file) return;
 
@@ -312,11 +516,94 @@ function ManagerSettingsPage() {
       return;
     }
 
+    const source = URL.createObjectURL(file);
+    openCropper(source);
+  }
+
+  function handleCropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!cropNaturalSize.width) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropDragRef.current = {
+      x: event.clientX - cropOffset.x,
+      y: event.clientY - cropOffset.y,
+    };
+    setCropDragging(true);
+  }
+
+  function handleCropPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!cropDragging) return;
+    setCropOffset({
+      x: event.clientX - cropDragRef.current.x,
+      y: event.clientY - cropDragRef.current.y,
+    });
+  }
+
+  function handleCropPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setCropDragging(false);
+  }
+
+  function adjustZoom(delta: number) {
+    setCropZoom((value) => Math.min(4, Math.max(1, Number((value + delta).toFixed(2)))));
+  }
+
+  async function saveCroppedLogo() {
+    if (!cropSource || !cropNaturalSize.width || !cropStageRef.current) return;
+
+    setError("");
     setSavingLogo(true);
 
     try {
+      const image = new Image();
+      image.src = cropSource;
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Could not read that image."));
+      });
+
+      const stageSize = cropStageRef.current.clientWidth;
+      const outputSize = 512;
+      const baseScale = Math.min(
+        stageSize / cropNaturalSize.width,
+        stageSize / cropNaturalSize.height
+      );
+      const renderedWidth = cropNaturalSize.width * baseScale * cropZoom;
+      const renderedHeight = cropNaturalSize.height * baseScale * cropZoom;
+      const imageX = (stageSize - renderedWidth) / 2 + cropOffset.x;
+      const imageY = (stageSize - renderedHeight) / 2 + cropOffset.y;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not prepare the logo image.");
+
+      context.clearRect(0, 0, outputSize, outputSize);
+      context.drawImage(
+        image,
+        (imageX / stageSize) * outputSize,
+        (imageY / stageSize) * outputSize,
+        (renderedWidth / stageSize) * outputSize,
+        (renderedHeight / stageSize) * outputSize
+      );
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
+
+      if (!blob) throw new Error("Could not create the cropped logo.");
+      if (blob.size > MAX_LOGO_BYTES) {
+        throw new Error("The adjusted logo is over 512 KB. Zoom out slightly and try again.");
+      }
+
+      const croppedFile = new File([blob], "organization-logo.png", {
+        type: "image/png",
+      });
       const form = new FormData();
-      form.append("logo", file);
+      form.append("logo", croppedFile);
 
       const response = await apiRequest("/organization/logo", {
         method: "POST",
@@ -333,10 +620,11 @@ function ManagerSettingsPage() {
       const nextLogo = organization?.logo_url ?? null;
       saveBrandLogo(nextLogo);
       setLogo(nextLogo);
-      setNotice("Brand logo updated for your organization.");
       window.dispatchEvent(new CustomEvent("pms:organization"));
+      setNotice("Brand logo updated for your organization.");
+      closeCropper();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not upload the logo.");
+      setError(caught instanceof Error ? caught.message : "Could not save the adjusted logo.");
     } finally {
       setSavingLogo(false);
     }
@@ -442,7 +730,13 @@ function ManagerSettingsPage() {
             </div>
  
             <div className="mg-panel__body st-brand">
-              <span className="st-logo">
+              <button
+                type="button"
+                className="st-logo"
+                onClick={() => logo && openCropper(logo)}
+                title={logo ? "Click to adjust the logo" : undefined}
+                disabled={!logo || savingLogo}
+              >
                 {logo ? (
                   <img src={logo} alt="Your brand logo" />
                 ) : (
@@ -450,7 +744,7 @@ function ManagerSettingsPage() {
                     {initials(profile.organization)}
                   </span>
                 )}
-              </span>
+              </button>
  
               <div className="st-brandinfo">
                 <p className="mg-hint">
@@ -494,6 +788,166 @@ function ManagerSettingsPage() {
               </div>
             </div>
           </section>
+ 
+
+ 
+          {cropSource && (
+            <div
+              className="st-crop"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="brand-logo-crop-title"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !savingLogo) closeCropper();
+              }}
+            >
+              <div className="st-crop__dialog">
+                <div className="st-crop__head">
+                  <h2 className="st-crop__title" id="brand-logo-crop-title">
+                    Adjust brand logo
+                  </h2>
+                  <button
+                    type="button"
+                    className="st-crop__close"
+                    onClick={closeCropper}
+                    disabled={savingLogo}
+                    aria-label="Close logo editor"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="st-crop__body">
+                  <div
+                    ref={cropStageRef}
+                    className="st-crop__stage"
+                    onPointerDown={handleCropPointerDown}
+                    onPointerMove={handleCropPointerMove}
+                    onPointerUp={handleCropPointerUp}
+                    onPointerCancel={handleCropPointerUp}
+                  >
+                    <img
+                      className="st-crop__image"
+                      src={cropSource}
+                      alt="Brand logo crop preview"
+                      draggable={false}
+                      onLoad={(event) => {
+                        setCropNaturalSize({
+                          width: event.currentTarget.naturalWidth,
+                          height: event.currentTarget.naturalHeight,
+                        });
+                      }}
+                      style={
+                        cropNaturalSize.width
+                          ? {
+                              width: cropNaturalSize.width,
+                              height: cropNaturalSize.height,
+                              transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${Math.min(
+                                360 / cropNaturalSize.width,
+                                360 / cropNaturalSize.height
+                              ) * cropZoom})`,
+                              transformOrigin: "center",
+                            }
+                          : undefined
+                      }
+                    />
+                    <span className="st-crop__shade" aria-hidden="true" />
+                  </div>
+
+                  <p className="st-crop__hint">
+                    Drag the logo to position it. Use the slider or +/− buttons to zoom.
+                  </p>
+
+                  <div className="st-crop__controls">
+                    <div className="st-crop__zoom">
+                      <button
+                        type="button"
+                        onClick={() => adjustZoom(-0.1)}
+                        disabled={savingLogo || cropZoom <= 1}
+                        aria-label="Zoom out"
+                      >
+                        <Minus />
+                      </button>
+                      <input
+                        type="range"
+                        min="1"
+                        max="4"
+                        step="0.05"
+                        value={cropZoom}
+                        onChange={(event) => setCropZoom(Number(event.target.value))}
+                        disabled={savingLogo}
+                        aria-label="Logo zoom"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => adjustZoom(0.1)}
+                        disabled={savingLogo || cropZoom >= 4}
+                        aria-label="Zoom in"
+                      >
+                        <Plus />
+                      </button>
+                    </div>
+
+                    <div className="st-crop__zoomlabel">
+                      Zoom {Math.round(cropZoom * 100)}%
+                    </div>
+
+                    <div className="st-crop__preview">
+                      <div className="st-crop__preview-circle">
+                        {cropNaturalSize.width && (
+                          <img
+                            src={cropSource}
+                            alt="Adjusted logo preview"
+                            style={{
+                              objectFit: "contain",
+                              transform: `scale(${Math.min(
+                                1,
+                                cropZoom
+                              )}) translate(${cropOffset.x / 2}px, ${cropOffset.y / 2}px)`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <span className="mg-hint">Portal preview</span>
+                    </div>
+                  </div>
+
+                  <div className="st-crop__actions">
+                    <button
+                      type="button"
+                      className="mg-btn mg-btn--ghost"
+                      onClick={() => {
+                        setCropZoom(1);
+                        setCropOffset({ x: 0, y: 0 });
+                      }}
+                      disabled={savingLogo}
+                    >
+                      <RotateCcw />
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      className="mg-btn mg-btn--ghost"
+                      onClick={closeCropper}
+                      disabled={savingLogo}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="mg-btn mg-btn--primary"
+                      onClick={() => void saveCroppedLogo()}
+                      disabled={savingLogo || !cropNaturalSize.width}
+                    >
+                      <Check />
+                      {savingLogo ? "Saving…" : "Use this logo"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
  
           <section className="mg-panel">
             <div className="mg-panel__head">
