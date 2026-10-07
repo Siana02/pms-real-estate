@@ -132,23 +132,57 @@ class UnitController extends Controller
             if ($unit->status === 'maintenance') {
                 $unit->setAttribute('pending_registration', false);
                 $unit->setAttribute('pending_email', null);
+                $unit->setAttribute('tenant', null);
+                $unit->setAttribute('lease_end_date', null);
                 return;
             }
 
-            $status = $unit->leases
+            $activeLease = $unit->leases
                 ->filter(fn ($lease) => ! in_array($lease->status, ['ended', 'terminated'], true))
-                ->contains(fn ($lease) =>
+                ->filter(fn ($lease) =>
+                    $lease->start_date !== null &&
                     $lease->start_date->toDateString() <= $today &&
                     ($lease->end_date === null || $lease->end_date->toDateString() >= $today)
                 )
-                ? 'occupied'
-                : ($unit->leases
-                    ->contains(fn ($lease) => $lease->status === 'upcoming') ||
-                    $pendingTenant !== null
-                    ? 'reserved'
-                    : 'vacant');
+                ->sortByDesc('start_date')
+                ->first();
+
+            $reservedLease = $unit->leases
+                ->filter(fn ($lease) => ! in_array($lease->status, ['ended', 'terminated'], true))
+                ->filter(fn ($lease) =>
+                    $lease->status === 'upcoming' ||
+                    ($lease->status === 'pending' && $lease->start_date === null)
+                )
+                ->sortBy(fn ($lease) => $lease->start_date?->timestamp ?? PHP_INT_MAX)
+                ->first();
+
+            // The displayed tenant and lease end must come from the same lease
+            // that determines the unit's occupancy/reservation state.
+            $displayLease = $activeLease ?? $reservedLease;
+
+            if ($activeLease) {
+                $status = 'occupied';
+            } elseif ($reservedLease || $pendingTenant !== null) {
+                $status = 'reserved';
+            } else {
+                $status = 'vacant';
+            }
+
+            $displayTenant = $displayLease?->tenant;
+
+            // Older pending registrations may exist before a lease is created.
+            // They can still make a unit reserved, but must not be presented as
+            // an active tenant or given a fabricated lease end date.
+            if ($displayLease === null && $status === 'reserved') {
+                $displayTenant = $pendingTenant;
+            }
 
             $unit->setAttribute('status', $status);
+            $unit->setAttribute('tenant', $displayTenant ? [
+                'id' => $displayTenant->id,
+                'name' => $displayTenant->name,
+            ] : null);
+            $unit->setAttribute('lease_end_date', $displayLease?->end_date?->toDateString());
             $unit->setAttribute('pending_registration', $pendingTenant !== null);
             $unit->setAttribute('pending_email', $pendingTenant?->email);
         });
