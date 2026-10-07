@@ -309,6 +309,16 @@ public function usernameAvailable(Request $request)
         ], 401);
     }
 
+    if ($user->status !== 'active') {
+        return response()->json([
+            'message' => $user->status === 'invited'
+                ? 'Your invitation has not been accepted yet.'
+                : 'Your account is not active. Contact the organization administrator.',
+        ], 403);
+    }
+
+    $user->forceFill(['last_active_at' => now()])->save();
+
     $organization = Organization::find($user->organization_id);
 
     $token = $user->createToken('auth-token')->plainTextToken;
@@ -407,6 +417,15 @@ public function usernameAvailable(Request $request)
         abort_unless(is_array($pending) && isset($pending['user_id']), 422, 'This sign-in link has expired. Please try again.');
 
         $user = User::findOrFail((int) $pending['user_id']);
+
+        abort_if(
+            $user->status !== 'active',
+            403,
+            'Your account is not active. Contact the organization administrator.'
+        );
+
+        $user->forceFill(['last_active_at' => now()])->save();
+
         $organization = Organization::find($user->organization_id);
         $token = $user->createToken('auth-token')->plainTextToken;
 
