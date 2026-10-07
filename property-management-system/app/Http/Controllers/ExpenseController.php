@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Expense;
 use App\Models\Property;
 use Illuminate\Http\Request;
+use App\Services\PermissionService;
 
 class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'financial.reports.view'), 403);
         $filters = $request->validate([
             'property_id' => 'nullable|exists:properties,id',
             'category' => 'nullable|string|max:255',
@@ -87,6 +89,7 @@ class ExpenseController extends Controller
 
     public function show(Request $request, Expense $expense)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'financial.reports.view'), 403);
         $this->authorizeOrganization($request, $expense);
 
         return response()->json($expense->load('property'));
@@ -94,6 +97,7 @@ class ExpenseController extends Controller
 
     public function update(Request $request, Expense $expense)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'expenses.manage'), 403, 'Expense changes require financial access.');
         $this->authorizeOrganization($request, $expense);
 
         $validated = $request->validate([
@@ -125,6 +129,7 @@ class ExpenseController extends Controller
 
     public function destroy(Request $request, Expense $expense)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'expenses.manage'), 403, 'Expense changes require financial access.');
         $this->authorizeOrganization($request, $expense);
 
         $expense->delete();
