@@ -6,6 +6,14 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Event;
 use Laravel\Passkeys\Contracts\PasskeyLoginResponse as PasskeyLoginResponseContract;
 use App\Http\Responses\PasskeyLoginResponse;
+use App\Observers\AuditableObserver;
+use App\Models\Property;
+use App\Models\Unit;
+use App\Models\Tenant;
+use App\Models\Leases;
+use App\Models\Payment;
+use App\Models\Expense;
+use App\Models\MaintenanceRequest;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        foreach ([Property::class, Unit::class, Tenant::class, Leases::class, Payment::class, Expense::class, MaintenanceRequest::class] as $model) {
+            $model::observe(AuditableObserver::class);
+        }
+
         $this->app->singleton(PasskeyLoginResponseContract::class, PasskeyLoginResponse::class);
 
         Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
