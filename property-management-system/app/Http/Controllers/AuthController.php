@@ -96,6 +96,14 @@ public function usernameAvailable(Request $request)
                 if (!empty($validated['requested_move_in_date'])) {
                     $requestedStart = CarbonImmutable::parse($validated['requested_move_in_date'])->toDateString();
                     $today = CarbonImmutable::today()->toDateString();
+                    $latestReservationDate = CarbonImmutable::today()->addDays(60)->toDateString();
+
+                    abort_if(
+                        $requestedStart > $latestReservationDate,
+                        422,
+                        'Reservations can only be made for a move-in date within the next 60 days.'
+                    );
+
                     if ($requestedStart < $today) {
                         $handoverLease = $unit->leases()
                             ->whereDate('end_date', $requestedStart)
