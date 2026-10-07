@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
+Route::post('password/forgot', [AuthController::class, 'requestPasswordReset'])->middleware('throttle:5,1');
+Route::post('password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 Route::get('username-available', [AuthController::class, 'usernameAvailable']);
 Route::get('organizations', [OrganizationController::class, 'index']);
 Route::post('oauth/exchange', [AuthController::class, 'exchangeOauthCode']);
