@@ -1054,8 +1054,6 @@ function TenantDashboardLayout({
         </aside>
  
         <div className="tp-main">
-.tp-side__logo { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; background: #fff; }
- 
           <header className="tp-top">
             <button
               type="button"
