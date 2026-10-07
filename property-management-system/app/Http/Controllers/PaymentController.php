@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Leases;
 use Illuminate\Http\Request;
+use App\Services\PermissionService;
 
 class PaymentController extends Controller
 {
     public function index(Request $request)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $payments = Payment::where('organization_id', $request->user()->organization_id)
             ->with('lease')
             ->latest('payment_date')
@@ -20,6 +22,7 @@ class PaymentController extends Controller
 
     public function store(Request $request)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.record'), 403);
         $validated = $request->validate([
             'lease_id' => 'required|exists:leases,id',
             'amount' => 'required|numeric|min:0',
@@ -58,6 +61,7 @@ class PaymentController extends Controller
 
     public function update(Request $request, Payment $payment)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403, 'Payment edits require owner approval.');
         $this->authorizeOrganization($request, $payment);
 
         $validated = $request->validate([
@@ -79,6 +83,7 @@ class PaymentController extends Controller
 
     public function destroy(Request $request, Payment $payment)
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.void'), 403, 'Payment voiding requires owner approval.');
         $this->authorizeOrganization($request, $payment);
 
         $payment->delete();
