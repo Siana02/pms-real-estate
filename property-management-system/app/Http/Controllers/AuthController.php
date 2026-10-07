@@ -239,7 +239,14 @@ public function usernameAvailable(Request $request)
                 'username' => $validated['username'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
+                // The first account created for an organization is its
+                // primary administrator/owner. Staff accounts are added
+                // later through the organization team flow.
                 'role' => 'admin',
+            ]);
+
+            $organization->update([
+                'owner_user_id' => $user->id,
             ]);
 
             $token = $user->createToken('auth-token')->plainTextToken;
