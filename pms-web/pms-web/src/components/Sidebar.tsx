@@ -4,6 +4,8 @@ import {
   Banknote,
   Building2,
   DoorOpen,
+  ClipboardList,
+  ShieldCheck,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -289,6 +291,7 @@ const NAV_ITEMS = [
   { label: "Payments", to: "/manager/payments", icon: Banknote },
   { label: "Expenses", to: "/manager/expenses", icon: Receipt },
   { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
+  { label: "Requests", to: "/manager/requests", icon: ClipboardList },
 ];
  
 interface Organization {
@@ -300,6 +303,7 @@ interface Organization {
 interface User {
   name?: string;
   email?: string;
+  role?: string;
 }
  
 function readStored<T>(key: string): T {
@@ -334,6 +338,7 @@ function Sidebar() {
   const user = useMemo(() => readStored<User>("user"), []);
  
   const orgName = organization.name || "Your organization";
+  const isOwner = user.role === "admin" || user.role === "owner";
  
   useEffect(() => {
     function refreshOrganization() {
@@ -398,6 +403,12 @@ function Sidebar() {
             {label}
           </NavLink>
         ))}
+        {isOwner && (
+          <NavLink to="/manager/audit-log" className={linkClass}>
+            <ShieldCheck />
+            Audit Log
+          </NavLink>
+        )}
       </nav>
  
       <div className="sb-foot">
