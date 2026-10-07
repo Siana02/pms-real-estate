@@ -39,7 +39,7 @@ class Organization extends Model
             return null;
         }
 
-        return url('/storage/' . ltrim($this->logo_path, '/'));
+        return url('/api/organizations/' . $this->id . '/logo');
     }
 
     /**
