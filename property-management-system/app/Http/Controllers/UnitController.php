@@ -39,7 +39,7 @@ class UnitController extends Controller
     public function registrationAvailability(Request $request, Property $property)
     {
         $validated = $request->validate([
-            'requested_move_in_date' => ['required', 'date', 'after_or_equal:today'],
+            'requested_move_in_date' => ['required', 'date'],
             'unit_id' => ['required', 'integer', 'exists:units,id'],
         ]);
 
