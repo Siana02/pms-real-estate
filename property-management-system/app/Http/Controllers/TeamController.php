@@ -247,6 +247,7 @@ class TeamController extends Controller
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
+                'status' => $user->status,
                 'organization_id' => $user->organization_id,
                 'tenant_id' => $user->tenant_id,
                 'must_change_password' => false,
