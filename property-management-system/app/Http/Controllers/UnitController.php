@@ -123,7 +123,7 @@ class UnitController extends Controller
                 'organization_id',
                 $request->user()->organization_id
             );
-        })->with(['property', 'leases', 'tenants'])->get();
+        })->with(['property', 'leases.tenant', 'tenants'])->get();
 
         $today = CarbonImmutable::today()->toDateString();
         $units->each(function (Unit $unit) use ($today) {
