@@ -12,12 +12,14 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use App\Services\PermissionService;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
         $organizationId = $request->user()->organization_id;
+        $canViewFinancials = app(PermissionService::class)->has($request->user(), 'financial.reports.view');
         $now = CarbonImmutable::now();
         $monthStart = $now->startOfMonth();
         $monthEnd = $now->endOfMonth();
@@ -120,8 +122,8 @@ class DashboardController extends Controller
                 'occupied_units' => $occupied,
                 'vacant_units' => max($unitsCount - $occupied, 0),
                 'active_tenants' => $leases->pluck('tenant_id')->unique()->count(),
-                'monthly_revenue' => $rent,
-                'potential_monthly_revenue' => $potential,
+                'monthly_revenue' => $canViewFinancials ? $rent : null,
+                'potential_monthly_revenue' => $canViewFinancials ? $potential : null,
                 'occupancy' => $unitsCount > 0 ? round(($occupied / $unitsCount) * 100, 1) : 0,
             ];
         })->values();
@@ -132,6 +134,7 @@ class DashboardController extends Controller
         $netRevenue = $monthlyRent;
 
         return response()->json([
+            'can_view_financials' => $canViewFinancials,
             'organization' => $organization ? [
                 'id' => $organization->id,
                 'name' => $organization->name,
@@ -149,14 +152,14 @@ class DashboardController extends Controller
                 'occupancy' => $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100) : 0,
                 'active_tenants' => $activeTenants,
                 'active_leases' => $activeLeases->count(),
-                'monthly_rent' => $monthlyRent,
-                'monthly_revenue' => $monthlyRent,
-                'monthly_maintenance' => (float) $maintenanceCostThisMonth,
-                'monthly_expenses' => (float) $expensesThisMonth,
-                'net_revenue' => $netRevenue,
-                'cash_collected_this_month' => (float) $paymentsThisMonth,
-                'idle_rent' => max((float) $units->sum('monthly_rent') - $monthlyRent, 0),
-                'committed_maintenance' => (float) $committedMaintenance,
+                'monthly_rent' => $canViewFinancials ? $monthlyRent : null,
+                'monthly_revenue' => $canViewFinancials ? $monthlyRent : null,
+                'monthly_maintenance' => $canViewFinancials ? (float) $maintenanceCostThisMonth : null,
+                'monthly_expenses' => $canViewFinancials ? (float) $expensesThisMonth : null,
+                'net_revenue' => $canViewFinancials ? $netRevenue : null,
+                'cash_collected_this_month' => $canViewFinancials ? (float) $paymentsThisMonth : null,
+                'idle_rent' => $canViewFinancials ? max((float) $units->sum('monthly_rent') - $monthlyRent, 0) : null,
+                'committed_maintenance' => $canViewFinancials ? (float) $committedMaintenance : null,
             ],
             'revenue_trend' => $revenueTrend,
             'maintenance' => [
