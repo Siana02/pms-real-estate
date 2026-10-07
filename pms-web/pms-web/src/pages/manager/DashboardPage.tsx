@@ -1151,7 +1151,7 @@ function DashboardPage() {
                 </section>
 
                 <section className="manager-dashboard__split">
-                  <article className="manager-dashboard__card manager-dashboard__panel">
+                  {canViewFinancials && <article className="manager-dashboard__card manager-dashboard__panel">
                     <div className="manager-dashboard__panel-head">
                       <div>
                         <p className="manager-dashboard__section-kicker">Cash performance</p>
@@ -1200,7 +1200,7 @@ function DashboardPage() {
                         ))
                       )}
                     </div>
-                  </article>
+                  </article>}
 
                   <article className="manager-dashboard__card manager-dashboard__panel">
                     <div className="manager-dashboard__panel-head">
