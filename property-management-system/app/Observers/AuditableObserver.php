@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\AuditLog;
 use App\Services\AuditLogService;
+use App\Models\OrganizationPaymentSetting;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditableObserver
@@ -56,7 +57,7 @@ class AuditableObserver
 
     private function safeValues(array $values): array
     {
-        foreach (['password', 'remember_token', 'token', 'token_hash', 'raw_token'] as $key) {
+        foreach (['password', 'remember_token', 'token', 'token_hash', 'raw_token', 'mpesa_number', 'bank_name', 'bank_account_name', 'bank_account_number', 'bank_branch'] as $key) {
             unset($values[$key]);
         }
 
