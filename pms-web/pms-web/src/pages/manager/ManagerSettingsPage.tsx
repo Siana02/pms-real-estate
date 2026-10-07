@@ -11,6 +11,7 @@ import {
   Settings as SettingsIcon,
   Trash2,
   Upload,
+  Users,
 } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
@@ -978,6 +979,33 @@ function ManagerSettingsPage() {
           )}
 
  
+          {(profile.role === "admin" || profile.role === "owner") && (
+            <section className="mg-panel">
+              <div className="mg-panel__head">
+                <h2 className="mg-panel__title">
+                  <Users />
+                  Team
+                </h2>
+              </div>
+              <div className="mg-panel__body">
+                <p className="mg-hint" style={{ margin: 0 }}>
+                  Invite employees, assign operational roles, manage invitations,
+                  and deactivate or reactivate staff without deleting their history.
+                </p>
+                <div className="mg-actions" style={{ marginTop: "1rem" }}>
+                  <button
+                    type="button"
+                    className="mg-btn mg-btn--primary"
+                    onClick={() => window.location.assign("/manager/settings/team")}
+                  >
+                    <Users />
+                    Manage team
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="mg-panel">
             <div className="mg-panel__head">
               <h2 className="mg-panel__title">
