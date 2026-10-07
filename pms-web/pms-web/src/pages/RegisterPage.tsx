@@ -1322,6 +1322,8 @@ type UnitOption = {
   unit_number: string;
   unit_type: string | null;
   monthly_rent: number;
+  available_from?: string | null;
+  reservation_only?: boolean;
 };
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -1659,7 +1661,7 @@ function RegisterPage() {
             ? `The unit ${number} won't be available until ${nextDate}. Select another unit or postpone your move-in date.`
             : `The unit ${number} is not available for your selected move-in date. Select another unit or postpone your move-in date.`;
           setUnitAvailabilityValid(false);
-          setUnitAvailabilityMessage(availabilityText);
+          setUnitAvailabilityMessage(availabilityText + " You are making a reservation for that future move-in date; if that date does not work for you, choose another unit.");
         }
       })
       .catch(() => {
@@ -2228,7 +2230,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                               </option>
                               {units.map((unit) => (
                                 <option key={unit.id} value={unit.id}>
-                                  {unit.unit_number}{unit.unit_type ? ` — ${unit.unit_type}` : ""} — KSh {unit.monthly_rent.toLocaleString()}
+                                  {unit.unit_number}{unit.unit_type ? ` — ${unit.unit_type}` : ""} — KSh {unit.monthly_rent.toLocaleString()}{unit.reservation_only && unit.available_from ? ` — available from ${unit.available_from}` : ""}
                                 </option>
                               ))}
                             </select>
@@ -2613,6 +2615,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                               className={`rg-input${touched.requestedMoveInDate && !requestedStartValid ? " rg-input--invalid" : requestedStartValid ? " rg-input--valid" : ""}`}
                               type="date"
                               min={new Date().toISOString().slice(0, 10)}
+                              max={new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
                               value={requestedMoveInDate}
                               onChange={(event) => setRequestedMoveInDate(event.target.value)}
                               onBlur={() => markTouched("requestedMoveInDate")}
@@ -2623,7 +2626,7 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
                           {touched.requestedMoveInDate && !requestedStartValid ? (
                             <p className="rg-help rg-help--error"><AlertCircle />Select your expected move-in date.</p>
                           ) : (
-                            <p className="rg-help">Required. This date is used to check whether the selected unit will be available when you plan to move in.</p>
+                            <p className="rg-help">Required. Choose a move-in date within the next 60 days. If the unit is occupied until later, your request becomes a reservation for that future date.</p>
                           )}
                         </div>
                         <div>
