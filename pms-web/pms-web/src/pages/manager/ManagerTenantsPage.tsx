@@ -842,6 +842,7 @@ interface UnitOption {
   unit_number: string;
   unit_type: string | null;
   monthly_rent: number;
+  deposit_amount: number;
   status: string;
   pending_registration: boolean;
   pending_email: string | null;
@@ -1027,6 +1028,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
             unit_number,
             unit_type: asString(record.unit_type) || null,
             monthly_rent: asNumber(record.monthly_rent),
+            deposit_amount: asNumber(record.deposit_amount),
             status: asString(record.status),
             pending_registration: record.pending_registration === true,
             pending_email: asString(record.pending_email) || null,
@@ -1106,7 +1108,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
           start_date: propertyId ? startDate : null,
           end_date: propertyId ? endDate || null : null,
           monthly_rent: propertyId ? Number(monthlyRent) : null,
-          deposit_amount: depositAmount ? Number(depositAmount) : 0,
+          deposit_amount: depositAmount.trim() !== "" ? Number(depositAmount) : null,
           deposit_paid: depositPaid,
           deposit_payment_date: depositPaid ? depositPaymentDate : null,
         }),
@@ -1311,6 +1313,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                       setPropertyId(event.target.value);
                       setUnitId("");
                       setMonthlyRent("");
+                      setDepositAmount("");
                     }}
                   >
                     <option value="">Create tenant without assigning a property</option>
@@ -1334,6 +1337,7 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                           setUnitId(nextId);
                           const selected = availableUnits.find((unit) => String(unit.id) === nextId);
                           setMonthlyRent(selected ? String(selected.monthly_rent) : "");
+                          setDepositAmount(selected ? String(selected.deposit_amount) : "");
                         }}
                       >
                         <option value="">Select a vacant unit</option>
@@ -1362,11 +1366,12 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                           <div>
                             <label className="tn-field__label" htmlFor="tn-monthly-rent">Agreed monthly rent</label>
                             <input id="tn-monthly-rent" className="tn-input" type="number" min={0} step="0.01" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} required />
-                            <p className="tn-field__hint">Prefilled from the unit's default; changing this will not change the unit's default rent.</p>
+                            <p className="tn-field__hint">Unit standard: {selectedUnit ? formatMoney(selectedUnit.monthly_rent, readCurrency()) : "—"}. Changing this affects this lease only.</p>
                           </div>
                           <div>
-                            <label className="tn-field__label" htmlFor="tn-deposit-amount">Security deposit required</label>
+                            <label className="tn-field__label" htmlFor="tn-deposit-amount">Agreed security deposit</label>
                             <input id="tn-deposit-amount" className="tn-input" type="number" min={0} step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
+                            <p className="tn-field__hint">Prefilled from the unit's standard deposit; changing this affects this lease only.</p>
                           </div>
                         </div>
                         <label className="tn-check" htmlFor="tn-deposit-paid">
