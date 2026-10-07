@@ -7,11 +7,13 @@ use App\Models\Organization;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\SocialAccount;
+use App\Mail\PasswordResetMail;
 use App\Services\LeaseProvisioner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Socialite;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -498,6 +500,72 @@ public function usernameAvailable(Request $request)
     private function frontendUrl(): string
     {
         return rtrim((string) config('services.frontend.url'), '/');
+    }
+
+    public function requestPasswordReset(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $user = User::whereRaw('LOWER(email) = ?', [strtolower(trim($validated['email']))])->first();
+
+        if ($user) {
+            $token = Str::random(64);
+
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+            DB::table('password_reset_tokens')->insert([
+                'email' => $user->email,
+                'token' => Hash::make($token),
+                'created_at' => now(),
+            ]);
+
+            Mail::to($user->email)->send(new PasswordResetMail($user, $token));
+        }
+
+        return response()->json([
+            'message' => 'If an account exists for that email, a password reset link has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'token' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        $record = DB::table('password_reset_tokens')->where('email', $email)->first();
+
+        abort_unless($record !== null, 422, 'This password reset link is invalid or has expired.');
+        abort_if(
+            $record->created_at === null || CarbonImmutable::parse($record->created_at)->addMinutes(60)->isPast(),
+            422,
+            'This password reset link is invalid or has expired.'
+        );
+        abort_unless(
+            Hash::check($validated['token'], $record->token),
+            422,
+            'This password reset link is invalid or has expired.'
+        );
+
+        $user = User::whereRaw('LOWER(email) = ?', [$email])->firstOrFail();
+
+        DB::transaction(function () use ($user, $validated, $email) {
+            $user->update([
+                'password' => Hash::make($validated['password']),
+                'must_change_password' => false,
+            ]);
+
+            $user->tokens()->delete();
+            DB::table('password_reset_tokens')->where('email', $email)->delete();
+        });
+
+        return response()->json([
+            'message' => 'Password reset successfully. You can now sign in with your new password.',
+        ]);
     }
 
     /**
