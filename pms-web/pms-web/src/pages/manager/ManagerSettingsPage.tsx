@@ -278,6 +278,7 @@ const pageStyles = `
 }
  
 .st-crop__preview-circle {
+  position: relative;
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
@@ -418,6 +419,7 @@ function ManagerSettingsPage() {
   const [cropZoom, setCropZoom] = useState(1);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [cropNaturalSize, setCropNaturalSize] = useState({ width: 0, height: 0 });
+  const [cropStageSize, setCropStageSize] = useState(360);
   const [cropDragging, setCropDragging] = useState(false);
   const cropStageRef = useRef<HTMLDivElement>(null);
   const cropDragRef = useRef({ x: 0, y: 0 });
@@ -495,9 +497,13 @@ function ManagerSettingsPage() {
 
   function openCropper(source: string) {
     setError("");
+    if (cropSource?.startsWith("blob:") && cropSource !== source) {
+      URL.revokeObjectURL(cropSource);
+    }
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
     setCropNaturalSize({ width: 0, height: 0 });
+    setCropStageSize(cropStageRef.current?.clientWidth || 360);
     setCropSource(source);
   }
 
@@ -836,6 +842,7 @@ function ManagerSettingsPage() {
                           width: event.currentTarget.naturalWidth,
                           height: event.currentTarget.naturalHeight,
                         });
+                        setCropStageSize(cropStageRef.current?.clientWidth || 360);
                       }}
                       style={
                         cropNaturalSize.width
@@ -843,8 +850,8 @@ function ManagerSettingsPage() {
                               width: cropNaturalSize.width,
                               height: cropNaturalSize.height,
                               transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${Math.min(
-                                360 / cropNaturalSize.width,
-                                360 / cropNaturalSize.height
+                                cropStageSize / cropNaturalSize.width,
+                                cropStageSize / cropNaturalSize.height
                               ) * cropZoom})`,
                               transformOrigin: "center",
                             }
@@ -899,11 +906,17 @@ function ManagerSettingsPage() {
                             src={cropSource}
                             alt="Adjusted logo preview"
                             style={{
-                              objectFit: "contain",
-                              transform: `scale(${Math.min(
-                                1,
-                                cropZoom
-                              )}) translate(${cropOffset.x / 2}px, ${cropOffset.y / 2}px)`,
+                              width: cropNaturalSize.width,
+                              height: cropNaturalSize.height,
+                              maxWidth: "none",
+                              position: "absolute",
+                              top: "50%",
+                              left: "50%",
+                              transform: `translate(-50%, -50%) translate(${cropOffset.x * (56 / cropStageSize)}px, ${cropOffset.y * (56 / cropStageSize)}px) scale(${Math.min(
+                                56 / cropNaturalSize.width,
+                                56 / cropNaturalSize.height
+                              ) * cropZoom})`,
+                              transformOrigin: "center",
                             }}
                           />
                         )}
