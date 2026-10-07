@@ -77,7 +77,7 @@ public function store(Request $request)
     'unit_id' => 'nullable|required_with:property_id|integer|exists:units,id',
     'start_date' => 'required_with:unit_id|date',
     'end_date' => 'nullable|date|after_or_equal:start_date',
-    'monthly_rent' => 'required_with:unit_id|numeric|min:0',
+    'monthly_rent' => 'nullable|numeric|min:0',
     'deposit_amount' => 'nullable|numeric|min:0',
     'deposit_paid' => 'nullable|boolean',
     'deposit_paid_amount' => 'nullable|numeric|min:0',
