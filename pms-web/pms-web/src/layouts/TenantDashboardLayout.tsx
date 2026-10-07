@@ -805,6 +805,23 @@ function readStored(key: string): string | null {
   return localStorage.getItem(key) ?? sessionStorage.getItem(key);
 }
  
+function readOrganizationLogo(): string | null {
+  const raw = readStored("organization");
+  if (!raw) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      const logo = (parsed as Record<string, unknown>).logo_url;
+      return typeof logo === "string" && logo.trim() ? logo : null;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  return null;
+}
+
 function readTenantIdentity(): TenantIdentity {
   const fallback: TenantIdentity = { name: "Tenant", residence: "" };
   const raw = readStored("user");
@@ -872,9 +889,22 @@ function TenantDashboardLayout({
     name: "Tenant",
     residence: "",
   });
+  const [organizationLogo, setOrganizationLogo] = useState<string | null>(() =>
+    readOrganizationLogo()
+  );
  
   useEffect(() => {
     setIdentity(readTenantIdentity());
+  }, []);
+
+  useEffect(() => {
+    function refreshOrganizationLogo() {
+      setOrganizationLogo(readOrganizationLogo());
+    }
+
+    window.addEventListener("pms:organization", refreshOrganizationLogo);
+    return () =>
+      window.removeEventListener("pms:organization", refreshOrganizationLogo);
   }, []);
  
   useEffect(() => {
@@ -920,9 +950,13 @@ function TenantDashboardLayout({
         >
           <div className="tp-side__brand">
             <span className="tp-side__mark" aria-hidden="true">
-              <Home />
+              {organizationLogo ? (
+                <img src={organizationLogo} alt="" className="tp-side__logo" />
+              ) : (
+                <Home />
+              )}
             </span>
-            <span className="tp-side__word">PMS.</span>
+            <span className="tp-side__word">Property portal</span>
             <button
               type="button"
               className="tp-side__close"
@@ -1020,6 +1054,8 @@ function TenantDashboardLayout({
         </aside>
  
         <div className="tp-main">
+.tp-side__logo { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; background: #fff; }
+ 
           <header className="tp-top">
             <button
               type="button"
@@ -1033,9 +1069,13 @@ function TenantDashboardLayout({
  
             <span className="tp-top__brand">
               <span className="tp-side__mark" aria-hidden="true">
-                <Home />
+                {organizationLogo ? (
+                  <img src={organizationLogo} alt="" className="tp-side__logo" />
+                ) : (
+                  <Home />
+                )}
               </span>
-              PMS.
+              Property portal
             </span>
  
             <div className="tp-search">
