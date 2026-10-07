@@ -38,9 +38,6 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(PasskeyLoginResponseContract::class, PasskeyLoginResponse::class);
 
-        Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
-            $event->extendSocialite('apple', \SocialiteProviders\Apple\Provider::class);
-        });
     }
 
 }
