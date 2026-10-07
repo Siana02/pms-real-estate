@@ -633,6 +633,8 @@ class TenantPortalController extends Controller
     {
         $user = $request->user();
 
+        abort_unless($user->role === 'tenant', 403, 'Only tenant accounts can access the tenant portal.');
+
         $tenant = null;
 
         if (Schema::hasColumn('users', 'tenant_id') && $user->tenant_id) {
