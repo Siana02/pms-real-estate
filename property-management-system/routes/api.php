@@ -13,6 +13,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TenantPortalController;
 use App\Http\Controllers\TenantMaintenanceController;
 use App\Http\Controllers\TenantNotificationController;
+use App\Http\Controllers\TeamController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,8 @@ Route::post('oauth/exchange', [AuthController::class, 'exchangeOauthCode']);
 Route::get('oauth/pending/{code}', [AuthController::class, 'pendingOauthRegistration']);
 Route::get('organizations/{organization}/logo', [OrganizationController::class, 'logo']);
 Route::get('organizations/{organization}/properties', [OrganizationController::class, 'properties']);
+Route::get('team/invitations/{token}', [TeamController::class, 'showInvitation']);
+Route::post('team/invitations/{token}/accept', [TeamController::class, 'acceptInvitation']);
 Route::get('properties/{property}/available-units', [UnitController::class, 'availableForRegistration']);
 Route::get('properties/{property}/registration-availability', [UnitController::class, 'registrationAvailability']);
 
@@ -35,6 +38,12 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::post('organization/logo', [OrganizationController::class, 'uploadLogo']);
     Route::delete('organization/logo', [OrganizationController::class, 'removeLogo']);
+    Route::get('team', [TeamController::class, 'index']);
+    Route::post('team/invite', [TeamController::class, 'invite']);
+    Route::patch('team/{user}/role', [TeamController::class, 'updateRole']);
+    Route::patch('team/{user}/deactivate', [TeamController::class, 'deactivate']);
+    Route::patch('team/{user}/reactivate', [TeamController::class, 'reactivate']);
+    Route::post('team/{user}/resend-invitation', [TeamController::class, 'resendInvitation']);
     Route::apiResource('organizations', OrganizationController::class)->except(['index']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
