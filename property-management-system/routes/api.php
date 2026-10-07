@@ -14,6 +14,8 @@ use App\Http\Controllers\TenantPortalController;
 use App\Http\Controllers\TenantMaintenanceController;
 use App\Http\Controllers\TenantNotificationController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\AuditLogController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -44,6 +46,10 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::patch('team/{user}/deactivate', [TeamController::class, 'deactivate']);
     Route::patch('team/{user}/reactivate', [TeamController::class, 'reactivate']);
     Route::post('team/{user}/resend-invitation', [TeamController::class, 'resendInvitation']);
+    Route::get('permissions', [PermissionController::class, 'catalog']);
+    Route::get('team/{user}/permissions', [PermissionController::class, 'user']);
+    Route::patch('team/{user}/permissions', [PermissionController::class, 'update']);
+    Route::get('audit-logs', [AuditLogController::class, 'index']);
     Route::apiResource('organizations', OrganizationController::class)->except(['index']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
