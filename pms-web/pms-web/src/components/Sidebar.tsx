@@ -386,7 +386,7 @@ function Sidebar() {
           )}
         </span>
         <span className="sb-brand__name">
-          {organization.id ? `ID ${organization.id}` : "Organization"}
+          {organization.name || "Organization"}
         </span>
       </div>
  
