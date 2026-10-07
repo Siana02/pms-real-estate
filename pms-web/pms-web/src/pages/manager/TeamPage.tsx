@@ -35,6 +35,7 @@ function TeamPage() {
   const [employees,setEmployees]=useState<Employee[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);
   const [error,setError]=useState(""),[notice,setNotice]=useState(""),[menuId,setMenuId]=useState<number|null>(null),[inviteOpen,setInviteOpen]=useState(false);
   const [name,setName]=useState(""),[email,setEmail]=useState(""),[role,setRole]=useState<Employee["role"]>("staff"),[inviteLink,setInviteLink]=useState("");
+  const [permissionEmployee,setPermissionEmployee]=useState<Employee|null>(null),[permissionCatalog,setPermissionCatalog]=useState<{key:string;name:string;group:string}[]>([]),[permissionKeys,setPermissionKeys]=useState<string[]>([]);
   const activeCount=useMemo(()=>employees.filter(e=>e.status==="active").length,[employees]);
 
   async function loadTeam(){setLoading(true);setError("");try{const r=await apiRequest<ApiResponse>("/team");setEmployees(Array.isArray(r.data)?r.data:[])}catch(e){setError(e instanceof Error?e.message:"Could not load the team.")}finally{setLoading(false)}}
@@ -58,6 +59,16 @@ function TeamPage() {
       setNotice(r.email_sent===false?"Invitation refreshed, but the email could not be sent.":r.message||"Done.");if(r.invitation_url)setInviteLink(r.invitation_url);await loadTeam()
     }catch(e){setError(e instanceof Error?e.message:"That action could not be completed.")}finally{setSaving(false);setMenuId(null)}
   }
+  async function openPermissions(employee:Employee){
+    setSaving(true); setError("");
+    try { const [catalog,user] = await Promise.all([apiRequest<any>("/permissions"),apiRequest<any>("/team/"+employee.id+"/permissions")]); setPermissionCatalog(catalog?.permissions??[]); setPermissionKeys(user?.permissions??[]); setPermissionEmployee(employee); }
+    catch(e){ setError(e instanceof Error?e.message:"Could not load permissions."); } finally { setSaving(false); }
+  }
+  async function togglePermission(key:string){
+    if(!permissionEmployee)return; setSaving(true); setError(""); const granted=!permissionKeys.includes(key);
+    try { const r:any=await apiRequest("/team/"+permissionEmployee.id+"/permissions",{method:"PATCH",body:JSON.stringify({permission:key,granted})}); setPermissionKeys(r?.permissions??[]); setNotice("Permission updated."); }
+    catch(e){setError(e instanceof Error?e.message:"Could not update permission.");} finally {setSaving(false);}
+  }
   async function copyInviteLink(){if(!inviteLink)return;try{await navigator.clipboard.writeText(inviteLink);setNotice("Invitation link copied.")}catch{setError("Could not copy the invitation link. You can select it manually.")}}
 
   return <DashboardLayout><div className="tm-root"><style>{styles}</style><div className="tm-shell">
@@ -70,10 +81,12 @@ function TeamPage() {
       <td><select value={employee.role} disabled={saving} aria-label={"Role for "+employee.name} onChange={e=>void changeRole(employee,e.target.value as Employee["role"])} style={{border:"1px solid #e1e6e9",borderRadius:".55rem",padding:".45rem .55rem",background:"#fff",color:"#34404c",fontSize:".75rem"}}><option value="property_manager">Property Manager</option><option value="staff">Staff</option></select></td>
       <td><span className={"tm-pill tm-pill--"+employee.status}>{STATUS_LABELS[employee.status]}</span></td><td>{formatLastActive(employee.last_active_at,employee.status)}</td>
       <td className="tm-actions"><div className="tm-menu-wrap"><button className="tm-menu-button" type="button" aria-label={"Actions for "+employee.name} onClick={()=>setMenuId(menuId===employee.id?null:employee.id)}><MoreVertical/></button>
-      {menuId===employee.id&&<div className="tm-menu">{employee.status==="invited"&&<button type="button" onClick={()=>void runAction(employee,"resend")}>Resend invitation</button>}{employee.status==="deactivated"?<button type="button" onClick={()=>void runAction(employee,"reactivate")}>Reactivate employee</button>:employee.status!=="invited"&&<button className="danger" type="button" onClick={()=>void runAction(employee,"deactivate")}>Deactivate employee</button>}</div>}</div></td></tr>)}
+      {menuId===employee.id&&<div className="tm-menu"><button type="button" onClick={()=>{setMenuId(null);void openPermissions(employee)}}>Permissions</button>{employee.status==="invited"&&<button type="button" onClick={()=>void runAction(employee,"resend")}>Resend invitation</button>}{employee.status==="deactivated"?<button type="button" onClick={()=>void runAction(employee,"reactivate")}>Reactivate employee</button>:employee.status!=="invited"&&<button className="danger" type="button" onClick={()=>void runAction(employee,"deactivate")}>Deactivate employee</button>}</div>}</div></td></tr>)}
       </tbody></table></div>}
     </section>
   </div></div>
+
+  {permissionEmployee&&<div className="tm-overlay" role="dialog" aria-modal="true"><div className="tm-modal"><div className="tm-modal__head"><h2>Permissions · {permissionEmployee.name}</h2><button className="tm-menu-button" type="button" onClick={()=>setPermissionEmployee(null)}>×</button></div><div className="tm-modal__body"><p className="tm-hint">Operational permissions are enabled by default. Sensitive financial and administrative permissions can be granted individually by the owner or administrator.</p><div style={{display:"grid",gap:".45rem",maxHeight:"55vh",overflowY:"auto"}}>{permissionCatalog.map(p=><label key={p.key} style={{display:"flex",alignItems:"center",gap:".7rem",padding:".65rem",border:"1px solid #edf0f2",borderRadius:".65rem"}}><input type="checkbox" checked={permissionKeys.includes(p.key)} disabled={saving} onChange={()=>void togglePermission(p.key)}/><span><strong style={{display:"block",fontSize:".78rem"}}>{p.name}</strong><small style={{color:"#8a949d"}}>{p.group} · {p.key}</small></span></label>)}</div><div className="tm-modal__actions"><button className="tm-btn tm-btn--ghost" type="button" onClick={()=>setPermissionEmployee(null)}>Done</button></div></div></div></div>}
   {inviteOpen&&<div className="tm-overlay" role="dialog" aria-modal="true" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)closeInvite()}}><div className="tm-modal">
     <div className="tm-modal__head"><h2>Invite employee</h2><button className="tm-menu-button" type="button" onClick={closeInvite} disabled={saving} aria-label="Close">×</button></div>
     <div className="tm-modal__body"><div className="tm-field"><label htmlFor="employee-name">Full name</label><input id="employee-name" value={name} onChange={e=>setName(e.target.value)} placeholder="Jane Wanjiku" autoComplete="name"/></div>
