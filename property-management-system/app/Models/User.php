@@ -11,6 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Organization;
 use App\Models\Tenant;
+use App\Models\UserPermission;
 use Laravel\Passkeys\Contracts\PasskeyUser;
 use Laravel\Passkeys\PasskeyAuthenticatable;
 
@@ -50,6 +51,11 @@ class User extends Authenticatable implements PasskeyUser
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function userPermissions(): HasMany
+    {
+        return $this->hasMany(UserPermission::class);
     }
 
     public function teamInvitations(): HasMany
