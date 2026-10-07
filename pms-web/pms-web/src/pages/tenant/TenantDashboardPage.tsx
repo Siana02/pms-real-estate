@@ -189,6 +189,7 @@ const styles = `
 }
  
 .td-manager svg { width: 0.9375rem; height: 0.9375rem; color: var(--tp-muted); }
+.td-manager__logo { width: 1.5rem; height: 1.5rem; flex: none; object-fit: contain; border-radius: 50%; background: #fff; }
 .td-manager a { color: var(--tp-blue); font-weight: 600; }
 .td-manager span:first-of-type { font-weight: 600; }
  
@@ -1639,6 +1640,7 @@ interface TenantHome {
   country: string | null;
   bedrooms: number | string | null;
   manager_name: string | null;
+  manager_logo_url: string | null;
   manager_phone: string | null;
   manager_email: string | null;
 }
@@ -1901,7 +1903,27 @@ function TenantDashboardPage() {
     ]);
  
     if (overviewResult.status === "fulfilled") {
-      setOverview(asOverview(overviewResult.value));
+      const nextOverview = asOverview(overviewResult.value);
+      setOverview(nextOverview);
+
+      if (nextOverview.home?.manager_logo_url !== undefined) {
+        try {
+          const raw =
+            localStorage.getItem("organization") ??
+            sessionStorage.getItem("organization");
+          const existing = raw ? JSON.parse(raw) : {};
+          const next = {
+            ...existing,
+            name: nextOverview.home?.manager_name ?? existing.name,
+            logo_url: nextOverview.home?.manager_logo_url ?? null,
+          };
+          localStorage.setItem("organization", JSON.stringify(next));
+          sessionStorage.setItem("organization", JSON.stringify(next));
+          window.dispatchEvent(new CustomEvent("pms:organization"));
+        } catch {
+          // The overview data remains authoritative for this page.
+        }
+      }
     } else {
       setError(
         overviewResult.reason instanceof Error
@@ -2155,7 +2177,15 @@ function TenantDashboardPage() {
               </div>
 
               <div className="td-manager">
-                <ShieldCheck />
+                {home?.manager_logo_url ? (
+                  <img
+                    src={home.manager_logo_url}
+                    alt=""
+                    className="td-manager__logo"
+                  />
+                ) : (
+                  <ShieldCheck />
+                )}
                 <span>{home?.manager_name ?? "Property management"}</span>
                 {home?.manager_phone && (
                   <a href={`tel:${home.manager_phone}`}>
