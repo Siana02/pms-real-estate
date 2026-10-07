@@ -17,7 +17,7 @@ class AuditableObserver
             class_basename($model).' created.',
             $model,
             null,
-            $model->getAttributes()
+            $this->safeValues($model->getAttributes())
         );
     }
 
@@ -37,8 +37,8 @@ class AuditableObserver
             'UPDATED',
             class_basename($model).' updated.',
             $model,
-            $old,
-            $changes
+            $this->safeValues($old),
+            $this->safeValues($changes)
         );
     }
 
@@ -50,8 +50,16 @@ class AuditableObserver
             'DELETED',
             class_basename($model).' deleted.',
             $model,
-            $model->getOriginal(),
+            $this->safeValues($model->getOriginal()),
             null
         );
+
+    private function safeValues(array $values): array
+    {
+        foreach (['password', 'remember_token', 'token', 'token_hash', 'raw_token'] as $key) {
+            unset($values[$key]);
+        }
+
+        return $values;
     }
 }
