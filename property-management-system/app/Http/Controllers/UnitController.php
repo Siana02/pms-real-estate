@@ -12,21 +12,56 @@ class UnitController extends Controller
 {
     public function availableForRegistration(Property $property)
     {
-        $today = CarbonImmutable::today()->toDateString();
+        $today = CarbonImmutable::today();
+        $latestReservationDate = $today->addDays(60);
 
         $units = Unit::query()
             ->where('property_id', $property->id)
             ->where('status', '!=', 'maintenance')
-            ->whereDoesntHave('leases', function ($query) use ($today) {
+            ->whereDoesntHave('leases', function ($query) {
                 $query->whereNotIn('status', ['ended', 'terminated'])
-                    ->where(function ($dates) use ($today) {
-                        $dates->whereNull('end_date')
-                            ->orWhereDate('end_date', '>=', $today);
-                    });
+                    ->where('status', 'pending');
             })
             ->whereDoesntHave('tenants', fn ($query) => $query->where('status', 'pending'))
+            ->with(['leases' => function ($query) {
+                $query->whereNotIn('status', ['ended', 'terminated'])
+                    ->orderBy('start_date');
+            }])
             ->orderBy('unit_number')
-            ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent', 'deposit_amount']);
+            ->get(['id', 'property_id', 'unit_number', 'unit_type', 'monthly_rent', 'deposit_amount'])
+            ->map(function (Unit $unit) use ($today, $latestReservationDate) {
+                $openLease = $unit->leases
+                    ->filter(fn ($lease) =>
+                        $lease->end_date === null &&
+                        ($lease->start_date === null || $lease->start_date->toDateString() <= $latestReservationDate->toDateString())
+                    )
+                    ->sortByDesc(fn ($lease) => $lease->start_date?->timestamp ?? 0)
+                    ->first();
+
+                if ($openLease) {
+                    return null;
+                }
+
+                $latestEnd = $unit->leases
+                    ->map(fn ($lease) => $lease->end_date?->copy())
+                    ->filter()
+                    ->sortDesc()
+                    ->first();
+
+                if ($latestEnd !== null && $latestEnd->toDateString() > $latestReservationDate->toDateString()) {
+                    return null;
+                }
+
+                $availableFrom = $latestEnd?->toDateString() ?? $today->toDateString();
+
+                $unit->setAttribute('available_from', $availableFrom);
+                $unit->setAttribute('reservation_only', $availableFrom !== $today->toDateString());
+                $unit->setAttribute('reservation_window_days', 60);
+
+                return $unit;
+            })
+            ->filter()
+            ->values();
 
         return response()->json($units);
     }
