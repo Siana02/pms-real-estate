@@ -293,16 +293,18 @@ class TeamController extends Controller
 
         $rawToken = Str::random(64);
 
-        return TeamInvitation::create([
+        $invitation = TeamInvitation::create([
             'organization_id' => $user->organization_id,
             'user_id' => $user->id,
             'invited_by' => $inviter->id,
             'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
             'last_sent_at' => now(),
-        ])->tap(function (TeamInvitation $invitation) use ($rawToken) {
-            $invitation->setAttribute('raw_token', $rawToken);
-        });
+        ]);
+
+        $invitation->setAttribute('raw_token', $rawToken);
+
+        return $invitation;
     }
 
     private function sendInvitation(TeamInvitation $invitation): array
