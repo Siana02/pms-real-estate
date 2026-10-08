@@ -8,7 +8,6 @@ import {
   CalendarClock,
   CheckCircle2,
   CreditCard,
-  ArrowRight,
   Download,
   Loader2,
   Receipt,
@@ -478,7 +477,105 @@ const FILTERS: { key: "all" | "paid" | "pending"; label: string }[] = [
  
 const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
   { key: "flutterwave", label: "Flutterwave", icon: <CreditCard /> },
-];  async function submitPayment(event: FormEvent<HTMLFormElement>) {
+];
+ 
+/* ------------------------------------------------------------------ */
+/*  PAGE                                                               */
+/* ------------------------------------------------------------------ */
+ 
+function TenantPaymentsPage() {
+  const currency = useMemo(readCurrency, []);
+  const [searchParams, setSearchParams] = useSearchParams();
+ 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [payments, setPayments] = useState<TenantPayment[]>([]);
+  const [summary, setSummary] = useState<RentSummary | null>(null);
+ 
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "paid" | "pending">("all");
+ 
+  const [payOpen, setPayOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [method] = useState<PayMethod>("flutterwave");
+  const [gatewayNotice, setGatewayNotice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+ 
+  const load = useCallback(async () => {
+    try {
+      const response = await apiRequest("/tenant/payments");
+      setPayments(unwrap<TenantPayment>(response));
+      setSummary(unwrapSummary(response));
+      setError("");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't load your payment history."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+ 
+  useEffect(() => {
+    void load();
+  }, [load]);
+ 
+  useEffect(() => {
+    if (searchParams.get("action") === "pay") setPayOpen(true);
+
+    const gateway = searchParams.get("flutterwave");
+    if (gateway === "paid") {
+      setGatewayNotice("Payment verified successfully. Your balance will reflect the confirmed payment.");
+    } else if (gateway === "failed" || gateway === "verification_failed") {
+      setGatewayNotice("The Flutterwave payment was not completed. You can try again.");
+    }
+  }, [searchParams]);
+ 
+  useEffect(() => {
+    if (!payOpen) return;
+    setAmount(String(Math.round(toNumber(summary?.amount_due))) || "");
+  }, [payOpen, summary]);
+ 
+  const outstanding = toNumber(
+    summary?.balance ?? summary?.amount_due ?? undefined
+  );
+ 
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+ 
+    return payments.filter((payment) => {
+      if (filter === "paid" && payment.status !== "paid") return false;
+      if (filter === "pending" && payment.status === "paid") return false;
+      if (!term) return true;
+ 
+      return [
+        periodLabel(payment),
+        payment.reference ?? "",
+        methodLabel(payment.payment_method),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term);
+    });
+  }, [payments, filter, query]);
+ 
+  function closePay() {
+    setPayOpen(false);
+    setSubmitError("");
+    setSubmitted(false);
+ 
+    if (searchParams.get("action")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("action");
+      setSearchParams(next, { replace: true });
+    }
+  }
+ 
+  async function submitPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const value = Number(amount);
@@ -514,5 +611,4 @@ const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
     } finally {
       setSubmitting(false);
     }
-  }
-;
+  };
