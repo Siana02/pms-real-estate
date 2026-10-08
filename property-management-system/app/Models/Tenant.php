@@ -19,7 +19,11 @@ class Tenant extends Model
         'last_name',
         'email',
         'phone',
+        'profile_photo_path',
         'national_id',
+        'residential_address',
+        'postal_address',
+        'nationality',
         'employer_name',
         'employer_phone',
         'next_of_kin_name',
@@ -27,6 +31,11 @@ class Tenant extends Model
         'status',
         'notes',
     ];
+
+    public function user()
+    {
+        return $this->hasOne(User::class);
+    }
 
     public function organization()
     {
