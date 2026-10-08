@@ -121,7 +121,8 @@ function NotificationsPage() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
   );
-  const [toast, setToast] = useState<NotificationItem | null>(null);\n  const itemsRef = useRef<Set<string>>(new Set());
+  const [toast, setToast] = useState<NotificationItem | null>(null);
+  const itemsRef = useRef<Set<string>>(new Set());
   const [desktopEnabled, setDesktopEnabled] = useState(
     typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
   );
