@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -33,6 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
         'permission' => \App\Http\Middleware\CheckPermission::class,
     ]);
 })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('rent:generate --months=2')->dailyAt('00:10');
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
