@@ -442,7 +442,13 @@ class PropertyTenantWorkflowTest extends TestCase
             ->patchJson('/api/tenant/lease-agreement', [
                 'tenant_terms' => 'Tenant accepts the current lease terms.',
             ])
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('data.tenant_terms', 'Tenant accepts the current lease terms.');
+
+        $this->assertDatabaseHas('leases', [
+            'id' => $leaseId,
+            'tenant_terms' => 'Tenant accepts the current lease terms.',
+        ]);
 
         $this->withToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
