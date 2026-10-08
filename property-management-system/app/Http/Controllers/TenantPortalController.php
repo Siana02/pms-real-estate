@@ -206,6 +206,10 @@ class TenantPortalController extends Controller
                 'notes' => $this->paymentNotes($validated),
             ]);
 
+            if (($validated['payment_type'] ?? 'rent') === 'rent') {
+                app(RentLedgerService::class)->attachPayment($payment);
+            }
+
             return response()->json([
                 'message' => 'Payment submitted for verification.',
                 'data' => $this->paymentPayload($payment),
@@ -232,6 +236,10 @@ class TenantPortalController extends Controller
                 'tx_ref' => $txRef,
                 'notes' => $this->paymentNotes($validated),
             ]);
+
+            if (($validated['payment_type'] ?? 'rent') === 'rent') {
+                app(RentLedgerService::class)->attachPayment($payment);
+            }
 
             $customerName = trim(($tenant->first_name ?? '') . ' ' . ($tenant->last_name ?? ''));
 
@@ -284,6 +292,10 @@ class TenantPortalController extends Controller
             'reference' => $validated['reference'] ?? null,
             'notes' => $this->paymentNotes($validated),
         ]);
+
+        if (($validated['payment_type'] ?? 'rent') === 'rent') {
+            app(RentLedgerService::class)->attachPayment($payment);
+        }
 
         return response()->json([
             'message' => 'Payment recorded against your lease.',
@@ -1202,18 +1214,9 @@ class TenantPortalController extends Controller
     /** @return array<string, mixed> */
     private function rentPayload(Tenant $tenant, ?Lease $lease): array
     {
-        $payments = $lease
-            ? $lease->payments()->orderByDesc('payment_date')->orderByDesc('id')->get()
-            : collect();
         $monthlyRent = (float) ($lease->monthly_rent ?? 0);
         if ($monthlyRent <= 0 && $lease?->unit?->monthly_rent !== null) {
             $monthlyRent = (float) $lease->unit->monthly_rent;
-        }
-        if ($monthlyRent <= 0 && $tenant->unit_id) {
-            $unit = Unit::find($tenant->unit_id);
-            if ($unit?->monthly_rent !== null) {
-                $monthlyRent = (float) $unit->monthly_rent;
-            }
         }
 
         $now = CarbonImmutable::now();
@@ -1234,36 +1237,46 @@ class TenantPortalController extends Controller
             ];
         }
 
-        $rentPayments = $payments->filter(
-            fn (Payment $payment) => ($payment->payment_type ?? 'rent') === 'rent'
-                && $payment->status === 'paid'
-        );
+        if ($lease) {
+            app(RentLedgerService::class)->ensureForPeriod($now);
+            app(RentLedgerService::class)->syncExistingPayments($now);
 
-        $paidThisMonth = $rentPayments
-            ->filter(fn (Payment $payment) => CarbonImmutable::parse(
-                (string) $payment->payment_date
-            )->isSameMonth($now))
-            ->sum(fn (Payment $payment) => (float) $payment->amount);
+            $obligation = \App\Models\RentObligation::where('lease_id', $lease->id)
+                ->where('period', $now->startOfMonth()->toDateString())
+                ->first();
 
-        $paidThisYear = $rentPayments
-            ->filter(fn (Payment $payment) => CarbonImmutable::parse(
-                (string) $payment->payment_date
-            )->year === $now->year)
-            ->sum(fn (Payment $payment) => (float) $payment->amount);
+            if ($obligation) {
+                $rentPayments = $lease->payments()
+                    ->where('payment_type', 'rent')
+                    ->where('status', 'paid')
+                    ->get();
 
-        $balance = max($monthlyRent - $paidThisMonth, 0);
-        $dueDay = 5;
-        $dueDate = $now->day <= $dueDay
-            ? $now->copy()->day($dueDay)
-            : $now->addMonthNoOverflow()->day($dueDay);
+                $paidThisYear = $rentPayments
+                    ->filter(fn (Payment $payment) => CarbonImmutable::parse((string) $payment->payment_date)->year === $now->year)
+                    ->sum(fn (Payment $payment) => (float) $payment->amount);
+
+                return [
+                    'amount_due' => (float) $obligation->amount_due,
+                    'balance' => (float) $obligation->balance,
+                    'due_date' => $obligation->due_date?->toDateString(),
+                    'monthly_rent' => $monthlyRent,
+                    'paid_this_year' => $paidThisYear,
+                    'status' => $obligation->status,
+                    'amount_paid' => (float) $obligation->amount_paid,
+                    'days_overdue' => $obligation->days_overdue,
+                ];
+            }
+        }
 
         return [
-            'amount_due' => $balance,
-            'balance' => $balance,
-            'due_date' => $dueDate,
+            'amount_due' => $monthlyRent,
+            'balance' => $monthlyRent,
+            'due_date' => $now->day <= 5
+                ? $now->copy()->day(5)
+                : $now->addMonthNoOverflow()->day(5),
             'monthly_rent' => $monthlyRent,
-            'paid_this_year' => $paidThisYear,
-            'status' => $this->rentStatus($balance, $monthlyRent, $now),
+            'paid_this_year' => 0,
+            'status' => 'upcoming',
         ];
     }
 
