@@ -415,6 +415,14 @@ function ManagerSettingsPage() {
   const [themeId, setThemeId] = useState(() => readThemeId());
   const [logo, setLogo] = useState<string | null>(() => readBrandLogo());
   const [savingLogo, setSavingLogo] = useState(false);
+  const [savingBrand, setSavingBrand] = useState(false);
+  const [brandName, setBrandName] = useState(profile.organization);
+  const [tagline, setTagline] = useState("");
+  const [brandEmail, setBrandEmail] = useState(profile.email);
+  const [brandPhone, setBrandPhone] = useState("");
+  const [brandAddress, setBrandAddress] = useState("");
+  const [brandCity, setBrandCity] = useState("");
+  const [brandCountry, setBrandCountry] = useState("Kenya");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [cropSource, setCropSource] = useState<string | null>(null);
@@ -441,7 +449,22 @@ function ManagerSettingsPage() {
         const organization = response as {
           id?: number;
           logo_url?: string | null;
+          name?: string;
+          tagline?: string | null;
+          email?: string;
+          phone?: string | null;
+          address?: string | null;
+          city?: string | null;
+          country?: string | null;
         };
+
+        setBrandName(organization.name ?? profile.organization);
+        setTagline(organization.tagline ?? "");
+        setBrandEmail(organization.email ?? profile.email);
+        setBrandPhone(organization.phone ?? "");
+        setBrandAddress(organization.address ?? "");
+        setBrandCity(organization.city ?? "");
+        setBrandCountry(organization.country ?? "Kenya");
 
         if (organization.logo_url !== undefined) {
           setLogo(organization.logo_url);
@@ -654,6 +677,41 @@ function ManagerSettingsPage() {
     }
   }
 
+  async function saveBrandProfile() {
+    setSavingBrand(true);
+    setError("");
+    try {
+      const response = await apiRequest("/organization/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: brandName.trim(),
+          tagline: tagline.trim() || null,
+          email: brandEmail.trim(),
+          phone: brandPhone.trim() || null,
+          address: brandAddress.trim() || null,
+          city: brandCity.trim() || null,
+          country: brandCountry.trim() || null,
+        }),
+      });
+      if (response && typeof response === "object") {
+        const organization = response as Record<string, unknown>;
+        try {
+          const existingRaw = localStorage.getItem("organization") ?? sessionStorage.getItem("organization");
+          const existing = existingRaw ? JSON.parse(existingRaw) : {};
+          const next = { ...existing, ...organization };
+          localStorage.setItem("organization", JSON.stringify(next));
+          sessionStorage.setItem("organization", JSON.stringify(next));
+          window.dispatchEvent(new CustomEvent("pms:organization"));
+        } catch {}
+      }
+      setNotice("Brand and contact details saved.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save brand details.");
+    } finally {
+      setSavingBrand(false);
+    }
+  }
+
   async function removeLogo() {
     setError("");
     setSavingLogo(true);
@@ -707,43 +765,6 @@ function ManagerSettingsPage() {
             </div>
           )}
  
-          <section className="mg-panel">
-            <div className="mg-panel__head">
-              <h2 className="mg-panel__title">
-                <Palette />
-                Theme
-              </h2>
-              <span className="mg-panel__meta">
-                {THEMES.length} themes · currently{" "}
-                {THEMES.find((theme) => theme.id === themeId)?.name}
-              </span>
-            </div>
- 
-            <div className="mg-panel__body">
-              <div className="st-themes">
-                {THEMES.map((theme) => (
-                  <button
-                    key={theme.id}
-                    type="button"
-                    className={`st-theme${theme.id === themeId ? " st-theme--on" : ""}`}
-                    onClick={() => selectTheme(theme.id)}
-                    aria-pressed={theme.id === themeId}
-                  >
-                    <ThemePreview theme={theme} />
-                    <span>
-                      <p className="st-theme__name">{theme.name}</p>
-                      <p className="st-theme__desc">{theme.description}</p>
-                    </span>
-                    {theme.id === themeId && (
-                      <span className="st-theme__tick" aria-hidden="true">
-                        <Check />
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
  
           <section className="mg-panel">
             <div className="mg-panel__head">
@@ -1050,6 +1071,44 @@ function ManagerSettingsPage() {
               </p>
             </div>
           </section>
+          <section className="mg-panel">
+            <div className="mg-panel__head">
+              <h2 className="mg-panel__title">
+                <Palette />
+                Theme
+              </h2>
+              <span className="mg-panel__meta">
+                {THEMES.length} themes · currently{" "}
+                {THEMES.find((theme) => theme.id === themeId)?.name}
+              </span>
+            </div>
+ 
+            <div className="mg-panel__body">
+              <div className="st-themes">
+                {THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    className={`st-theme${theme.id === themeId ? " st-theme--on" : ""}`}
+                    onClick={() => selectTheme(theme.id)}
+                    aria-pressed={theme.id === themeId}
+                  >
+                    <ThemePreview theme={theme} />
+                    <span>
+                      <p className="st-theme__name">{theme.name}</p>
+                      <p className="st-theme__desc">{theme.description}</p>
+                    </span>
+                    {theme.id === themeId && (
+                      <span className="st-theme__tick" aria-hidden="true">
+                        <Check />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
         </div>
       </div>
     </DashboardLayout>
