@@ -361,14 +361,18 @@ class TenantPortalController extends Controller
         foreach ($this->tenantPayments($tenant)->take(5) as $payment) {
             $notifications[] = [
                 'id' => 'payment-' . $payment->id,
-                'type' => 'payment_received',
-                'title' => 'Payment received — ' . number_format((float) $payment->amount),
+                'type' => $payment->status === 'paid' ? 'payment_received' : 'payment_pending',
+                'title' => $payment->status === 'paid'
+                    ? 'Payment confirmed — ' . number_format((float) $payment->amount)
+                    : 'Payment awaiting verification — ' . number_format((float) $payment->amount),
                 'body' => $payment->reference
                     ? 'Reference ' . $payment->reference . '.'
                     : null,
                 'created_at' => optional($payment->created_at)->toIso8601String()
                     ?? (string) $payment->payment_date,
-                'read_at' => optional($payment->created_at)?->toIso8601String(),
+                'read_at' => $payment->status === 'paid'
+                    ? optional($payment->created_at)?->toIso8601String()
+                    : null,
             ];
         }
 
