@@ -14,7 +14,7 @@ class PaymentReconciliationService
     public function ingest(array $data): PaymentTransaction
     {
         $transaction = PaymentTransaction::firstOrCreate(
-            ['provider' => $data['provider'], 'external_transaction_id' => $data['external_transaction_id']],
+            ['organization_id' => $data['organization_id'], 'provider' => $data['provider'], 'external_transaction_id' => $data['external_transaction_id']],
             [
                 'organization_id' => $data['organization_id'],
                 'payment_destination_id' => $data['payment_destination_id'] ?? null,
@@ -85,7 +85,7 @@ class PaymentReconciliationService
         }
 
         $payment=Payment::firstOrCreate(
-            ['provider'=>$transaction->provider,'provider_transaction_id'=>$transaction->external_transaction_id],
+            ['provider'=>$transaction->provider,'provider_transaction_id'=>$transaction->external_transaction_id,'organization_id'=>$transaction->organization_id],
             [
                 'organization_id'=>$transaction->organization_id,'lease_id'=>$lease->id,'rent_obligation_id'=>$obligation->id,
                 'payment_destination_id'=>$transaction->payment_destination_id,'amount'=>$amount,'payment_date'=>$at->toDateString(),
