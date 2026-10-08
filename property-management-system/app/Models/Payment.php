@@ -40,4 +40,9 @@ class Payment extends Model
     {
         return $this->belongsTo(Leases::class, 'lease_id');
     }
+
+    public function paymentDestination()
+    {
+        return $this->belongsTo(PaymentDestination::class, 'payment_destination_id');
+    }
 }
