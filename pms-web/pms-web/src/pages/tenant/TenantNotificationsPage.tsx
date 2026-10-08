@@ -163,10 +163,6 @@ function NotificationsPage() {
     return () => { active = false; window.clearInterval(interval); };
   }, []);
 
-  const itemsRef = { current: new Set<string>() };
-  useEffect(() => {
-    itemsRef.current = new Set(items.map((item) => item.id));
-  }, [items]);
 
   async function enableDesktopNotifications() {
     if (!("Notification" in window)) {
