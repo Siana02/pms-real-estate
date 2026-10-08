@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\OrganizationPaymentSetting;
 use App\Models\Property;
+use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 
 class OrganizationPaymentSettingsController extends Controller
@@ -26,10 +27,20 @@ class OrganizationPaymentSettingsController extends Controller
             ]);
         }
 
-        $settings = OrganizationPaymentSetting::firstOrCreate([
-            'organization_id' => $user->organization_id,
-            'property_id' => $property->id,
-        ]);
+        // Reading payment settings must not create a database record or audit event.
+        $settings = OrganizationPaymentSetting::where('organization_id', $user->organization_id)
+            ->where('property_id', $property->id)
+            ->first();
+
+        if (!$settings) {
+            return response()->json([
+                'can_manage' => $canManage,
+                'property_id' => $property->id,
+                'property_name' => $property->name,
+                'configured' => false,
+                'preferred_method' => null,
+            ]);
+        }
 
         $configured = match ($settings->preferred_method) {
             'mpesa_number' => filled($settings->mpesa_number),
@@ -73,9 +84,9 @@ class OrganizationPaymentSettingsController extends Controller
         $validated = $request->validate([
             'property_id' => ['required', 'integer', 'exists:properties,id'],
             'preferred_method' => ['nullable', 'in:mpesa_number,mpesa_till,mpesa_paybill,bank'],
-            'mpesa_number' => ['nullable', 'regex:/^(?:2547\\d{8}|07\\d{8})$/'],
-            'mpesa_till' => ['nullable', 'regex:/^\\d{5,7}$/'],
-            'mpesa_paybill' => ['nullable', 'regex:/^\\d{5,7}$/'],
+            'mpesa_number' => ['nullable', 'regex:/^(?:2547\d{8}|07\d{8})$/'],
+            'mpesa_till' => ['nullable', 'regex:/^\d{5,7}$/'],
+            'mpesa_paybill' => ['nullable', 'regex:/^\d{5,7}$/'],
             'mpesa_paybill_account' => ['nullable', 'string', 'max:100'],
             'bank_name' => ['nullable', 'string', 'max:255'],
             'bank_account_name' => ['nullable', 'string', 'max:255'],
@@ -86,12 +97,52 @@ class OrganizationPaymentSettingsController extends Controller
         $property = Property::where('organization_id', $request->user()->organization_id)
             ->findOrFail($validated['property_id']);
 
+        $settings = OrganizationPaymentSetting::where('organization_id', $request->user()->organization_id)
+            ->where('property_id', $property->id)
+            ->first();
+
+        $oldMethod = $settings?->preferred_method;
+        $wasConfigured = $settings
+            ? match ($settings->preferred_method) {
+                'mpesa_number' => filled($settings->mpesa_number),
+                'mpesa_till' => filled($settings->mpesa_till),
+                'mpesa_paybill' => filled($settings->mpesa_paybill) && filled($settings->mpesa_paybill_account),
+                'bank' => filled($settings->bank_name) && filled($settings->bank_account_name) && filled($settings->bank_account_number),
+                default => false,
+            }
+            : false;
+
         $settings = OrganizationPaymentSetting::updateOrCreate(
             [
                 'organization_id' => $request->user()->organization_id,
                 'property_id' => $property->id,
             ],
             $validated
+        );
+
+        $isConfigured = match ($settings->preferred_method) {
+            'mpesa_number' => filled($settings->mpesa_number),
+            'mpesa_till' => filled($settings->mpesa_till),
+            'mpesa_paybill' => filled($settings->mpesa_paybill) && filled($settings->mpesa_paybill_account),
+            'bank' => filled($settings->bank_name) && filled($settings->bank_account_name) && filled($settings->bank_account_number),
+            default => false,
+        };
+
+        app(AuditLogService::class)->record(
+            $settings->wasRecentlyCreated ? 'PAYMENT_SETTINGS_CONFIGURED' : 'PAYMENT_SETTINGS_UPDATED',
+            $settings->wasRecentlyCreated
+                ? "Payment destination configured for {$property->name}."
+                : "Payment destination updated for {$property->name}.",
+            $settings,
+            [
+                'preferred_method' => $oldMethod,
+                'configured' => $wasConfigured,
+            ],
+            [
+                'preferred_method' => $settings->preferred_method,
+                'configured' => $isConfigured,
+            ],
+            $request
         );
 
         return response()->json([
