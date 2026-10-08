@@ -245,7 +245,7 @@ class PaymentReconciliationService
                 'payment_date' => $at->toDateString(),
                 'payment_method' => $this->paymentMethod($transaction->provider),
                 'status' => 'paid',
-                'tx_ref' => $transaction->payment_reference,
+                'tx_ref' => 'RECON-PT-' . $transaction->id,
                 'reference' => $transaction->payment_reference,
                 'payment_type' => 'rent',
                 'notes' => 'External payment transaction reconciled into the rent ledger.',
