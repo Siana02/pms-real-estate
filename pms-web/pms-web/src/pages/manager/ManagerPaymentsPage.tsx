@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Banknote,
+  CheckCircle2,
   Plus,
   RefreshCw,
   Search,
   X,
+  XCircle,
 } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
@@ -37,6 +39,7 @@ interface PaymentRecord {
   payment_type: string;
   reference: string | null;
   notes: string | null;
+  status: "paid" | "pending" | "failed" | "partial" | "overdue";
 }
 
 interface LeaseOption {
@@ -45,6 +48,7 @@ interface LeaseOption {
 }
 
 const TYPES = ["all", "rent", "deposit", "utility", "other"];
+const STATUS_FILTERS = ["all", "pending", "paid", "failed"];
 
 const RANGES: { id: string; label: string; days: number }[] = [
   { id: "30", label: "Last 30 days", days: 30 },
@@ -72,6 +76,7 @@ function parsePayments(payload: unknown): PaymentRecord[] {
       payment_type: asString(record.payment_type) || "rent",
       reference: asString(record.reference) || null,
       notes: asString(record.notes) || null,
+      status: (["paid", "pending", "failed", "partial", "overdue"].includes(asString(record.status)) ? asString(record.status) : "paid") as PaymentRecord["status"],
     };
   });
 }
@@ -351,6 +356,7 @@ function ManagerPaymentsPage() {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
   const [range, setRange] = useState("90");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [drawer, setDrawer] = useState(false);
 
   const load = useCallback(async () => {
@@ -412,6 +418,7 @@ function ManagerPaymentsPage() {
     return scoped
       .filter((payment) => {
         if (type !== "all" && payment.payment_type !== type) return false;
+        if (statusFilter !== "all" && payment.status !== statusFilter) return false;
         if (!needle) return true;
 
         return [
@@ -562,6 +569,14 @@ function ManagerPaymentsPage() {
               </select>
             </div>
 
+            <div className="mg-chips" role="group" aria-label="Filter by status">
+              {STATUS_FILTERS.map((value) => (
+                <button key={value} type="button" className={`mg-chip${value === statusFilter ? " mg-chip--on" : ""}`} onClick={() => setStatusFilter(value)} aria-pressed={value === statusFilter}>
+                  {value === "all" ? "All status" : value === "pending" ? "Needs review" : value === "paid" ? "Confirmed" : "Rejected"}
+                </button>
+              ))}
+            </div>
+
             <div className="mg-chips" role="group" aria-label="Filter by type">
               {TYPES.map((value) => (
                 <button
@@ -655,8 +670,9 @@ function ManagerPaymentsPage() {
                             {payment.property?.name ?? "No property"}
                           </span>
                         </td>
-                        <td data-label="Method">
+                                        <td data-label="Method">
                           {titleCase(payment.payment_method)}
+                          {payment.status === "pending" && <span className="mg-sub">Awaiting verification</span>}
                         </td>
                         <td data-label="Type">
                           <span
@@ -673,6 +689,21 @@ function ManagerPaymentsPage() {
                           <span className="mg-strong">
                             {formatMoney(payment.amount, currency)}
                           </span>
+                          <span className={payment.status === "paid" ? "mg-badge mg-badge--ok" : payment.status === "pending" ? "mg-badge mg-badge--info" : "mg-badge"}>
+                            {payment.status === "paid" ? "Confirmed" : payment.status === "pending" ? "Needs review" : "Rejected"}
+                          </span>
+                          {payment.status === "pending" && (
+                            <div className="mg-actions" style={{ justifyContent: "flex-end", marginTop: ".4rem" }}>
+                              <button type="button" className="mg-btn mg-btn--primary" onClick={async () => {
+                                try { await apiRequest(`/payments/${payment.id}/verify`, { method: "POST" }); await load(); }
+                                catch (cause) { setError(cause instanceof Error ? cause.message : "Could not confirm payment."); }
+                              }}><CheckCircle2 /> Confirm</button>
+                              <button type="button" className="mg-btn mg-btn--ghost" onClick={async () => {
+                                try { await apiRequest(`/payments/${payment.id}/reject`, { method: "POST" }); await load(); }
+                                catch (cause) { setError(cause instanceof Error ? cause.message : "Could not reject payment."); }
+                              }}><XCircle /> Reject</button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
