@@ -13,6 +13,7 @@ type Settings = {
   mpesa_number: string | null;
   mpesa_till: string | null;
   mpesa_paybill: string | null;
+  mpesa_paybill_account: string | null;
   bank_name: string | null;
   bank_account_name: string | null;
   bank_account_number: string | null;
@@ -47,6 +48,7 @@ export default function PaymentDestinationSection({ role }: Props) {
   const [mpesa, setMpesa] = useState("");
   const [till, setTill] = useState("");
   const [paybill, setPaybill] = useState("");
+  const [paybillAccount, setPaybillAccount] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -66,6 +68,7 @@ export default function PaymentDestinationSection({ role }: Props) {
         if (value.mpesa_number && !value.mpesa_number.startsWith("••••")) setMpesa(value.mpesa_number);
         if (value.mpesa_till && !value.mpesa_till.startsWith("••••")) setTill(value.mpesa_till);
         if (value.mpesa_paybill && !value.mpesa_paybill.startsWith("••••")) setPaybill(value.mpesa_paybill);
+        if (value.mpesa_paybill_account && !value.mpesa_paybill_account.startsWith("••••")) setPaybillAccount(value.mpesa_paybill_account);
         if (value.bank_name) setBankName(value.bank_name);
         if (value.bank_account_name) setAccountName(value.bank_account_name);
         if (value.bank_branch) setBranch(value.bank_branch);
@@ -83,6 +86,12 @@ export default function PaymentDestinationSection({ role }: Props) {
       method === "mpesa_till" ? till :
       method === "mpesa_paybill" ? paybill :
       "";
+
+    if (method === "mpesa_paybill" && !paybillAccount.trim()) {
+      setError("Please enter the M-Pesa PayBill account number before saving.");
+      setLoading(false);
+      return;
+    }
 
     if (method !== "bank") {
       const validationError = validateDestination(method, currentValue);
@@ -115,6 +124,7 @@ export default function PaymentDestinationSection({ role }: Props) {
           mpesa_number: method === "mpesa_number" ? normalizeDigits(mpesa) : undefined,
           mpesa_till: method === "mpesa_till" ? normalizeDigits(till) : undefined,
           mpesa_paybill: method === "mpesa_paybill" ? normalizeDigits(paybill) : undefined,
+          mpesa_paybill_account: method === "mpesa_paybill" ? paybillAccount.trim() : undefined,
           bank_name: method === "bank" ? bankName.trim() : undefined,
           bank_account_name: method === "bank" ? accountName.trim() : undefined,
           bank_account_number: method === "bank" ? accountNumber.trim() : undefined,
@@ -212,11 +222,18 @@ export default function PaymentDestinationSection({ role }: Props) {
             )}
 
             {method === "mpesa_paybill" && (
-              <label className="mg-field">
-                <span className="mg-label">M-Pesa PayBill number</span>
-                <input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" inputMode="numeric" />
-                <small className="mg-hint">5–7 digits. Only numbers are accepted.</small>
-              </label>
+              <div className="mg-form-grid">
+                <label className="mg-field">
+                  <span className="mg-label">M-Pesa PayBill number</span>
+                  <input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" inputMode="numeric" />
+                  <small className="mg-hint">5–7 digits. Only numbers are accepted.</small>
+                </label>
+                <label className="mg-field">
+                  <span className="mg-label">PayBill account number</span>
+                  <input className="mg-input" value={paybillAccount} onChange={(e) => setPaybillAccount(e.target.value)} placeholder="Enter account number" />
+                  <small className="mg-hint">This is the property account/reference. The tenant unit can be appended as the payment reference, e.g. Account/18.</small>
+                </label>
+              </div>
             )}
 
             {method === "bank" && (
