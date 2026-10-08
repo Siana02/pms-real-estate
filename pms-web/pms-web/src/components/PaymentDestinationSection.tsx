@@ -4,6 +4,8 @@ import { ApiError, apiRequest } from "../services/api";
 
 type Props = { role: string };
 
+type Property = { id: number; name: string };
+
 type Method = "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank";
 
 type Settings = {
@@ -44,6 +46,8 @@ const validateDestination = (method: Method, value: string) => {
 export default function PaymentDestinationSection({ role }: Props) {
   const owner = ["admin", "owner"].includes(String(role ?? "").toLowerCase());
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [propertyId, setPropertyId] = useState<number | null>(null);
   const [method, setMethod] = useState<Method>("mpesa_number");
   const [mpesa, setMpesa] = useState("");
   const [till, setTill] = useState("");
@@ -58,23 +62,42 @@ export default function PaymentDestinationSection({ role }: Props) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    apiRequest("/organization/payment-settings")
+    apiRequest("/properties")
+      .then((payload) => {
+        const list = Array.isArray(payload) ? (payload as Property[]) : [];
+        setProperties(list);
+        setPropertyId(list[0]?.id ?? null);
+      })
+      .catch(() => {
+        setProperties([]);
+        setPropertyId(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!propertyId) {
+      setSettings(null);
+      return;
+    }
+
+    setMessage("");
+    setError("");
+    apiRequest(`/organization/payment-settings?property_id=${propertyId}`)
       .then((payload) => {
         const value = payload as Settings;
         setSettings(value);
-        if (!value.can_manage) return;
-
-        if (value.preferred_method) setMethod(value.preferred_method);
-        if (value.mpesa_number && !value.mpesa_number.startsWith("••••")) setMpesa(value.mpesa_number);
-        if (value.mpesa_till && !value.mpesa_till.startsWith("••••")) setTill(value.mpesa_till);
-        if (value.mpesa_paybill && !value.mpesa_paybill.startsWith("••••")) setPaybill(value.mpesa_paybill);
-        if (value.mpesa_paybill_account && !value.mpesa_paybill_account.startsWith("••••")) setPaybillAccount(value.mpesa_paybill_account);
-        if (value.bank_name) setBankName(value.bank_name);
-        if (value.bank_account_name) setAccountName(value.bank_account_name);
-        if (value.bank_branch) setBranch(value.bank_branch);
+        setMethod(value.preferred_method ?? "mpesa_number");
+        setMpesa(value.mpesa_number && !value.mpesa_number.startsWith("••••") ? value.mpesa_number : "");
+        setTill(value.mpesa_till && !value.mpesa_till.startsWith("••••") ? value.mpesa_till : "");
+        setPaybill(value.mpesa_paybill && !value.mpesa_paybill.startsWith("••••") ? value.mpesa_paybill : "");
+        setPaybillAccount(value.mpesa_paybill_account && !value.mpesa_paybill_account.startsWith("••••") ? value.mpesa_paybill_account : "");
+        setBankName(value.bank_name ?? "");
+        setAccountName(value.bank_account_name ?? "");
+        setAccountNumber("");
+        setBranch(value.bank_branch ?? "");
       })
-      .catch(() => undefined);
-  }, []);
+      .catch(() => setSettings(null));
+  }, [propertyId]);
 
   async function save() {
     setLoading(true);
@@ -120,6 +143,7 @@ export default function PaymentDestinationSection({ role }: Props) {
       await apiRequest("/organization/payment-settings", {
         method: "PUT",
         body: JSON.stringify({
+          property_id: propertyId,
           preferred_method: method,
           mpesa_number: method === "mpesa_number" ? normalizeDigits(mpesa) : undefined,
           mpesa_till: method === "mpesa_till" ? normalizeDigits(till) : undefined,
@@ -133,7 +157,7 @@ export default function PaymentDestinationSection({ role }: Props) {
       });
 
       setMessage("Payment destination saved.");
-      const refreshed = (await apiRequest("/organization/payment-settings")) as Settings;
+      const refreshed = (await apiRequest(`/organization/payment-settings?property_id=${propertyId}`)) as Settings;
       setSettings(refreshed);
     } catch (caught) {
       setError(
@@ -190,6 +214,24 @@ export default function PaymentDestinationSection({ role }: Props) {
               Only the organization owner/admin can change the destination
               used for tenant payment collection.
             </p>
+
+            <label className="mg-field" style={{ marginBottom: "1rem" }}>
+              <span className="mg-label">Property</span>
+              <select
+                className="mg-input"
+                value={propertyId ?? ""}
+                onChange={(e) => setPropertyId(Number(e.target.value) || null)}
+                disabled={!properties.length}
+              >
+                <option value="">Select property</option>
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>{property.name}</option>
+                ))}
+              </select>
+              <small className="mg-hint">
+                Payment destinations are configured separately for each property.
+              </small>
+            </label>
 
             <div className="mg-actions" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
               <button type="button" className={`mg-btn ${method === "mpesa_number" ? "mg-btn--primary" : "mg-btn--ghost"}`} onClick={() => setMethod("mpesa_number")}>
