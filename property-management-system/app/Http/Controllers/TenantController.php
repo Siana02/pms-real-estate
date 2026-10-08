@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use App\Models\User;
 use App\Services\LeaseProvisioner;
+use App\Services\AuditLogService;
 
 class TenantController extends Controller
 {
@@ -103,6 +104,10 @@ public function store(Request $request)
     }
 
     $account = null;
+    $tenantWasCreated = false;
+    $audit = app(AuditLogService::class);
+    $audit->suppressGenericAudit($request);
+
     $leaseFields = [
         'start_date',
         'end_date',
@@ -120,7 +125,8 @@ public function store(Request $request)
         $leaseData,
         $createLogin,
         $organizationId,
-        &$account
+        &$account,
+        &$tenantWasCreated
     ) {
         $tenant = ! empty($tenantData['email'])
             ? Tenant::where('organization_id', $organizationId)
@@ -133,6 +139,7 @@ public function store(Request $request)
             $tenant->update($tenantData);
         } else {
             $tenant = Tenant::create($tenantData);
+            $tenantWasCreated = true;
         }
 
         if ($createLogin) {
@@ -244,6 +251,34 @@ public function store(Request $request)
         return $tenant;
     });
 
+    $lease = $tenant->leases()
+        ->with(['property', 'unit', 'deposit'])
+        ->latest('id')
+        ->first();
+
+    if ($tenantWasCreated) {
+        $tenantName = trim("{$tenant->first_name} {$tenant->last_name}");
+        $location = $lease && $lease->property && $lease->unit
+            ? "{$lease->property->name} · Unit {$lease->unit->unit_number}"
+            : ($tenant->property?->name ? "{$tenant->property->name}" : 'No property/unit assigned');
+
+        $audit->record(
+            'TENANT_ADDED',
+            "{$request->user()->name} added {$tenantName} as a tenant for {$location}.",
+            $tenant,
+            null,
+            [
+                'tenant_name' => $tenantName,
+                'property' => $lease?->property?->name ?? $tenant->property?->name,
+                'unit' => $lease?->unit?->unit_number ?? $tenant->unit?->unit_number,
+                'monthly_rent' => $lease?->monthly_rent,
+                'deposit_required' => $lease?->deposit?->amount_required,
+                'login_created' => $account['created'] ?? false,
+            ],
+            $request
+        );
+    }
+
     return response()->json([
         'message' => 'Tenant created successfully.',
         'tenant' => $this->present(
@@ -281,7 +316,23 @@ public function store(Request $request)
             'notes' => 'nullable|string',
         ]);
 
+        $audit = app(AuditLogService::class);
+        $audit->suppressGenericAudit($request);
         $tenant->update($validated);
+
+        $tenantName = trim("{$tenant->first_name} {$tenant->last_name}");
+        $location = $tenant->property?->name
+            ? "{$tenant->property->name}" . ($tenant->unit?->unit_number ? " · Unit {$tenant->unit->unit_number}" : '')
+            : 'No property/unit assigned';
+
+        $audit->record(
+            'TENANT_UPDATED',
+            "{$request->user()->name} updated {$tenantName}'s tenant profile ({$location}).",
+            $tenant,
+            null,
+            ['updated_fields' => array_keys($validated)],
+            $request
+        );
 
         return response()->json([
             'message' => 'Tenant updated successfully.',
@@ -293,7 +344,22 @@ public function store(Request $request)
     {
         $this->authorizeOrganization($request, $tenant);
 
+        $audit = app(AuditLogService::class);
+        $audit->suppressGenericAudit($request);
+        $tenantName = trim("{$tenant->first_name} {$tenant->last_name}");
+        $location = $tenant->property?->name
+            ? "{$tenant->property->name}" . ($tenant->unit?->unit_number ? " · Unit {$tenant->unit->unit_number}" : '')
+            : 'No property/unit assigned';
         $tenant->delete();
+
+        $audit->record(
+            'TENANT_REMOVED',
+            "{$request->user()->name} removed {$tenantName} from the tenant records ({$location}).",
+            $tenant,
+            ['tenant_name' => $tenantName, 'property' => $tenant->property?->name, 'unit' => $tenant->unit?->unit_number],
+            null,
+            $request
+        );
 
         return response()->json([
             'message' => 'Tenant deleted successfully.',
