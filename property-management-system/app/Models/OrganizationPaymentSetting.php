@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class OrganizationPaymentSetting extends Model
 {
     protected $fillable = [
-        'organization_id','preferred_method','mpesa_number','mpesa_till','mpesa_paybill','mpesa_paybill_account','bank_name',
+        'organization_id','property_id','preferred_method','mpesa_number','mpesa_till','mpesa_paybill','mpesa_paybill_account','bank_name',
         'bank_account_name','bank_account_number','bank_branch',
     ];
 
@@ -28,4 +28,6 @@ class OrganizationPaymentSetting extends Model
     ];
 
     public function organization(): BelongsTo { return $this->belongsTo(Organization::class); }
+
+    public function property(): BelongsTo { return $this->belongsTo(Property::class); }
 }
