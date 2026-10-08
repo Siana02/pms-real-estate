@@ -20,6 +20,7 @@ use App\Http\Controllers\EmployeeRequestController;
 use App\Http\Controllers\OrganizationPaymentSettingsController;
 use App\Http\Controllers\FlutterwaveController;
 use App\Http\Controllers\PaymentDestinationController;
+use App\Http\Controllers\PaymentReconciliationController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -76,6 +77,9 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::apiResource('leases', LeasesController::class);
     Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
     Route::apiResource('payments', PaymentController::class);
+    Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
+    Route::post('payment-reconciliation/transactions', [PaymentReconciliationController::class, 'ingest']);
+    Route::post('payment-reconciliation/transactions/{paymentTransaction}/resolve', [PaymentReconciliationController::class, 'resolve']);
     Route::post('payments/{payment}/verify', [PaymentController::class, 'verify']);
     Route::post('payments/{payment}/reject', [PaymentController::class, 'reject']);
     Route::apiResource('expenses', ExpenseController::class);
