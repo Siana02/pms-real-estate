@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
 import { apiRequest } from "../../services/api";
 import {
@@ -121,7 +121,7 @@ function NotificationsPage() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
   );
-  const [toast, setToast] = useState<NotificationItem | null>(null);
+  const [toast, setToast] = useState<NotificationItem | null>(null);\n  const itemsRef = useRef<Set<string>>(new Set());
   const [desktopEnabled, setDesktopEnabled] = useState(
     typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
   );
@@ -146,7 +146,7 @@ function NotificationsPage() {
       if (!active) return;
       const next = await loadNotifications();
       if (!next.length) return;
-      const known = new Set(itemsRef.current);
+      const known = itemsRef.current;
       const fresh = next.filter((item) => !known.has(item.id));
       if (fresh[0]) {
         setToast(fresh[0]);
