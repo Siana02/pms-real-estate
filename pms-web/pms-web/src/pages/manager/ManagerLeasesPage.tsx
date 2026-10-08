@@ -291,10 +291,69 @@ const leaseStyles = `
 }
 
 .ls-sign-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--pms-border-soft);
+  border-radius: var(--mg-radius-md);
+  background: color-mix(in srgb, var(--pms-glass) 82%, var(--pms-heading));
+}
+
+.ls-sign-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.ls-sign-copy__icon {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
+  place-items: center;
+  flex: 0 0 2.1rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.65rem;
+  background: var(--pms-heading);
+  color: var(--pms-surface);
+}
+
+.ls-sign-copy__icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.ls-sign-copy strong {
+  display: block;
+  color: var(--pms-heading);
+  font-size: 0.78rem;
+}
+
+.ls-sign-copy span {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--pms-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.ls-sign-controls {
+  display: flex;
   align-items: end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.ls-sign-controls .mg-field {
+  min-width: 8rem;
+}
+
+@media (min-width: 720px) {
+  .ls-sign-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 
 .ls-status-line {
@@ -558,6 +617,38 @@ function ManagerLeasesPage() {
     () => views.find((lease) => lease.id === selectedLeaseId) ?? null,
     [selectedLeaseId, views]
   );
+
+  useEffect(() => {
+    if (!selectedLeaseId) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const payload = await apiRequest("/leases");
+        const fresh = parseLeases(payload);
+        const freshSelected = fresh.find((lease) => lease.id === selectedLeaseId);
+        if (!freshSelected) return;
+
+        setLeases((current) =>
+          current.map((lease) =>
+            lease.id === selectedLeaseId
+              ? {
+                  ...lease,
+                  tenant_signature: freshSelected.tenant_signature,
+                  tenant_signed_at: freshSelected.tenant_signed_at,
+                  manager_signature: freshSelected.manager_signature,
+                  manager_signed_at: freshSelected.manager_signed_at,
+                  agreement_finalized: freshSelected.agreement_finalized,
+                }
+              : lease
+          )
+        );
+      } catch {
+        // Keep the drawer usable if a background refresh temporarily fails.
+      }
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [selectedLeaseId]);
 
   useEffect(() => {
     if (!selectedLease) return;
@@ -1468,28 +1559,40 @@ function ManagerLeasesPage() {
                     </p>
 
                     <div className="ls-sign-row">
-                      <div className="mg-field">
-                        <label className="mg-label" htmlFor="lease-manager-signature">
-                          Sign as manager (initials)
-                        </label>
-                        <input
-                          id="lease-manager-signature"
-                          className="mg-input"
-                          maxLength={20}
-                          value={managerInitials}
-                          onChange={(event) => setManagerInitials(event.target.value.toUpperCase())}
-                          placeholder="e.g. JM"
-                        />
+                      <div className="ls-sign-copy">
+                        <span className="ls-sign-copy__icon"><FileSignature /></span>
+                        <div>
+                          <strong>{selectedLease.tenant_signed_at ? "Tenant has signed" : "Waiting for tenant signature"}</strong>
+                          <span>
+                            {selectedLease.tenant_signed_at
+                              ? "Review the tenant's signed copy above, then enter your initials to complete the agreement."
+                              : "The manager signature becomes the final lock, so it stays unavailable until the tenant signs the current agreement."}
+                          </span>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        className="mg-btn mg-btn--primary"
-                        onClick={() => void signManagerCopy()}
-                        disabled={managerInitials.trim().length === 0 || signingManager || !selectedLease.tenant_signed_at || Boolean(selectedLease.manager_signed_at)}
-                      >
-                        <FileSignature />
-                        {signingManager ? "Signing…" : "Confirm signature"}
-                      </button>
+                      <div className="ls-sign-controls">
+                        <div className="mg-field">
+                          <label className="mg-label" htmlFor="lease-manager-signature">Your initials</label>
+                          <input
+                            id="lease-manager-signature"
+                            className="mg-input"
+                            maxLength={20}
+                            value={managerInitials}
+                            onChange={(event) => setManagerInitials(event.target.value.toUpperCase())}
+                            placeholder="e.g. JM"
+                            aria-label="Manager initials"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="mg-btn mg-btn--primary"
+                          onClick={() => void signManagerCopy()}
+                          disabled={managerInitials.trim().length === 0 || signingManager || !selectedLease.tenant_signed_at || Boolean(selectedLease.manager_signed_at)}
+                        >
+                          <FileSignature />
+                          {signingManager ? "Signing…" : "Sign & lock lease"}
+                        </button>
+                      </div>
                     </div>
                   </article>
 
