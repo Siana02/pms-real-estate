@@ -16,9 +16,11 @@ return new class extends Migration
             });
         }
 
-        $hasUniquePaymentReference = collect(DB::select(
-            "SHOW INDEX FROM \`leases\` WHERE Column_name = 'tenant_payment_reference' AND Non_unique = 0"
-        ))->isNotEmpty();
+        $leaseIndexes = Schema::getIndexes('leases');
+        $hasUniquePaymentReference = collect($leaseIndexes)->contains(function (array $index) {
+            return $index['unique']
+                && in_array('tenant_payment_reference', $index['columns'], true);
+        });
 
         if (!$hasUniquePaymentReference) {
             Schema::table('leases', function (Blueprint $table) {
@@ -26,29 +28,34 @@ return new class extends Migration
             });
         }
 
-        Schema::create('payment_transactions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
-            $table->foreignId('payment_destination_id')->nullable()->constrained('payment_destinations')->nullOnDelete();
-            $table->string('provider', 50);
-            $table->string('external_transaction_id', 100);
-            $table->decimal('amount', 15, 2);
-            $table->string('currency', 3)->default('KES');
-            $table->string('payer_phone', 30)->nullable();
-            $table->string('payment_reference', 255)->nullable();
-            $table->dateTime('transaction_at');
-            $table->string('status', 30)->default('pending');
-            $table->foreignId('matched_lease_id')->nullable()->constrained('leases')->nullOnDelete();
-            $table->foreignId('matched_rent_obligation_id')->nullable()->constrained('rent_obligations')->nullOnDelete();
-            $table->foreignId('payment_id')->nullable()->constrained('payments')->nullOnDelete();
-            $table->text('reconciliation_note')->nullable();
-            $table->json('raw_payload')->nullable();
-            $table->timestamps();
-            $table->unique(['organization_id', 'provider', 'external_transaction_id'], 'payment_transactions_org_provider_external_id_unique');
-            $table->index(['organization_id', 'status']);
-            $table->index(['organization_id', 'transaction_at']);
-            $table->index(['organization_id', 'payment_reference']);
-        });
+        if (!Schema::hasTable('payment_transactions')) {
+            Schema::create('payment_transactions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('organization_id')->constrained('organizations')->cascadeOnDelete();
+                $table->foreignId('payment_destination_id')->nullable()->constrained('payment_destinations')->nullOnDelete();
+                $table->string('provider', 50);
+                $table->string('external_transaction_id', 100);
+                $table->decimal('amount', 15, 2);
+                $table->string('currency', 3)->default('KES');
+                $table->string('payer_phone', 30)->nullable();
+                $table->string('payment_reference', 255)->nullable();
+                $table->dateTime('transaction_at');
+                $table->string('status', 30)->default('pending');
+                $table->foreignId('matched_lease_id')->nullable()->constrained('leases')->nullOnDelete();
+                $table->foreignId('matched_rent_obligation_id')->nullable()->constrained('rent_obligations')->nullOnDelete();
+                $table->foreignId('payment_id')->nullable()->constrained('payments')->nullOnDelete();
+                $table->text('reconciliation_note')->nullable();
+                $table->json('raw_payload')->nullable();
+                $table->timestamps();
+                $table->unique(
+                    ['organization_id', 'provider', 'external_transaction_id'],
+                    'payment_transactions_org_provider_external_id_unique'
+                );
+                $table->index(['organization_id', 'status']);
+                $table->index(['organization_id', 'transaction_at']);
+                $table->index(['organization_id', 'payment_reference']);
+            });
+        }
 
         DB::table('leases')->whereNull('tenant_payment_reference')->orderBy('id')->eachById(function ($lease) {
             do {
@@ -62,8 +69,14 @@ return new class extends Migration
     {
         Schema::dropIfExists('payment_transactions');
         Schema::table('leases', function (Blueprint $table) {
-            $table->dropUnique('leases_tenant_payment_reference_unique');
-            $table->dropColumn('tenant_payment_reference');
+            if (Schema::hasColumn('leases', 'tenant_payment_reference')) {
+                foreach (Schema::getIndexes('leases') as $index) {
+                    if ($index['unique'] && in_array('tenant_payment_reference', $index['columns'], true)) {
+                        $table->dropUnique($index['name']);
+                    }
+                }
+                $table->dropColumn('tenant_payment_reference');
+            }
         });
     }
 };
