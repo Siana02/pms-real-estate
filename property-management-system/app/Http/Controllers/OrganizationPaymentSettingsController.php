@@ -51,9 +51,9 @@ class OrganizationPaymentSettingsController extends Controller
 
         $validated = $request->validate([
             'preferred_method' => ['nullable', 'in:mpesa_number,mpesa_till,mpesa_paybill,bank'],
-            'mpesa_number' => ['nullable', 'string', 'max:30'],
-            'mpesa_till' => ['nullable', 'string', 'max:30'],
-            'mpesa_paybill' => ['nullable', 'string', 'max:30'],
+            'mpesa_number' => ['nullable', 'regex:/^(?:2547\\d{8}|07\\d{8})$/'],
+            'mpesa_till' => ['nullable', 'regex:/^\\d{5,7}$/'],
+            'mpesa_paybill' => ['nullable', 'regex:/^\\d{5,7}$/'],
             'bank_name' => ['nullable', 'string', 'max:255'],
             'bank_account_name' => ['nullable', 'string', 'max:255'],
             'bank_account_number' => ['nullable', 'string', 'max:100'],
@@ -69,6 +69,8 @@ class OrganizationPaymentSettingsController extends Controller
             'message' => 'Payment destination settings updated.',
             'preferred_method' => $settings->preferred_method,
             'mpesa_number' => $settings->mpesa_number ? '••••' . substr($settings->mpesa_number, -4) : null,
+            'mpesa_till' => $settings->mpesa_till ? '••••' . substr($settings->mpesa_till, -4) : null,
+            'mpesa_paybill' => $settings->mpesa_paybill ? '••••' . substr($settings->mpesa_paybill, -4) : null,
             'bank_account_number' => $settings->bank_account_number ? '••••' . substr($settings->bank_account_number, -4) : null,
         ]);
     }
