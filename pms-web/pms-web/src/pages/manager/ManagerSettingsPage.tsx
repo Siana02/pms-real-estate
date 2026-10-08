@@ -768,73 +768,37 @@ function ManagerSettingsPage() {
  
           <section className="mg-panel">
             <div className="mg-panel__head">
-              <h2 className="mg-panel__title">
-                <ImageIcon />
-                Brand logo
-              </h2>
+              <h2 className="mg-panel__title"><ImageIcon /> Brand & contact details</h2>
+              <span className="mg-panel__meta">Shown to tenants in Help & Support</span>
             </div>
- 
-            <div className="mg-panel__body st-brand">
-              <button
-                type="button"
-                className="st-logo"
-                onClick={() => logo && openCropper(logo)}
-                title={logo ? "Click to adjust the logo" : undefined}
-                disabled={!logo || savingLogo}
-              >
-                {logo ? (
-                  <img src={logo} alt="Your brand logo" />
-                ) : (
-                  <span className="st-logo__fallback">
-                    {initials(profile.organization)}
-                  </span>
-                )}
-              </button>
- 
-              <div className="st-brandinfo">
-                <p className="mg-hint">
-                  PNG, JPG or SVG up to 512 KB. A square, transparent logo works
-                  best next to the organization name.
-                </p>
- 
-                <div className="mg-actions" style={{ marginTop: "0.75rem" }}>
-                  <input
-                    ref={fileInput}
-                    className="st-file"
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => {
-                      handleFile(event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="mg-btn mg-btn--primary"
-                    onClick={() => fileInput.current?.click()}
-                    disabled={savingLogo}
-                  >
-                    <Upload />
-                    {logo ? "Replace logo" : "Upload logo"}
-                  </button>
- 
-                  {logo && (
-                    <button
-                      type="button"
-                      className="mg-btn mg-btn--ghost"
-                      onClick={() => void removeLogo()}
-                      disabled={savingLogo}
-                    >
-                      <Trash2 />
-                      Remove
-                    </button>
-                  )}
+            <div className="mg-panel__body">
+              <div className="st-brand">
+                <button type="button" className="st-logo" onClick={() => logo && openCropper(logo)} title={logo ? "Click to adjust the logo" : undefined} disabled={!logo || savingLogo}>
+                  {logo ? <img src={logo} alt="Your brand logo" /> : <span className="st-logo__fallback">{initials(brandName)}</span>}
+                </button>
+                <div className="st-brandinfo">
+                  <p className="mg-hint">This identity is used across the tenant experience. Add the name, tagline and contact details tenants should use when they need help.</p>
+                  <div className="mg-actions" style={{ marginTop: "0.75rem" }}>
+                    <input ref={fileInput} className="st-file" type="file" accept="image/*" onChange={(event) => { handleFile(event.target.files?.[0]); event.target.value = ""; }} />
+                    <button type="button" className="mg-btn mg-btn--primary" onClick={() => fileInput.current?.click()} disabled={savingLogo}><Upload />{logo ? "Replace logo" : "Upload logo"}</button>
+                    {logo && <button type="button" className="mg-btn mg-btn--ghost" onClick={() => void removeLogo()} disabled={savingLogo}><Trash2 />Remove</button>}
+                  </div>
                 </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"1rem",marginTop:"1.35rem"}}>
+                <div><label className="mg-label" htmlFor="brand-name">Brand name</label><input id="brand-name" className="mg-input" value={brandName} onChange={e=>setBrandName(e.target.value)} placeholder="ABC Properties" /></div>
+                <div><label className="mg-label" htmlFor="brand-tagline">Tagline</label><input id="brand-tagline" className="mg-input" value={tagline} onChange={e=>setTagline(e.target.value)} placeholder="Your investment, our priority" /></div>
+                <div><label className="mg-label" htmlFor="brand-email">Contact email</label><input id="brand-email" type="email" className="mg-input" value={brandEmail} onChange={e=>setBrandEmail(e.target.value)} placeholder="hello@abcproperties.com" /></div>
+                <div><label className="mg-label" htmlFor="brand-phone">Contact phone</label><input id="brand-phone" className="mg-input" value={brandPhone} onChange={e=>setBrandPhone(e.target.value)} placeholder="+254 7xx xxx xxx" /></div>
+                <div style={{gridColumn:"1 / -1"}}><label className="mg-label" htmlFor="brand-address">Office / support address</label><input id="brand-address" className="mg-input" value={brandAddress} onChange={e=>setBrandAddress(e.target.value)} placeholder="ABC House, Nairobi" /></div>
+                <div><label className="mg-label" htmlFor="brand-city">City</label><input id="brand-city" className="mg-input" value={brandCity} onChange={e=>setBrandCity(e.target.value)} placeholder="Nairobi" /></div>
+                <div><label className="mg-label" htmlFor="brand-country">Country</label><input id="brand-country" className="mg-input" value={brandCountry} onChange={e=>setBrandCountry(e.target.value)} placeholder="Kenya" /></div>
+              </div>
+              <div className="mg-actions" style={{marginTop:"1rem"}}>
+                <button type="button" className="mg-btn mg-btn--primary" onClick={() => void saveBrandProfile()} disabled={savingBrand || !brandName.trim() || !brandEmail.trim()}><Check />{savingBrand ? "Saving…" : "Save brand details"}</button>
               </div>
             </div>
           </section>
- 
-
  
           {cropSource && (
             <div
