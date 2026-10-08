@@ -1,300 +1,275 @@
-import { useEffect, useState } from "react";
-import { Building2, CheckCircle2, Eye, Smartphone } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Banknote, Building2, CheckCircle2, Plus, Smartphone, Trash2, Wallet } from "lucide-react";
 import { ApiError, apiRequest } from "../services/api";
 
 type Props = { role: string };
-
 type Property = { id: number; name: string };
-
 type Method = "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank";
-
-type Settings = {
-  can_manage: boolean;
-  configured: boolean;
-  preferred_method: Method | null;
-  mpesa_number: string | null;
-  mpesa_till: string | null;
-  mpesa_paybill: string | null;
-  mpesa_paybill_account: string | null;
-  bank_name: string | null;
-  bank_account_name: string | null;
-  bank_account_number: string | null;
-  bank_branch: string | null;
+type Destination = {
+  id: number;
+  property_id: number;
+  property_name?: string | null;
+  method: Method;
+  label?: string | null;
+  details: Record<string, string | null>;
+  is_active: boolean;
 };
 
-const normalizeDigits = (value: string) => value.replace(/\D/g, "");
-
-const validateDestination = (method: Method, value: string) => {
-  const digits = normalizeDigits(value);
-
-  if (method === "mpesa_number") {
-    const valid = /^(?:2547\d{8}|07\d{8})$/.test(digits);
-    return valid ? "" : "Enter a valid Kenyan M-Pesa number, e.g. 0712345678 or 254712345678.";
-  }
-
-  if (method === "mpesa_till") {
-    return /^\d{5,7}$/.test(digits) ? "" : "Enter a valid M-Pesa Till number (5–7 digits).";
-  }
-
-  if (method === "mpesa_paybill") {
-    return /^\d{5,7}$/.test(digits) ? "" : "Enter a valid M-Pesa PayBill number (5–7 digits).";
-  }
-
-  return "";
+type Payload = {
+  data: Destination[];
+  online?: { available: boolean; label: string; description: string };
 };
+
+const METHOD_LABEL: Record<Method, string> = {
+  mpesa_number: "M-PESA number",
+  mpesa_till: "M-PESA Till",
+  mpesa_paybill: "M-PESA PayBill",
+  bank: "Bank account",
+};
+
+function destinationSummary(item: Destination) {
+  const d = item.details;
+  switch (item.method) {
+    case "mpesa_number":
+      return d.number ?? "M-PESA number";
+    case "mpesa_till":
+      return `Till ${d.till ?? "—"}`;
+    case "mpesa_paybill":
+      return `PayBill ${d.paybill ?? "—"} · Account ${d.account ?? "—"}`;
+    case "bank":
+      return [d.bank_name, d.account_name, d.account_number ? `••••${d.account_number.slice(-4)}` : null]
+        .filter(Boolean)
+        .join(" · ");
+  }
+}
 
 export default function PaymentDestinationSection({ role }: Props) {
   const owner = ["admin", "owner"].includes(String(role ?? "").toLowerCase());
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState<number | null>(null);
-  const [method, setMethod] = useState<Method>("mpesa_number");
-  const [mpesa, setMpesa] = useState("");
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [onlineAvailable, setOnlineAvailable] = useState(false);
+  const [method, setMethod] = useState<Method>("mpesa_paybill");
+  const [label, setLabel] = useState("");
+  const [number, setNumber] = useState("");
   const [till, setTill] = useState("");
   const [paybill, setPaybill] = useState("");
-  const [paybillAccount, setPaybillAccount] = useState("");
+  const [account, setAccount] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [branch, setBranch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    apiRequest("/properties")
-      .then((payload) => {
-        const list = Array.isArray(payload) ? (payload as Property[]) : [];
-        setProperties(list);
-        setPropertyId(list[0]?.id ?? null);
-      })
-      .catch(() => {
-        setProperties([]);
-        setPropertyId(null);
-      });
-  }, []);
+  const selectedProperty = useMemo(
+    () => properties.find((property) => property.id === propertyId),
+    [properties, propertyId]
+  );
 
-  useEffect(() => {
-    if (!propertyId) {
-      setSettings(null);
-      return;
-    }
-
-    setMessage("");
-    setError("");
-    apiRequest(`/organization/payment-settings?property_id=${propertyId}`)
-      .then((payload) => {
-        const value = payload as Settings;
-        setSettings(value);
-        setMethod(value.preferred_method ?? "mpesa_number");
-        setMpesa(value.mpesa_number && !value.mpesa_number.startsWith("••••") ? value.mpesa_number : "");
-        setTill(value.mpesa_till && !value.mpesa_till.startsWith("••••") ? value.mpesa_till : "");
-        setPaybill(value.mpesa_paybill && !value.mpesa_paybill.startsWith("••••") ? value.mpesa_paybill : "");
-        setPaybillAccount(value.mpesa_paybill_account && !value.mpesa_paybill_account.startsWith("••••") ? value.mpesa_paybill_account : "");
-        setBankName(value.bank_name ?? "");
-        setAccountName(value.bank_account_name ?? "");
-        setAccountNumber("");
-        setBranch(value.bank_branch ?? "");
-      })
-      .catch(() => setSettings(null));
-  }, [propertyId]);
-
-  async function save() {
-    setLoading(true);
-    setError("");
-    setMessage("");
-
-    const currentValue =
-      method === "mpesa_number" ? mpesa :
-      method === "mpesa_till" ? till :
-      method === "mpesa_paybill" ? paybill :
-      "";
-
-    if (method === "mpesa_paybill" && !paybillAccount.trim()) {
-      setError("Please enter the M-Pesa PayBill account number before saving.");
-      setLoading(false);
-      return;
-    }
-
-    if (method !== "bank") {
-      const validationError = validateDestination(method, currentValue);
-      if (!currentValue.trim()) {
-        setError("Please enter the selected M-Pesa destination before saving.");
-        setLoading(false);
-        return;
-      }
-      if (validationError) {
-        setError(validationError);
-        setLoading(false);
-        return;
-      }
-    }
-
-    if (
-      method === "bank" &&
-      (!bankName.trim() || !accountName.trim() || !accountNumber.trim())
-    ) {
-      setError("Bank name, account name and account number are required.");
-      setLoading(false);
-      return;
-    }
-
+  async function loadProperties() {
     try {
-      await apiRequest("/organization/payment-settings", {
-        method: "PUT",
-        body: JSON.stringify({
-          property_id: propertyId,
-          preferred_method: method,
-          mpesa_number: method === "mpesa_number" ? normalizeDigits(mpesa) : undefined,
-          mpesa_till: method === "mpesa_till" ? normalizeDigits(till) : undefined,
-          mpesa_paybill: method === "mpesa_paybill" ? normalizeDigits(paybill) : undefined,
-          mpesa_paybill_account: method === "mpesa_paybill" ? paybillAccount.trim() : undefined,
-          bank_name: method === "bank" ? bankName.trim() : undefined,
-          bank_account_name: method === "bank" ? accountName.trim() : undefined,
-          bank_account_number: method === "bank" ? accountNumber.trim() : undefined,
-          bank_branch: method === "bank" ? branch.trim() : undefined,
-        }),
-      });
-
-      setMessage("Payment destination saved.");
-      const refreshed = (await apiRequest(`/organization/payment-settings?property_id=${propertyId}`)) as Settings;
-      setSettings(refreshed);
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not save the payment destination."
-      );
-    } finally {
-      setLoading(false);
+      const payload = await apiRequest("/properties");
+      const list = Array.isArray(payload) ? (payload as Property[]) : [];
+      setProperties(list);
+      if (!propertyId && list[0]) setPropertyId(list[0].id);
+    } catch {
+      setProperties([]);
     }
   }
 
-  const configured = settings?.configured ?? false;
+  async function loadDestinations(id = propertyId) {
+    if (!id) return;
+    try {
+      const payload = (await apiRequest(`/organization/payment-destinations?property_id=${id}`)) as Payload;
+      setDestinations(payload.data ?? []);
+      setOnlineAvailable(Boolean(payload.online?.available));
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not load payment destinations.");
+    }
+  }
+
+  useEffect(() => { void loadProperties(); }, []);
+  useEffect(() => { void loadDestinations(); }, [propertyId]);
+
+  function resetForm() {
+    setEditingId(null);
+    setShowForm(false);
+    setLabel("");
+    setNumber("");
+    setTill("");
+    setPaybill("");
+    setAccount("");
+    setBankName("");
+    setAccountName("");
+    setAccountNumber("");
+    setBranch("");
+    setError("");
+  }
+
+  function startEdit(item: Destination) {
+    const d = item.details;
+    setEditingId(item.id);
+    setShowForm(true);
+    setMethod(item.method);
+    setLabel(item.label ?? "");
+    setNumber(d.number ?? "");
+    setTill(d.till ?? "");
+    setPaybill(d.paybill ?? "");
+    setAccount(d.account ?? "");
+    setBankName(d.bank_name ?? "");
+    setAccountName(d.account_name ?? "");
+    setAccountNumber("");
+    setBranch(d.branch ?? "");
+    setError("");
+  }
+
+  function details() {
+    if (method === "mpesa_number") return { number };
+    if (method === "mpesa_till") return { till };
+    if (method === "mpesa_paybill") return { paybill, account };
+    return { bank_name: bankName, account_name: accountName, account_number: accountNumber, branch };
+  }
+
+  async function save() {
+    if (!propertyId) return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const body = JSON.stringify({
+        property_id: propertyId,
+        method,
+        label: label.trim() || null,
+        details: details(),
+        is_active: true,
+      });
+
+      if (editingId) {
+        await apiRequest(`/organization/payment-destinations/${editingId}`, { method: "PATCH", body });
+        setMessage("Payment destination updated.");
+      } else {
+        await apiRequest("/organization/payment-destinations", { method: "POST", body });
+        setMessage("Payment destination added.");
+      }
+
+      resetForm();
+      await loadDestinations();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not save the payment destination.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disable(item: Destination) {
+    if (!window.confirm(`Disable ${METHOD_LABEL[item.method]} for ${selectedProperty?.name ?? "this property"}?`)) return;
+    try {
+      await apiRequest(`/organization/payment-destinations/${item.id}`, { method: "DELETE" });
+      setMessage("Payment destination disabled.");
+      await loadDestinations();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Could not disable the payment destination.");
+    }
+  }
+
+  if (!owner) return null;
 
   return (
     <section className="mg-panel">
       <div className="mg-panel__head">
-        <h2 className="mg-panel__title">
-          <Building2 />
-          Payment destination
-        </h2>
-        <span className="mg-panel__meta">
-          {configured ? "Configured" : "Not configured"}
-        </span>
+        <h2 className="mg-panel__title"><Wallet /> Payment destinations</h2>
+        <span className="mg-panel__meta">What tenants can pay to</span>
       </div>
 
       <div className="mg-panel__body">
-        {!owner ? (
-          <>
-            <p className="mg-hint" style={{ marginTop: 0 }}>
-              Payment settings are managed by your organization owner/admin.
-              You can view the collection status, but you cannot change the
-              payment destination.
-            </p>
-            <div className="mg-alert" style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: "1rem" }}>
-              {configured ? <CheckCircle2 size={18} /> : <Eye size={18} />}
-              <span>
-                {configured
-                  ? "Tenant payment destination is configured via " +
-                    (settings?.preferred_method === "bank"
-                      ? "bank."
-                      : settings?.preferred_method === "mpesa_till"
-                        ? "M-Pesa Till."
-                        : settings?.preferred_method === "mpesa_paybill"
-                          ? "M-Pesa PayBill."
-                          : "M-Pesa number.")
-                  : "Tenant payment destination has not been configured yet."}
-              </span>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mg-hint" style={{ marginTop: 0 }}>
-              Only the organization owner/admin can change the destination
-              used for tenant payment collection.
-            </p>
+        <p className="mg-hint" style={{ marginTop: 0 }}>
+          Add the payment destinations tenants should see for each property. You can offer more than one option.
+        </p>
 
-            <label className="mg-field" style={{ marginBottom: "1rem" }}>
-              <span className="mg-label">Property</span>
-              <select
-                className="mg-input"
-                value={propertyId ?? ""}
-                onChange={(e) => setPropertyId(Number(e.target.value) || null)}
-                disabled={!properties.length}
-              >
-                <option value="">Select property</option>
-                {properties.map((property) => (
-                  <option key={property.id} value={property.id}>{property.name}</option>
-                ))}
-              </select>
-              <small className="mg-hint">
-                Payment destinations are configured separately for each property.
-              </small>
-            </label>
+        <label className="mg-field" style={{ marginTop: "1rem" }}>
+          <span className="mg-label">Property</span>
+          <select className="mg-select" value={propertyId ?? ""} onChange={(e) => { setPropertyId(Number(e.target.value) || null); resetForm(); }}>
+            <option value="">Select property</option>
+            {properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
+          </select>
+        </label>
 
-            <div className="mg-actions" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
-              <button type="button" className={`mg-btn ${method === "mpesa_number" ? "mg-btn--primary" : "mg-btn--ghost"}`} onClick={() => setMethod("mpesa_number")}>
-                <Smartphone /> M-Pesa number
-              </button>
-              <button type="button" className={`mg-btn ${method === "mpesa_till" ? "mg-btn--primary" : "mg-btn--ghost"}`} onClick={() => setMethod("mpesa_till")}>
-                <Smartphone /> M-Pesa Till
-              </button>
-              <button type="button" className={`mg-btn ${method === "mpesa_paybill" ? "mg-btn--primary" : "mg-btn--ghost"}`} onClick={() => setMethod("mpesa_paybill")}>
-                <Smartphone /> M-Pesa PayBill
-              </button>
-              <button type="button" className={`mg-btn ${method === "bank" ? "mg-btn--primary" : "mg-btn--ghost"}`} onClick={() => setMethod("bank")}>
-                <Building2 /> Bank
-              </button>
+        {propertyId && (
+          <>
+            <div style={{ display: "grid", gap: ".75rem", marginTop: "1rem" }}>
+              {destinations.map((item) => (
+                <article key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", padding: "1rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".75rem", background: "var(--pms-glass)" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: ".75rem", minWidth: 0 }}>
+                    <span aria-hidden="true" style={{ display: "inline-flex", marginTop: ".1rem" }}>
+                      {item.method === "bank" ? <Building2 size={20} /> : <Smartphone size={20} />}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <strong style={{ display: "block" }}>{item.label || METHOD_LABEL[item.method]}</strong>
+                      <span className="mg-hint" style={{ display: "block", marginTop: ".15rem", overflowWrap: "anywhere" }}>{destinationSummary(item)}</span>
+                    </div>
+                  </div>
+                  <div className="mg-actions">
+                    <button type="button" className="mg-btn mg-btn--ghost" onClick={() => startEdit(item)}>Edit</button>
+                    <button type="button" className="mg-btn mg-btn--ghost" onClick={() => void disable(item)}><Trash2 />Disable</button>
+                  </div>
+                </article>
+              ))}
+
+              {onlineAvailable && (
+                <article style={{ display: "flex", alignItems: "center", gap: ".75rem", padding: "1rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".75rem", background: "var(--pms-glass)" }}>
+                  <Banknote size={20} />
+                  <div>
+                    <strong style={{ display: "block" }}>Online payment</strong>
+                    <span className="mg-hint">Tenants can pay securely by M-PESA, card or bank transfer.</span>
+                  </div>
+                  <span className="mg-panel__meta" style={{ marginLeft: "auto" }}><CheckCircle2 size={15} style={{ verticalAlign: "middle" }} /> Available</span>
+                </article>
+              )}
             </div>
 
-            {method === "mpesa_number" && (
-              <label className="mg-field">
-                <span className="mg-label">M-Pesa number</span>
-                <input className="mg-input" value={mpesa} onChange={(e) => setMpesa(e.target.value)} placeholder="0712345678" inputMode="numeric" autoComplete="tel" />
-              </label>
-            )}
-
-            {method === "mpesa_till" && (
-              <label className="mg-field">
-                <span className="mg-label">M-Pesa Till number</span>
-                <input className="mg-input" value={till} onChange={(e) => setTill(e.target.value)} placeholder="Enter Till number" inputMode="numeric" />
-                <small className="mg-hint">5–7 digits. Only numbers are accepted.</small>
-              </label>
-            )}
-
-            {method === "mpesa_paybill" && (
-              <div className="mg-form-grid">
-                <label className="mg-field">
-                  <span className="mg-label">M-Pesa PayBill number</span>
-                  <input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" inputMode="numeric" />
-                  <small className="mg-hint">5–7 digits. Only numbers are accepted.</small>
-                </label>
-                <label className="mg-field">
-                  <span className="mg-label">PayBill account number</span>
-                  <input className="mg-input" value={paybillAccount} onChange={(e) => setPaybillAccount(e.target.value)} placeholder="Enter account number" />
-                  <small className="mg-hint">This is the property account/reference. The tenant unit can be appended as the payment reference, e.g. Account/18.</small>
-                </label>
+            {!showForm && (
+              <div className="mg-actions" style={{ marginTop: "1rem" }}>
+                <button type="button" className="mg-btn mg-btn--primary" onClick={() => setShowForm(true)}><Plus /> Add payment destination</button>
               </div>
             )}
 
-            {method === "bank" && (
-              <div className="mg-form-grid">
-                <label className="mg-field"><span className="mg-label">Bank</span><input className="mg-input" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name" /></label>
-                <label className="mg-field"><span className="mg-label">Account name</span><input className="mg-input" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="ABC Properties Limited" /></label>
-                <label className="mg-field"><span className="mg-label">Account number</span><input className="mg-input" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Account number" inputMode="numeric" /></label>
-                <label className="mg-field"><span className="mg-label">Branch</span><input className="mg-input" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Branch" /></label>
+            {showForm && (
+              <div style={{ marginTop: "1rem", padding: "1rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".75rem" }}>
+                <div className="mg-grid2">
+                  <label className="mg-field">
+                    <span className="mg-label">Payment type</span>
+                    <select className="mg-select" value={method} onChange={(e) => setMethod(e.target.value as Method)}>
+                      <option value="mpesa_paybill">M-PESA PayBill</option>
+                      <option value="mpesa_till">M-PESA Till</option>
+                      <option value="mpesa_number">M-PESA number</option>
+                      <option value="bank">Bank account</option>
+                    </select>
+                  </label>
+                  <label className="mg-field">
+                    <span className="mg-label">Label (optional)</span>
+                    <input className="mg-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Rent payments" />
+                  </label>
+                </div>
+
+                {method === "mpesa_number" && <label className="mg-field"><span className="mg-label">M-PESA number</span><input className="mg-input" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="0712345678" /></label>}
+                {method === "mpesa_till" && <label className="mg-field"><span className="mg-label">Till number</span><input className="mg-input" value={till} onChange={(e) => setTill(e.target.value)} placeholder="Enter Till number" /></label>}
+                {method === "mpesa_paybill" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">PayBill number</span><input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" /></label><label className="mg-field"><span className="mg-label">Account / reference</span><input className="mg-input" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="ABC Properties" /></label></div>}
+                {method === "bank" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">Bank</span><input className="mg-input" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="KCB" /></label><label className="mg-field"><span className="mg-label">Account name</span><input className="mg-input" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="ABC Properties Ltd" /></label><label className="mg-field"><span className="mg-label">Account number</span><input className="mg-input" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder={editingId ? "Leave blank to keep current" : "Account number"} /></label><label className="mg-field"><span className="mg-label">Branch</span><input className="mg-input" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Branch" /></label></div>}
+
+                {error && <p className="mg-hint" style={{ color: "#a33" }}>{error}</p>}
+                {message && <p className="mg-hint" style={{ color: "#19734a" }}>{message}</p>}
+
+                <div className="mg-actions" style={{ marginTop: "1rem" }}>
+                  <button type="button" className="mg-btn mg-btn--subtle" onClick={resetForm}>Cancel</button>
+                  <button type="button" className="mg-btn mg-btn--primary" disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : editingId ? "Save changes" : "Add destination"}</button>
+                </div>
               </div>
             )}
-
-            {error && <p className="mg-hint" style={{ color: "#a33" }}>{error}</p>}
-            {message && <p className="mg-hint" style={{ color: "#19734a", display: "flex", gap: ".4rem", alignItems: "center" }}><CheckCircle2 size={16} />{message}</p>}
-
-            <div className="mg-actions" style={{ marginTop: "1rem" }}>
-              <button type="button" className="mg-btn mg-btn--primary" disabled={loading} onClick={() => void save()}>
-                {loading ? "Saving…" : "Save payment destination"}
-              </button>
-            </div>
           </>
         )}
       </div>
