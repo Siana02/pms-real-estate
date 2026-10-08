@@ -18,6 +18,7 @@ import {
   Users,
   Wrench,
   X,
+  Clock3,
 } from "lucide-react";
 
 import { apiRequest } from "../../services/api";
@@ -652,6 +653,104 @@ const styles = `
     color: #244d70;
   }
 
+  .manager-dashboard__rent-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+  }
+  .manager-dashboard__rent-metric {
+    padding: 0.8rem;
+    border: 1px solid #e1e9f0;
+    border-radius: 0.75rem;
+    background: rgba(248, 251, 253, 0.9);
+  }
+  .manager-dashboard__rent-metric span {
+    display: block;
+    font-family: "Kulim Park", sans-serif;
+    font-size: 0.67rem;
+    color: #7c8995;
+  }
+  .manager-dashboard__rent-metric strong {
+    display: block;
+    margin-top: 0.2rem;
+    font-family: "Kulim Park", sans-serif;
+    font-size: 1.1rem;
+    color: #244f73;
+  }
+  .manager-dashboard__rent-rate {
+    margin-top: 0.8rem;
+    font-family: "Kulim Park", sans-serif;
+    font-size: 0.78rem;
+    color: #657687;
+  }
+  .manager-dashboard__rent-progress {
+    height: 0.55rem;
+    margin-top: 0.45rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e6edf3;
+  }
+  .manager-dashboard__rent-progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #6fa7d5, #2e6b9f);
+  }
+  .manager-dashboard__rent-actions {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .manager-dashboard__rent-action {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1.1fr) minmax(7rem, 0.8fr) auto auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid #e0e8ef;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.72);
+  }
+  .manager-dashboard__rent-tenant { min-width: 0; font-family: "Kulim Park", sans-serif; }
+  .manager-dashboard__rent-tenant strong {
+    display: block;
+    font-size: 0.82rem;
+    color: #244d70;
+    overflow-wrap: anywhere;
+  }
+  .manager-dashboard__rent-tenant span {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.68rem;
+    color: #8793a0;
+  }
+  .manager-dashboard__rent-balance {
+    font-family: "Kulim Park", sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #315a7c;
+  }
+  .manager-dashboard__rent-status {
+    justify-self: start;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    font-family: "Kulim Park", sans-serif;
+    font-size: 0.64rem;
+    font-weight: 700;
+    background: #fff5df;
+    color: #9a6b1c;
+  }
+  .manager-dashboard__rent-status--overdue { background: #fde4e4; color: #a73f3f; }
+  .manager-dashboard__rent-status--partial { background: #fff2d9; color: #95641b; }
+  @media (max-width: 820px) {
+    .manager-dashboard__rent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .manager-dashboard__rent-action { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 520px) {
+    .manager-dashboard__rent-grid { grid-template-columns: 1fr 1fr; }
+    .manager-dashboard__rent-action { grid-template-columns: 1fr; }
+  }
+
   .manager-dashboard__properties-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -887,10 +986,39 @@ type MaintenanceItem = {
   } | null;
 };
 
+type RentAction = {
+  id: number;
+  tenant_id: number;
+  tenant_name: string;
+  property_name: string | null;
+  unit_number: string | null;
+  amount_due: number;
+  amount_paid: number;
+  balance: number;
+  due_date: string | null;
+  status: string;
+  days_overdue: number;
+};
+
+type RentCollection = {
+  period: string;
+  expected: number;
+  collected: number;
+  outstanding: number;
+  collection_rate: number;
+  paid: number;
+  partial: number;
+  due: number;
+  overdue: number;
+  upcoming: number;
+  action_required: RentAction[];
+};
+
 type DashboardPayload = {
   organization: Organization;
   stats: DashboardStats;
   can_view_financials: boolean;
+  rent_collection: RentCollection | null;
   revenue_trend: RevenuePoint[];
   maintenance: {
     needs_action: number;
@@ -1157,6 +1285,53 @@ function DashboardPage() {
                     </div>
                   )}
                 </section>
+
+                {canViewFinancials && dashboard?.rent_collection && (
+                  <section className="manager-dashboard__card manager-dashboard__panel">
+                    <div className="manager-dashboard__panel-head">
+                      <div>
+                        <p className="manager-dashboard__section-kicker">Rent collection</p>
+                        <h2 className="manager-dashboard__panel-title">This month's collection command centre</h2>
+                      </div>
+                      <button type="button" className="manager-dashboard__link" onClick={() => navigate("/manager/payments")}>
+                        View payments
+                      </button>
+                    </div>
+                    <div className="manager-dashboard__rent-grid">
+                      <div className="manager-dashboard__rent-metric"><span>Expected</span><strong>{money(dashboard.rent_collection.expected, currency)}</strong></div>
+                      <div className="manager-dashboard__rent-metric"><span>Collected</span><strong>{money(dashboard.rent_collection.collected, currency)}</strong></div>
+                      <div className="manager-dashboard__rent-metric"><span>Outstanding</span><strong>{money(dashboard.rent_collection.outstanding, currency)}</strong></div>
+                      <div className="manager-dashboard__rent-metric"><span>Tenants paid</span><strong>{dashboard.rent_collection.paid}</strong></div>
+                    </div>
+                    <div className="manager-dashboard__rent-rate">
+                      <strong>{dashboard.rent_collection.collection_rate}% collected</strong>
+                      {" · "}{dashboard.rent_collection.overdue} overdue · {dashboard.rent_collection.partial} partial · {dashboard.rent_collection.due} due
+                      <div className="manager-dashboard__rent-progress">
+                        <span style={{ width: `${Math.min(dashboard.rent_collection.collection_rate, 100)}%` }} />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <p className="manager-dashboard__section-kicker">Needs attention</p>
+                      <div className="manager-dashboard__rent-actions" style={{ marginTop: "0.55rem" }}>
+                        {dashboard.rent_collection.action_required.length === 0 ? (
+                          <div className="manager-dashboard__loading">All current rent obligations are up to date.</div>
+                        ) : dashboard.rent_collection.action_required.map((item) => (
+                          <div className="manager-dashboard__rent-action" key={item.id}>
+                            <div className="manager-dashboard__rent-tenant">
+                              <strong>{item.tenant_name || "Tenant"}</strong>
+                              <span>{item.property_name || "Property"} · Unit {item.unit_number || "—"}</span>
+                            </div>
+                            <div className="manager-dashboard__rent-balance">{money(item.balance, currency)} outstanding</div>
+                            <span className={`manager-dashboard__rent-status manager-dashboard__rent-status--${item.status}`}>
+                              {item.status === "overdue" ? `${item.days_overdue} days overdue` : item.status === "partial" ? "Partially paid" : "Due"}
+                            </span>
+                            {item.days_overdue > 0 ? <Clock3 size={15} aria-hidden="true" /> : <span />}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                )}
 
                 <section className="manager-dashboard__split">
                   {canViewFinancials && <article className="manager-dashboard__card manager-dashboard__panel">
