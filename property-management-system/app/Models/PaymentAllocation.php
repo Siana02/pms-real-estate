@@ -11,6 +11,7 @@ class PaymentAllocation extends Model
 
     protected $fillable = [
         'payment_id',
+        'rent_payment_credit_id',
         'rent_obligation_id',
         'amount',
     ];
@@ -22,6 +23,11 @@ class PaymentAllocation extends Model
     public function payment()
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    public function rentPaymentCredit()
+    {
+        return $this->belongsTo(RentPaymentCredit::class);
     }
 
     public function rentObligation()
