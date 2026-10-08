@@ -37,9 +37,18 @@ class FlutterwaveController extends Controller
             'environment' => ['required', 'in:test,live'],
         ]);
 
+        $expectedPrefix = $validated['environment'] === 'live' ? 'FLWSECK-' : 'FLWSECK_TEST-';
+        if (!str_starts_with($validated['secret_key'], $expectedPrefix)) {
+            return response()->json([
+                'message' => $validated['environment'] === 'live'
+                    ? 'Live mode requires a live Flutterwave secret key.'
+                    : 'Test mode requires a Flutterwave test secret key.',
+            ], 422);
+        }
+
         $response = Http::withToken($validated['secret_key'])
             ->acceptJson()
-            ->get('https://api.flutterwave.com/v3/merchants/profile');
+            ->get('https://api.flutterwave.com/v3/banks/KE');
 
         if (!$response->successful() || ($response->json('status') !== 'success')) {
             return response()->json([
@@ -53,9 +62,7 @@ class FlutterwaveController extends Controller
             [
                 'secret_key' => $validated['secret_key'],
                 'environment' => $validated['environment'],
-                'merchant_name' => $response->json('data.business_name')
-                    ?? $response->json('data.name')
-                    ?? $organization->name,
+                'merchant_name' => $organization->name,
                 'currency' => 'KES',
                 'connected_at' => now(),
                 'webhook_secret' => FlutterwaveIntegration::where('organization_id', $organization->id)->value('webhook_secret')
@@ -137,7 +144,11 @@ class FlutterwaveController extends Controller
             $txRef
         );
 
-        return response()->json($result);
+        $frontend = rtrim((string) config('services.frontend.url'), '/');
+        return redirect()->away(
+            $frontend . '/tenant/payments?flutterwave=' . urlencode((string) ($result['status'] ?? 'verification_failed'))
+            . '&tx_ref=' . urlencode($txRef)
+        );
     }
 
     private function verifyAndComplete(FlutterwaveIntegration $integration, array $payload): void
