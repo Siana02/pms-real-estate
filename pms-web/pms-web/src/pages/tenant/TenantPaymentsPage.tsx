@@ -611,4 +611,395 @@ function TenantPaymentsPage() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }
+
+
+  return (
+    <TenantDashboardLayout
+      title="Payments"
+      subtitle="Your rent balance, receipts and full payment history."
+      actions={
+        <button
+          type="button"
+          className="tp-btn tp-btn--primary"
+          onClick={() => setPayOpen(true)}
+        >
+          <CreditCard />
+          Pay rent
+        </button>
+      }
+    >
+      <style>{styles}</style>
+ 
+      {gatewayNotice && (
+        <p className="tpay-error" role="status">{gatewayNotice}</p>
+      )}
+
+      <div className="tpay-stack">
+        {error && (
+          <p className="tpay-error" role="status">
+            <AlertTriangle />
+            {error}
+          </p>
+        )}
+ 
+        <section className="tpay-lead" aria-label="Rent balance">
+          {loading ? (
+            <span className="tp-skeleton tpay-skeleton" />
+          ) : (
+            <article className="tpay-balance">
+              <div className="tpay-balance__top">
+                <div>
+                  <p className="tp-label">Current balance</p>
+                  <p className="tpay-balance__amount tp-money">
+                    {money(outstanding, currency)}
+                  </p>
+                  <p className="tpay-balance__due">
+                    <CalendarClock />
+                    {summary?.due_date
+                      ? `Due ${longDate(summary.due_date)}`
+                      : "No payment scheduled"}
+                  </p>
+                </div>
+ 
+                <span className={`tp-pill ${statusTone(summary?.status ?? null)}`}>
+                  {STATUS_LABEL[summary?.status ?? "pending"]}
+                </span>
+              </div>
+ 
+              <div className="tpay-balance__actions">
+                <button
+                  type="button"
+                  className="tp-btn tp-btn--primary"
+                  onClick={() => setPayOpen(true)}
+                  disabled={outstanding <= 0}
+                >
+                  <CreditCard />
+                  {outstanding > 0 ? "Pay rent" : "Nothing due"}
+                </button>
+                <button type="button" className="tp-btn tp-btn--quiet">
+                  <Download />
+                  Download statement
+                </button>
+              </div>
+            </article>
+          )}
+ 
+          {loading ? (
+            <span className="tp-skeleton tpay-skeleton" />
+          ) : (
+            <div className="tpay-side">
+              <article className="tp-card tpay-stat">
+                <dl>
+                  <dt className="tp-label">Monthly rent</dt>
+                  <dd className="tp-money">
+                    {money(summary?.monthly_rent, currency)}
+                  </dd>
+                </dl>
+                <small>Per your active lease</small>
+              </article>
+ 
+              <article className="tp-card tpay-stat">
+                <dl>
+                  <dt className="tp-label">Paid this year</dt>
+                  <dd className="tp-money">
+                    {money(summary?.paid_this_year, currency)}
+                  </dd>
+                </dl>
+                <small>
+                  {payments.filter((p) => p.status === "paid").length} receipts
+                </small>
+              </article>
+            </div>
+          )}
+        </section>
+ 
+        <section className="tp-section" aria-label="Payment history">
+          <div className="tp-section__head">
+            <div>
+              <h2 className="tp-section__title">Payment history</h2>
+              <p className="tp-section__sub">
+                Every rent payment recorded against your unit.
+              </p>
+            </div>
+          </div>
+ 
+          <div className="tpay-tools">
+            <div className="tpay-search">
+              <Search />
+              <label className="tp-sr" htmlFor="payment-search">
+                Search payments
+              </label>
+              <input
+                id="payment-search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by month or reference…"
+              />
+            </div>
+ 
+            <div className="tpay-chips" role="group" aria-label="Filter payments">
+              {FILTERS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="tpay-chip"
+                  aria-pressed={filter === option.key}
+                  onClick={() => setFilter(option.key)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+ 
+          {loading ? (
+            <span className="tp-skeleton tpay-skeleton" />
+          ) : filtered.length === 0 ? (
+            <div className="tp-card tp-empty">
+              <span className="tp-empty__icon">
+                <Receipt />
+              </span>
+              <h3 className="tp-empty__title">
+                {payments.length === 0
+                  ? "No payments yet"
+                  : "Nothing matches that search"}
+              </h3>
+              <p className="tp-empty__text">
+                {payments.length === 0
+                  ? "When your property manager records a rent payment, the receipt will appear here."
+                  : "Try a different month, reference or filter."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="tpay-table-wrap">
+                <table className="tpay-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Period</th>
+                      <th scope="col">Date</th>
+                      <th scope="col">Method</th>
+                      <th scope="col">Status</th>
+                      <th scope="col" style={{ textAlign: "right" }}>
+                        Amount
+                      </th>
+                      <th scope="col" style={{ textAlign: "right" }}>
+                        Receipt
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((payment) => (
+                      <tr key={String(payment.id)}>
+                        <td>
+                          <span className="tpay-period">
+                            {periodLabel(payment)}
+                          </span>
+                          {payment.reference && (
+                            <div className="tpay-ref">{payment.reference}</div>
+                          )}
+                        </td>
+                        <td>{longDate(payment.payment_date)}</td>
+                        <td>{methodLabel(payment.payment_method)}</td>
+                        <td>
+                          <span
+                            className={`tp-pill ${statusTone(payment.status)}`}
+                          >
+                            {STATUS_LABEL[payment.status ?? "pending"]}
+                          </span>
+                        </td>
+                        <td className="tpay-num tp-money">
+                          {money(payment.amount, currency)}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {payment.status === "paid" ? (
+                            <a
+                              className="tpay-receipt"
+                              href={payment.receipt_url ?? "#"}
+                            >
+                              <Download />
+                              Receipt
+                            </a>
+                          ) : (
+                            <span className="tpay-ref">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+ 
+              <div className="tp-card tpay-cards">
+                {filtered.map((payment) => (
+                  <div className="tpay-item" key={`m-${payment.id}`}>
+                    <p className="tpay-item__period">{periodLabel(payment)}</p>
+                    <p className="tpay-item__amount tp-money">
+                      {money(payment.amount, currency)}
+                    </p>
+                    <p className="tpay-item__meta">
+                      {longDate(payment.payment_date)} ·{" "}
+                      {methodLabel(payment.payment_method)}
+                    </p>
+                    <span
+                      className={`tp-pill tpay-item__status ${statusTone(
+                        payment.status
+                      )}`}
+                    >
+                      {STATUS_LABEL[payment.status ?? "pending"]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+ 
+      {payOpen && (
+        <div
+          className="tpay-scrim"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pay-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closePay();
+          }}
+        >
+          <div className="tpay-modal">
+            <div className="tpay-modal__head">
+              <div>
+                <h2 className="tpay-modal__title" id="pay-title">
+                  Pay rent
+                </h2>
+                <p className="tpay-modal__sub">
+                  {money(outstanding, currency)} outstanding
+                  {summary?.due_date ? ` · due ${longDate(summary.due_date)}` : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="tp-icon-btn"
+                onClick={closePay}
+                aria-label="Close"
+              >
+                <X />
+              </button>
+            </div>
+ 
+            {submitted ? (
+              <div className="tpay-done">
+                <CheckCircle2 />
+                <h3>Payment started</h3>
+                <p>
+                  Your payment is being processed securely by Flutterwave. Your balance will update after the transaction is verified.
+                </p>
+                <button
+                  type="button"
+                  className="tp-btn tp-btn--primary"
+                  onClick={closePay}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form className="tpay-form" onSubmit={submitPayment}>
+                {submitError && (
+                  <p className="tpay-error" role="alert">
+                    <AlertTriangle />
+                    {submitError}
+                  </p>
+                )}
+ 
+                <div className="tpay-field">
+                  <label htmlFor="pay-amount">Amount</label>
+                  <input
+                    id="pay-amount"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    placeholder={`${currency} 0`}
+                  />
+                </div>
+ 
+                <div className="tpay-field">
+                  <span
+                    style={{ fontSize: "0.8125rem", fontWeight: 600 }}
+                    id="pay-method-label"
+                  >
+                    Pay with
+                  </span>
+                  <div
+                    className="tpay-methods"
+                    role="group"
+                    aria-labelledby="pay-method-label"
+                  >
+                    {METHODS.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        className="tpay-method"
+                        aria-pressed={method === option.key}
+                        onClick={() => setMethod(option.key)}
+                      >
+                        {option.icon}
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+ 
+                {method === "mpesa" && (
+                  <div className="tpay-field">
+                    <label htmlFor="pay-phone">M-PESA number</label>
+                    <input
+                      id="pay-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="07xx xxx xxx"
+                    />
+                  </div>
+                )}
+ 
+                <div className="tpay-modal__foot">
+                  <button
+                    type="button"
+                    className="tp-btn tp-btn--quiet"
+                    onClick={closePay}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="tp-btn tp-btn--primary"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="tpay-spin" />
+                        Submitting…
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard />
+                        Pay {money(Number(amount) || 0, currency)}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </TenantDashboardLayout>
+  );
+}
+ 
+export default TenantPaymentsPage;
