@@ -42,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
+    Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
     Route::put('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'update']);
     Route::post('organization/logo', [OrganizationController::class, 'uploadLogo']);
