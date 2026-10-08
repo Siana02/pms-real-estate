@@ -1236,6 +1236,7 @@ class TenantPortalController extends Controller
 
         $rentPayments = $payments->filter(
             fn (Payment $payment) => ($payment->payment_type ?? 'rent') === 'rent'
+                && $payment->status === 'paid'
         );
 
         $paidThisMonth = $rentPayments
