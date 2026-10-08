@@ -59,14 +59,17 @@ const RANGES: { id: string; label: string; days: number }[] = [
 
 function parsePayments(payload: unknown): PaymentRecord[] {
   return rows(payload).map((record) => {
-    const unit = toRecord(record.unit);
+    const lease = toRecord(record.lease);
+    const tenantRecord = toRecord(record.tenant ?? lease.tenant);
+    const propertyRecord = toRecord(record.property ?? lease.property);
+    const unit = toRecord(record.unit ?? lease.unit);
     const unitNumber = asString(unit.unit_number);
 
     return {
       id: asNumber(record.id),
       lease_id: asNumber(record.lease_id),
-      tenant: (() => { const tenant = toRecord(record.tenant); const name = asString(tenant.name) || [asString(tenant.first_name), asString(tenant.last_name)].filter(Boolean).join(" ") || asString(tenant.full_name) || asString(tenant.email); return tenant.id ? { id: asNumber(tenant.id), name } : null; })(),
-      property: namedRef(record.property, "name"),
+      tenant: (() => { const tenant = tenantRecord; const name = asString(tenant.name) || [asString(tenant.first_name), asString(tenant.last_name)].filter(Boolean).join(" ") || asString(tenant.full_name) || asString(tenant.email); return tenant.id ? { id: asNumber(tenant.id), name } : null; })(),
+      property: namedRef(propertyRecord, "name"),
       unit: unitNumber
         ? { id: asNumber(unit.id), unit_number: unitNumber }
         : null,
@@ -88,9 +91,9 @@ function parseLeaseOptions(payload: unknown): LeaseOption[] {
       return status !== "ended" && status !== "terminated";
     })
     .map((record) => {
-      const tenant = toRecord(record.tenant);
-      const property = toRecord(record.property);
-      const unit = toRecord(record.unit);
+      const tenant = toRecord(record.tenant ?? toRecord(record.lease).tenant);
+      const property = toRecord(record.property ?? toRecord(record.lease).property);
+      const unit = toRecord(record.unit ?? toRecord(record.lease).unit);
       const tenantName = asString(tenant.name) || [asString(tenant.first_name), asString(tenant.last_name)].filter(Boolean).join(" ") || asString(tenant.full_name) || asString(tenant.email);
       const propertyName = asString(property.name);
       const unitNumber = asString(unit.unit_number);
