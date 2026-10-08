@@ -58,7 +58,6 @@ class RentObligation extends Model
     {
         $allocated = (float) PaymentAllocation::query()
             ->where('rent_obligation_id', $this->id)
-            ->whereHas('payment', fn ($query) => $query->where('status', 'paid'))
             ->sum('amount');
 
         $legacy = (float) $this->payments()
