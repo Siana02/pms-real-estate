@@ -11,6 +11,7 @@ class Organization extends Model
 {
     protected $fillable = [
         'name',
+        'tagline',
         'owner_user_id',
         'username',
         'email',
