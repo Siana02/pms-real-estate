@@ -7,6 +7,7 @@ use App\Models\Property;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Services\PermissionService;
+use App\Services\AuditLogService;
 
 class OrganizationController extends Controller
 {
@@ -23,6 +24,38 @@ class OrganizationController extends Controller
     public function profile(Request $request)
     {
         return response()->json($request->user()->organization);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'organization.branding'), 403, 'Only the owner or administrator can manage organization branding.');
+
+        $organization = $request->user()->organization;
+        abort_if($organization === null, 404, 'Organization not found.');
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'tagline' => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'country' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $old = $organization->only(array_keys($validated));
+        $organization->update($validated);
+
+        app(AuditLogService::class)->record(
+            'ORGANIZATION_PROFILE_UPDATED',
+            "{$request->user()->name} updated the organization brand and contact details.",
+            $organization,
+            $old,
+            $validated,
+            $request
+        );
+
+        return response()->json($organization->fresh());
     }
 
     public function uploadLogo(Request $request)
