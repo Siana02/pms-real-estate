@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Banknote,
+  WalletCards,
   Building2,
   DoorOpen,
   ClipboardList,
@@ -289,6 +290,7 @@ const NAV_ITEMS = [
   { label: "Tenants", to: "/manager/tenants", icon: Users },
   { label: "Leases", to: "/manager/leases", icon: FileText },
   { label: "Payments", to: "/manager/payments", icon: Banknote },
+  { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
   { label: "Expenses", to: "/manager/expenses", icon: Receipt },
   { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
   { label: "Requests", to: "/manager/requests", icon: ClipboardList },
