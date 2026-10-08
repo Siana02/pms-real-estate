@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OrganizationPaymentSetting;
+use App\Models\Property;
 use Illuminate\Http\Request;
 
 class OrganizationPaymentSettingsController extends Controller
@@ -11,8 +12,23 @@ class OrganizationPaymentSettingsController extends Controller
     {
         $user = $request->user();
         $canManage = in_array($user->role, ['admin', 'owner'], true);
+        $propertyId = $request->query('property_id');
+        $property = $propertyId
+            ? Property::where('organization_id', $user->organization_id)->findOrFail($propertyId)
+            : null;
+
+        if (!$property) {
+            return response()->json([
+                'can_manage' => $canManage,
+                'configured' => false,
+                'preferred_method' => null,
+                'property_id' => null,
+            ]);
+        }
+
         $settings = OrganizationPaymentSetting::firstOrCreate([
             'organization_id' => $user->organization_id,
+            'property_id' => $property->id,
         ]);
 
         $configured = match ($settings->preferred_method) {
@@ -26,6 +42,8 @@ class OrganizationPaymentSettingsController extends Controller
         if (!$canManage) {
             return response()->json([
                 'can_manage' => false,
+                'property_id' => $property->id,
+                'property_name' => $property->name,
                 'configured' => $configured,
                 'preferred_method' => $settings->preferred_method,
             ]);
@@ -33,6 +51,8 @@ class OrganizationPaymentSettingsController extends Controller
 
         return response()->json([
             'can_manage' => true,
+            'property_id' => $property->id,
+            'property_name' => $property->name,
             'configured' => $configured,
             'preferred_method' => $settings->preferred_method,
             'mpesa_number' => $settings->mpesa_number ? '••••' . substr($settings->mpesa_number, -4) : null,
@@ -51,6 +71,7 @@ class OrganizationPaymentSettingsController extends Controller
         $this->authorizeOwner($request);
 
         $validated = $request->validate([
+            'property_id' => ['required', 'integer', 'exists:properties,id'],
             'preferred_method' => ['nullable', 'in:mpesa_number,mpesa_till,mpesa_paybill,bank'],
             'mpesa_number' => ['nullable', 'regex:/^(?:2547\\d{8}|07\\d{8})$/'],
             'mpesa_till' => ['nullable', 'regex:/^\\d{5,7}$/'],
@@ -62,13 +83,21 @@ class OrganizationPaymentSettingsController extends Controller
             'bank_branch' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $property = Property::where('organization_id', $request->user()->organization_id)
+            ->findOrFail($validated['property_id']);
+
         $settings = OrganizationPaymentSetting::updateOrCreate(
-            ['organization_id' => $request->user()->organization_id],
+            [
+                'organization_id' => $request->user()->organization_id,
+                'property_id' => $property->id,
+            ],
             $validated
         );
 
         return response()->json([
             'message' => 'Payment destination settings updated.',
+            'property_id' => $property->id,
+            'property_name' => $property->name,
             'preferred_method' => $settings->preferred_method,
             'mpesa_number' => $settings->mpesa_number ? '••••' . substr($settings->mpesa_number, -4) : null,
             'mpesa_till' => $settings->mpesa_till ? '••••' . substr($settings->mpesa_till, -4) : null,
