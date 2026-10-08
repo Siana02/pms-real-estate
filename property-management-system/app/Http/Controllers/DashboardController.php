@@ -11,6 +11,8 @@ use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
 use Carbon\CarbonImmutable;
+use App\Models\RentObligation;
+use App\Services\RentLedgerService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -27,6 +29,10 @@ class DashboardController extends Controller
         $monthStart = $now->startOfMonth();
         $monthEnd = $now->endOfMonth();
         $trendStart = $monthStart->subMonths(5);
+
+        // Keep the ledger self-healing on dashboard load; the scheduler also generates it daily.
+        app(RentLedgerService::class)->ensureForPeriod($monthStart);
+        app(RentLedgerService::class)->syncExistingPayments($monthStart);
 
         $properties = Property::where('organization_id', $organizationId)
             ->orderBy('name')
@@ -129,6 +135,47 @@ class DashboardController extends Controller
             ];
         })->values();
 
+        $rentObligations = RentObligation::where('organization_id', $organizationId)
+            ->where('period', $monthStart->toDateString())
+            ->with(['tenant:id,first_name,last_name,phone', 'property:id,name', 'unit:id,unit_number'])
+            ->get();
+
+        $rentExpected = (float) $rentObligations->sum('amount_due');
+        $rentCollected = (float) $rentObligations->sum('amount_paid');
+        $rentOutstanding = (float) $rentObligations->sum('balance');
+
+        $rentCollection = [
+            'period' => $monthStart->format('Y-m'),
+            'expected' => $rentExpected,
+            'collected' => $rentCollected,
+            'outstanding' => $rentOutstanding,
+            'collection_rate' => $rentExpected > 0 ? round(($rentCollected / $rentExpected) * 100, 1) : 0,
+            'paid' => $rentObligations->where('status', 'paid')->count(),
+            'partial' => $rentObligations->where('status', 'partial')->count(),
+            'due' => $rentObligations->where('status', 'due')->count(),
+            'overdue' => $rentObligations->where('status', 'overdue')->count(),
+            'upcoming' => $rentObligations->where('status', 'upcoming')->count(),
+            'action_required' => $rentObligations
+                ->whereIn('status', ['partial', 'due', 'overdue'])
+                ->sortByDesc('days_overdue')
+                ->take(10)
+                ->values()
+                ->map(fn ($item) => [
+                    'id' => $item->id,
+                    'tenant_id' => $item->tenant_id,
+                    'tenant_name' => trim(($item->tenant?->first_name ?? '').' '.($item->tenant?->last_name ?? '')),
+                    'property_name' => $item->property?->name,
+                    'unit_number' => $item->unit?->unit_number,
+                    'amount_due' => (float) $item->amount_due,
+                    'amount_paid' => (float) $item->amount_paid,
+                    'balance' => (float) $item->balance,
+                    'due_date' => $item->due_date?->toDateString(),
+                    'status' => $item->status,
+                    'days_overdue' => $item->days_overdue,
+                ])
+                ->all(),
+        ];
+
         $totalUnits = $units->count();
         $occupiedUnits = $activeLeases->pluck('unit_id')->unique()->count();
         $monthlyRent = (float) $activeLeases->sum('monthly_rent');
@@ -163,6 +210,7 @@ class DashboardController extends Controller
                 'committed_maintenance' => $canViewFinancials ? (float) $committedMaintenance : null,
             ],
             'revenue_trend' => $canViewFinancials ? $revenueTrend : [],
+            'rent_collection' => $canViewFinancials ? $rentCollection : null,
             'maintenance' => [
                 'needs_action' => $openMaintenance->count(),
                 'open' => $maintenance->where('status', 'open')->count(),
