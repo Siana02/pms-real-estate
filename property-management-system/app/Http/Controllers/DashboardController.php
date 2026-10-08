@@ -12,7 +12,6 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
-use App\Services\PermissionService;
 
 class DashboardController extends Controller
 {
@@ -23,8 +22,7 @@ class DashboardController extends Controller
         $user = $request->user();
         $isOwnerOrAdmin = in_array($user->role, ['admin', 'owner'], true)
             || ($organization?->owner_user_id === $user->id);
-        $canViewFinancials = $isOwnerOrAdmin
-            || app(PermissionService::class)->has($user, 'financial.reports.view');
+        $canViewFinancials = $isOwnerOrAdmin;
         $now = CarbonImmutable::now();
         $monthStart = $now->startOfMonth();
         $monthEnd = $now->endOfMonth();
