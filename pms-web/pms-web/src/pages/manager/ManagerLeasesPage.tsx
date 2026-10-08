@@ -580,6 +580,13 @@ function ManagerLeasesPage() {
   const [managerEndDate, setManagerEndDate] = useState("");
   const [managerRentDraft, setManagerRentDraft] = useState("0");
   const [managerDepositRequiredDraft, setManagerDepositRequiredDraft] = useState("0");
+  const [tenantPhoneDraft, setTenantPhoneDraft] = useState("");
+  const [tenantNationalIdDraft, setTenantNationalIdDraft] = useState("");
+  const [tenantEmployerDraft, setTenantEmployerDraft] = useState("");
+  const [tenantEmployerPhoneDraft, setTenantEmployerPhoneDraft] = useState("");
+  const [tenantNextOfKinDraft, setTenantNextOfKinDraft] = useState("");
+  const [tenantNextOfKinPhoneDraft, setTenantNextOfKinPhoneDraft] = useState("");
+  const [savingTenantDetails, setSavingTenantDetails] = useState(false);
   const [depositAmountDraft, setDepositAmountDraft] = useState("0");
   const [depositDateDraft, setDepositDateDraft] = useState(todayDate());
   const [drawerError, setDrawerError] = useState("");
@@ -663,6 +670,12 @@ function ManagerLeasesPage() {
     );
     setManagerRentDraft(String(selectedLease.monthly_rent));
     setManagerDepositRequiredDraft(String(depositRequired(selectedLease)));
+    setTenantPhoneDraft(selectedLease.tenant?.phone ?? "");
+    setTenantNationalIdDraft(selectedLease.tenant?.national_id ?? "");
+    setTenantEmployerDraft(selectedLease.tenant?.employer_name ?? "");
+    setTenantEmployerPhoneDraft(selectedLease.tenant?.employer_phone ?? "");
+    setTenantNextOfKinDraft(selectedLease.tenant?.next_of_kin_name ?? "");
+    setTenantNextOfKinPhoneDraft(selectedLease.tenant?.next_of_kin_phone ?? "");
     setDepositAmountDraft(String(depositPaid(selectedLease)));
     setDepositDateDraft(
       selectedLease.deposit?.payment_date?.slice(0, 10) ?? todayDate()
@@ -809,6 +822,52 @@ function ManagerLeasesPage() {
       else setError(message);
     } finally {
       setConfirmingLeaseId(null);
+    }
+  }
+
+  async function saveTenantDetails() {
+    if (!selectedLease?.tenant || savingTenantDetails) return;
+
+    setSavingTenantDetails(true);
+    setDrawerError("");
+    setDrawerNotice("");
+
+    try {
+      const response = await apiRequest(`/tenants/${selectedLease.tenant.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          phone: tenantPhoneDraft.trim(),
+          national_id: tenantNationalIdDraft.trim() || null,
+          employer_name: tenantEmployerDraft.trim() || null,
+          employer_phone: tenantEmployerPhoneDraft.trim() || null,
+          next_of_kin_name: tenantNextOfKinDraft.trim() || null,
+          next_of_kin_phone: tenantNextOfKinPhoneDraft.trim() || null,
+        }),
+      });
+
+      const tenant = toRecord(toRecord(response).tenant);
+      const freshPayload = await apiRequest("/leases");
+      const fresh = parseLeases(freshPayload).find((lease) => lease.id === selectedLease.id);
+
+      if (fresh) {
+        syncLease(fresh);
+        setTenantPhoneDraft(fresh.tenant?.phone ?? "");
+        setTenantNationalIdDraft(fresh.tenant?.national_id ?? "");
+        setTenantEmployerDraft(fresh.tenant?.employer_name ?? "");
+        setTenantEmployerPhoneDraft(fresh.tenant?.employer_phone ?? "");
+        setTenantNextOfKinDraft(fresh.tenant?.next_of_kin_name ?? "");
+        setTenantNextOfKinPhoneDraft(fresh.tenant?.next_of_kin_phone ?? "");
+      } else if (Object.keys(tenant).length > 0) {
+        setDrawerNotice("Tenant details saved.");
+      }
+
+      setDrawerNotice("Tenant details saved. The unsigned agreement copies have been updated.");
+    } catch (cause) {
+      setDrawerError(
+        cause instanceof Error ? cause.message : "Could not save the tenant details right now."
+      );
+    } finally {
+      setSavingTenantDetails(false);
     }
   }
 
@@ -1316,44 +1375,47 @@ function ManagerLeasesPage() {
                     <div>
                       <p className="ls-summary-card__label">Tenant details</p>
                       <p className="ls-summary-card__hint">
-                        The tenant attached to this lease is the same tenant who signed or is reviewing this canonical agreement.
+                        These are the tenant's profile details. They are separate from the editable lease terms and are used to generate the agreement.
                       </p>
                     </div>
                   </div>
-                  <div className="ls-form-grid">
-                    <div>
-                      <p className="ls-summary-card__label">Full name</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.name ?? "Unassigned"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">Email</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.email ?? "—"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">Phone</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.phone ?? "—"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">National ID</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.national_id ?? "—"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">Employer</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.employer_name ?? "—"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">Employer phone</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.employer_phone ?? "—"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">Next of kin</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.next_of_kin_name ?? "—"}</p>
-                    </div>
-                    <div>
-                      <p className="ls-summary-card__label">Next of kin phone</p>
-                      <p className="ls-summary-card__value">{selectedLease.tenant?.next_of_kin_phone ?? "—"}</p>
-                    </div>
-                  </div>
+                  {selectedLease.tenant ? (
+                    <>
+                      <div className="ls-form-grid">
+                        <div>
+                          <label className="mg-label" htmlFor="lease-tenant-phone">Phone</label>
+                          <input id="lease-tenant-phone" className="mg-input" value={tenantPhoneDraft} onChange={(e) => setTenantPhoneDraft(e.target.value)} disabled={Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)} />
+                        </div>
+                        <div>
+                          <label className="mg-label" htmlFor="lease-tenant-id">National ID</label>
+                          <input id="lease-tenant-id" className="mg-input" value={tenantNationalIdDraft} onChange={(e) => setTenantNationalIdDraft(e.target.value)} placeholder="Not provided" disabled={Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)} />
+                        </div>
+                        <div>
+                          <label className="mg-label" htmlFor="lease-tenant-employer">Employer</label>
+                          <input id="lease-tenant-employer" className="mg-input" value={tenantEmployerDraft} onChange={(e) => setTenantEmployerDraft(e.target.value)} placeholder="Not provided" disabled={Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)} />
+                        </div>
+                        <div>
+                          <label className="mg-label" htmlFor="lease-tenant-employer-phone">Employer phone</label>
+                          <input id="lease-tenant-employer-phone" className="mg-input" value={tenantEmployerPhoneDraft} onChange={(e) => setTenantEmployerPhoneDraft(e.target.value)} placeholder="Not provided" disabled={Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)} />
+                        </div>
+                        <div>
+                          <label className="mg-label" htmlFor="lease-tenant-next-of-kin">Next of kin</label>
+                          <input id="lease-tenant-next-of-kin" className="mg-input" value={tenantNextOfKinDraft} onChange={(e) => setTenantNextOfKinDraft(e.target.value)} placeholder="Not provided" disabled={Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)} />
+                        </div>
+                        <div>
+                          <label className="mg-label" htmlFor="lease-tenant-next-of-kin-phone">Next of kin phone</label>
+                          <input id="lease-tenant-next-of-kin-phone" className="mg-input" value={tenantNextOfKinPhoneDraft} onChange={(e) => setTenantNextOfKinPhoneDraft(e.target.value)} placeholder="Not provided" disabled={Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)} />
+                        </div>
+                      </div>
+                      <div className="ls-inline-actions" style={{ marginTop: "0.75rem" }}>
+                        <button className="mg-button mg-button--primary" type="button" onClick={() => void saveTenantDetails()} disabled={savingTenantDetails || Boolean(selectedLease.tenant_signed_at || selectedLease.manager_signed_at)}>
+                          {savingTenantDetails ? "Saving…" : "Save tenant details"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="ls-summary-card__hint">No tenant is assigned to this lease.</p>
+                  )}
                 </section>
 
                 <section className="ls-summary-grid" aria-label="Lease agreement summary">
