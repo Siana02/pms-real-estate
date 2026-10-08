@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use App\Services\LeaseProvisioner;
 
 /**
@@ -56,6 +57,81 @@ class TenantPortalController extends Controller
                 'lease' => $this->leasePayload($lease),
                 'rent' => $this->rentPayload($tenant, $lease),
             ],
+        ]);
+    }
+
+    public function profile(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $user = $request->user();
+
+        return response()->json([
+            'data' => $this->tenantProfilePayload($tenant, $user),
+        ]);
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'max:50'],
+            'national_id' => ['nullable', 'string', 'max:100'],
+            'residential_address' => ['nullable', 'string', 'max:2000'],
+            'postal_address' => ['nullable', 'string', 'max:255'],
+            'nationality' => ['nullable', 'string', 'max:100'],
+            'employer_name' => ['nullable', 'string', 'max:255'],
+            'employer_phone' => ['nullable', 'string', 'max:50'],
+            'next_of_kin_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin_phone' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $tenant->update($validated);
+
+        if (array_key_exists('phone', $validated) && $user->email === $tenant->email) {
+            $user->update(['name' => trim($tenant->first_name . ' ' . $tenant->last_name)]);
+        }
+
+        return response()->json([
+            'message' => 'Your profile has been updated.',
+            'data' => $this->tenantProfilePayload($tenant->fresh(), $user->fresh()),
+        ]);
+    }
+
+    public function uploadProfilePhoto(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+
+        $request->validate([
+            'profile_photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        if ($tenant->profile_photo_path) {
+            Storage::disk('public')->delete($tenant->profile_photo_path);
+        }
+
+        $path = $request->file('profile_photo')->store('tenant-profile-photos', 'public');
+        $tenant->update(['profile_photo_path' => $path]);
+
+        return response()->json([
+            'message' => 'Profile picture updated.',
+            'data' => $this->tenantProfilePayload($tenant->fresh(), $request->user()),
+        ]);
+    }
+
+    public function removeProfilePhoto(Request $request): JsonResponse
+    {
+        $tenant = $this->currentTenant($request);
+
+        if ($tenant->profile_photo_path) {
+            Storage::disk('public')->delete($tenant->profile_photo_path);
+            $tenant->update(['profile_photo_path' => null]);
+        }
+
+        return response()->json([
+            'message' => 'Profile picture removed.',
+            'data' => $this->tenantProfilePayload($tenant->fresh(), $request->user()),
         ]);
     }
 
@@ -850,6 +926,32 @@ class TenantPortalController extends Controller
     }
 
     /** @return array<string, mixed>|null */
+    private function tenantProfilePayload(Tenant $tenant, $user): array
+    {
+        return [
+            'id' => $tenant->id,
+            'first_name' => $tenant->first_name,
+            'last_name' => $tenant->last_name,
+            'name' => trim($tenant->first_name . ' ' . $tenant->last_name),
+            'email' => $tenant->email,
+            'phone' => $tenant->phone,
+            'username' => $user?->username,
+            'national_id' => $tenant->national_id,
+            'residential_address' => $tenant->residential_address,
+            'postal_address' => $tenant->postal_address,
+            'nationality' => $tenant->nationality,
+            'employer_name' => $tenant->employer_name,
+            'employer_phone' => $tenant->employer_phone,
+            'next_of_kin_name' => $tenant->next_of_kin_name,
+            'next_of_kin_phone' => $tenant->next_of_kin_phone,
+            'profile_photo_url' => $tenant->profile_photo_path
+                ? Storage::disk('public')->url($tenant->profile_photo_path)
+                : null,
+            'created_at' => $tenant->created_at,
+            'updated_at' => $tenant->updated_at,
+        ];
+    }
+
     private function homePayload(
         ?Property $property,
         ?Unit $unit,
