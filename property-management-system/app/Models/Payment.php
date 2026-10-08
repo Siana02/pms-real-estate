@@ -12,6 +12,7 @@ class Payment extends Model
     protected $fillable = [
         'organization_id',
         'lease_id',
+        'rent_obligation_id',
         'payment_destination_id',
         'amount',
         'payment_date',
@@ -39,6 +40,11 @@ class Payment extends Model
     public function lease()
     {
         return $this->belongsTo(Leases::class, 'lease_id');
+    }
+
+    public function rentObligation()
+    {
+        return $this->belongsTo(RentObligation::class, 'rent_obligation_id');
     }
 
     public function paymentDestination()
