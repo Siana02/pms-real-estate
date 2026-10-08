@@ -26,6 +26,7 @@ const STATUS: {id:ReconciliationStatus|"all";label:string}[]=[
 function parse(payload:unknown):Transaction[]{
  return rows(toRecord(payload).data ?? payload).map(r=>{
   const lease=toRecord(r.matchedLease ?? r.matched_lease), tenant=toRecord(lease.tenant), property=toRecord(lease.property), unit=toRecord(lease.unit);
+  const tenantName = asString(tenant.name) || [asString(tenant.first_name), asString(tenant.last_name)].filter(Boolean).join(" ") || asString(tenant.full_name) || asString(tenant.email) || "";
   const obligation=toRecord(r.matchedRentObligation ?? r.matched_rent_obligation);
   const payment=toRecord(r.payment);
   const destination=toRecord(r.paymentDestination ?? r.payment_destination);
@@ -44,7 +45,7 @@ function parse(payload:unknown):Transaction[]{
    payment_reference:asString(r.payment_reference)||null, transaction_at:asString(r.transaction_at),
    status:(STATUS.some(s=>s.id===r.status)?asString(r.status):"pending") as ReconciliationStatus,
    reconciliation_note:asString(r.reconciliation_note)||null,
-   matchedLease:lease.id?{id:asNumber(lease.id),tenant:tenant.id?{id:asNumber(tenant.id),name:asString(tenant.name)}:null,property:property.id?{id:asNumber(property.id),name:asString(property.name)}:null,unit:unit.id?{id:asNumber(unit.id),unit_number:asString(unit.unit_number)}:null}:null,
+   matchedLease:lease.id?{id:asNumber(lease.id),tenant:tenant.id?{id:asNumber(tenant.id),name:tenantName}:null,property:property.id?{id:asNumber(property.id),name:asString(property.name)}:null,unit:unit.id?{id:asNumber(unit.id),unit_number:asString(unit.unit_number)}:null}:null,
    matchedRentObligation:obligation.id?{id:asNumber(obligation.id),period:asString(obligation.period),due_date:asString(obligation.due_date),amount_due:asNumber(obligation.amount_due),balance:asNumber(obligation.balance),status:asString(obligation.status)}:null,
    payment:payment.id?{id:asNumber(payment.id),amount:asNumber(payment.amount),allocations,credits}:null,
    paymentDestination:destination.id?{propertyName:asString(destinationProperty.name)||null}:null
