@@ -1,78 +1,27 @@
 import { useEffect, useState } from "react";
+import { Activity, CheckCircle2, CircleUserRound, FileText, MapPin, UserRound } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
+type Log={id:number;event:string;description:string;created_at:string;actor?:{name:string;role:string;email?:string};subject?:{label?:string;type?:string;id?:number}|null;location?:string|null;changes?:Array<{field:string;from:string;to:string}>;note?:string|null};
+const labels:Record<string,string>={TENANT_ADDED:"Added tenant",TENANT_UPDATED:"Updated tenant",TENANT_REMOVED:"Removed tenant",PAYMENT_SETTINGS_CONFIGURED:"Configured payment settings",PAYMENT_SETTINGS_UPDATED:"Updated payment settings",PERMISSION_CHANGED:"Changed staff permission",ORGANIZATION_PROFILE_UPDATED:"Updated organization profile",CREATED:"Created record",UPDATED:"Updated record",DELETED:"Deleted record"};
+function role(v?:string){return(v??"system").replace(/_/g," ")}
+function time(v:string){const d=new Date(v);return Number.isNaN(d.getTime())?v:d.toLocaleString("en-KE",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"})}
+function val(v:unknown){if(v===null||v===undefined||v==="")return"Not provided";if(typeof v==="boolean")return v?"Yes":"No";if(typeof v==="object")return JSON.stringify(v);return String(v)}
+function field(v:string){return v.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}
+export default function AuditLogPage(){
+const[logs,setLogs]=useState<Log[]>([]);const[loading,setLoading]=useState(true);
+useEffect(()=>{void(async()=>{try{const data:any=await apiRequest("/audit-logs");setLogs(data?.data??[])}finally{setLoading(false)}})()},[]);
+const card:any={border:"1px solid var(--pms-border-soft)",borderRadius:"1rem",background:"var(--pms-surface,#fff)",overflow:"hidden",boxShadow:"0 10px 30px -28px rgba(15,23,42,.35)"};
+return <DashboardLayout><main style={{maxWidth:1240,margin:"0 auto",padding:"2rem 1.25rem 3rem"}}>
+<header style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:"1rem",marginBottom:"1.35rem"}}><div><div style={{display:"flex",alignItems:"center",gap:".45rem",color:"var(--pms-accent)",fontSize:".68rem",fontWeight:800,letterSpacing:".1em",textTransform:"uppercase"}}><Activity/> Accountability history</div><h1 style={{margin:".35rem 0 0",fontSize:"clamp(1.65rem,3vw,2.25rem)",letterSpacing:"-.035em"}}>Audit log</h1><p style={{maxWidth:700,margin:".45rem 0 0",color:"var(--pms-muted)",fontSize:".82rem",lineHeight:1.55}}>A clear record of who changed something, what they changed, who or what it affected, and where it happened.</p></div>{!loading&&<div style={{display:"flex",alignItems:"center",gap:".5rem",padding:".7rem .85rem",border:"1px solid var(--pms-border-soft)",borderRadius:".8rem",color:"var(--pms-muted)",fontSize:".72rem"}}><CheckCircle2/>{logs.length} recent records</div>}</header>
 
-type Log = {
-  id: number;
-  event: string;
-  description: string;
-  created_at: string;
-  actor?: { name: string; role: string };
-};
-
-const eventLabels: Record<string, string> = {
-  TENANT_ADDED: "TENANT ADDED",
-  TENANT_UPDATED: "TENANT UPDATED",
-  TENANT_REMOVED: "TENANT REMOVED",
-  PAYMENT_SETTINGS_CONFIGURED: "PAYMENT SETTINGS CONFIGURED",
-  PAYMENT_SETTINGS_UPDATED: "PAYMENT SETTINGS UPDATED",
-  CREATED: "CREATED",
-  UPDATED: "UPDATED",
-  DELETED: "DELETED",
-};
-
-export default function AuditLogPage() {
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data: any = await apiRequest("/audit-logs");
-        setLogs(data?.data ?? []);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  return (
-    <DashboardLayout>
-      <div style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
-        <h1>Audit log</h1>
-        <p style={{ color: "#64748b" }}>
-          A permanent history of important organization activity, written in
-          terms that make sense to your property team.
-        </p>
-
-        {loading ? (
-          <p>Loading…</p>
-        ) : logs.length === 0 ? (
-          <p style={{ color: "#64748b" }}>No organization activity recorded yet.</p>
-        ) : (
-          <div style={{ display: "grid", gap: ".65rem" }}>
-            {logs.map((log) => (
-              <article
-                key={log.id}
-                style={{
-                  padding: "1rem",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-                  <strong>{eventLabels[log.event] ?? log.event.replaceAll("_", " ")}</strong>
-                  <small>{new Date(log.created_at).toLocaleString()}</small>
-                </div>
-                <p>{log.description}</p>
-                <small>
-                  {log.actor?.name ?? "System"} · {log.actor?.role ?? "system"}
-                </small>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
-    </DashboardLayout>
-  );
-}
+ {loading?<div style={{...card,padding:"3rem",textAlign:"center",color:"var(--pms-muted)"}}>Loading activity history…</div>:logs.length===0?<div style={{...card,padding:"3rem",textAlign:"center",color:"var(--pms-muted)"}}><Activity/><h3>No activity recorded yet</h3><p>Important staff actions will appear here with the person, target and context.</p></div>:<section style={{display:"grid",gap:".8rem"}}>
+ {logs.map(log=>{const subject=log.subject?.label;return <article key={log.id} style={card}>
+ <div style={{display:"grid",gridTemplateColumns:"3rem minmax(0,1fr)",gap:"1rem",padding:"1.05rem 1.1rem"}}>
+ <div style={{width:"2.65rem",height:"2.65rem",borderRadius:".85rem",display:"grid",placeItems:"center",background:"var(--pms-glass)",color:"var(--pms-accent)",border:"1px solid var(--pms-border-soft)"}}>{log.actor?.name?<CircleUserRound/>:<Activity/>}</div>
+ <div><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"1rem"}}><p style={{margin:0,fontSize:".95rem",fontWeight:850}}>{log.actor?.name??"System"} <span style={{fontSize:".62rem",fontWeight:700,color:"var(--pms-muted)",textTransform:"capitalize"}}>· {role(log.actor?.role)}</span></p><time style={{fontSize:".67rem",color:"var(--pms-muted)",whiteSpace:"nowrap"}}>{time(log.created_at)}</time></div>
+ <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:".5rem",marginTop:".45rem"}}><strong style={{fontSize:".64rem",padding:".3rem .5rem",borderRadius:999,background:"var(--pms-glass)",color:"var(--pms-accent)"}}>{labels[log.event]??log.event.replace(/_/g," ").toLowerCase()}</strong>{subject&&<strong style={{fontSize:".92rem"}}>{subject}</strong>}</div>
+ <p style={{margin:".5rem 0 0",color:"var(--pms-muted)",fontSize:".78rem",lineHeight:1.55}}>{log.description}</p>
+ <div style={{display:"flex",flexWrap:"wrap",gap:".45rem",marginTop:".75rem"}}>{log.location&&<span style={{display:"inline-flex",alignItems:"center",gap:".35rem",padding:".35rem .52rem",border:"1px solid var(--pms-border-soft)",borderRadius:".55rem",color:"var(--pms-muted)",fontSize:".66rem"}}><MapPin/>{log.location}</span>}{subject&&<span style={{display:"inline-flex",alignItems:"center",gap:".35rem",padding:".35rem .52rem",border:"1px solid var(--pms-border-soft)",borderRadius:".55rem",color:"var(--pms-muted)",fontSize:".66rem"}}><UserRound/>Affected record: {subject}</span>}</div></div></div>
+ {(log.changes?.length||log.note)&&<div style={{borderTop:"1px solid var(--pms-border-soft)",padding:".8rem 1.1rem 1rem",background:"var(--pms-glass)"}}>{log.changes?.length&&<><p style={{margin:"0 0 .55rem",fontSize:".68rem",fontWeight:850,textTransform:"uppercase",letterSpacing:".07em"}}><FileText/> What changed</p><div style={{display:"grid",gap:".4rem"}}>{log.changes.map((c,i)=><div key={c.field+"-"+i} style={{display:"grid",gridTemplateColumns:"minmax(8rem,.8fr) 1fr 1fr",gap:".65rem",fontSize:".68rem"}}><strong style={{color:"var(--pms-muted)"}}>{field(c.field)}</strong><span style={{color:"#9a3412"}}>From: {val(c.from)}</span><span style={{color:"#166534"}}>To: {val(c.to)}</span></div>)}</div></>}{log.note&&<div style={{marginTop:".65rem",padding:".6rem .7rem",borderLeft:"3px solid var(--pms-accent)",background:"var(--pms-surface,#fff)",fontSize:".7rem",lineHeight:1.5}}><strong>Note:</strong> {log.note}</div>}</div>}</article>})}</section>}
+</main></DashboardLayout>}
