@@ -6,6 +6,7 @@ use App\Models\MaintenanceRequest;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\FlutterwaveIntegration;
+use App\Models\PaymentDestination;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -145,6 +146,7 @@ class TenantPortalController extends Controller
         return response()->json([
             'data' => $payments->map(fn (Payment $payment) => $this->paymentPayload($payment))->values(),
             'summary' => $this->rentPayload($tenant, $lease),
+            'payment_options' => $this->paymentOptionsPayload($lease),
         ]);
     }
 
@@ -153,35 +155,67 @@ class TenantPortalController extends Controller
         $tenant = $this->currentTenant($request);
         $lease = $this->activeLease($tenant);
 
-        abort_if(
-            $lease === null,
-            422,
-            'You do not have an active lease to pay rent against.'
-        );
+        abort_if($lease === null, 422, 'You do not have an active lease to pay rent against.');
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'required|in:flutterwave,mpesa,bank_transfer,card,cash,other',
+            'payment_destination_id' => 'nullable|integer',
             'payment_type' => 'nullable|in:rent,deposit,utility,other',
             'phone' => 'nullable|string|max:50',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
 
+        if (in_array($validated['payment_method'], ['mpesa', 'bank_transfer'], true)) {
+            abort_if(empty($validated['reference']), 422, 'Enter the transaction reference from your payment confirmation.');
+
+            $destination = PaymentDestination::where('id', $validated['payment_destination_id'] ?? 0)
+                ->where('organization_id', $lease->organization_id)
+                ->where('property_id', $lease->property_id)
+                ->where('method', $validated['payment_method'] === 'mpesa' ? 'mpesa_paybill' : 'bank')
+                ->where('is_active', true)
+                ->first();
+
+            abort_if(!$destination, 422, 'That payment destination is no longer available.');
+
+            $duplicate = Payment::where('organization_id', $lease->organization_id)
+                ->where('reference', trim($validated['reference']))
+                ->whereIn('status', ['pending', 'paid'])
+                ->exists();
+
+            abort_if($duplicate, 422, 'That transaction reference has already been submitted.');
+
+            $payment = Payment::create([
+                'organization_id' => $lease->organization_id,
+                'lease_id' => $lease->id,
+                'payment_destination_id' => $destination->id,
+                'amount' => $validated['amount'],
+                'payment_date' => CarbonImmutable::now()->toDateString(),
+                'payment_method' => $validated['payment_method'],
+                'payment_type' => $validated['payment_type'] ?? 'rent',
+                'status' => 'pending',
+                'reference' => trim($validated['reference']),
+                'notes' => $this->paymentNotes($validated),
+            ]);
+
+            return response()->json([
+                'message' => 'Payment submitted for verification.',
+                'data' => $this->paymentPayload($payment),
+            ], 201);
+        }
+
         if ($validated['payment_method'] === 'flutterwave') {
             $integration = FlutterwaveIntegration::where('organization_id', $lease->organization_id)->first();
 
-            abort_if(
-                !$integration,
-                422,
-                'Online payments have not been connected by your property manager yet.'
-            );
+            abort_if(!$integration, 422, 'Online payments are not available for this property yet.');
 
             $txRef = 'PMS-ORG-' . $lease->organization_id . '-LEASE-' . $lease->id . '-' . strtoupper((string) str()->uuid());
 
             $payment = Payment::create([
                 'organization_id' => $lease->organization_id,
                 'lease_id' => $lease->id,
+                'payment_destination_id' => $validated['payment_destination_id'] ?? null,
                 'amount' => $validated['amount'],
                 'payment_date' => now()->toDateString(),
                 'payment_method' => 'other',
@@ -220,11 +254,11 @@ class TenantPortalController extends Controller
 
             if (!$response->successful() || $response->json('status') !== 'success' || !is_string($response->json('data.link'))) {
                 $payment->update(['status' => 'failed']);
-                abort(502, 'Flutterwave could not start the payment. Please try again.');
+                abort(502, 'The online payment could not be started. Please try again.');
             }
 
             return response()->json([
-                'message' => 'Flutterwave checkout created.',
+                'message' => 'Secure checkout created.',
                 'status' => 'pending',
                 'checkout_url' => $response->json('data.link'),
                 'tx_ref' => $txRef,
@@ -239,7 +273,7 @@ class TenantPortalController extends Controller
             'payment_date' => CarbonImmutable::now()->toDateString(),
             'payment_method' => $validated['payment_method'],
             'payment_type' => $validated['payment_type'] ?? 'rent',
-            'status' => $payment->status ?? 'paid',
+            'status' => 'paid',
             'reference' => $validated['reference'] ?? null,
             'notes' => $this->paymentNotes($validated),
         ]);
@@ -1247,7 +1281,9 @@ class TenantPortalController extends Controller
             'payment_method' => $payment->payment_method,
             'payment_type' => $payment->payment_type,
             'reference' => $payment->reference,
-            'status' => 'paid',
+            'status' => $payment->status ?? 'pending',
+            'provider' => $payment->provider,
+            'receipt_url' => $payment->receipt_url,
         ];
     }
 
@@ -1302,4 +1338,33 @@ class TenantPortalController extends Controller
             default => 'open',
         };
     }
-}
+}    private function paymentOptionsPayload(?Lease $lease): array
+    {
+        if (!$lease) {
+            return ['destinations' => [], 'online' => ['available' => false]];
+        }
+
+        $destinations = PaymentDestination::where('organization_id', $lease->organization_id)
+            ->where('property_id', $lease->property_id)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
+
+        return [
+            'destinations' => $destinations->map(function (PaymentDestination $destination) {
+                return [
+                    'id' => $destination->id,
+                    'method' => $destination->method,
+                    'label' => $destination->label,
+                    'details' => $destination->details,
+                ];
+            })->values(),
+            'online' => [
+                'available' => FlutterwaveIntegration::where('organization_id', $lease->organization_id)->exists(),
+                'label' => 'Pay online',
+                'description' => 'Pay securely by M-PESA, card or bank transfer.',
+            ],
+        ];
+    }
+
+
