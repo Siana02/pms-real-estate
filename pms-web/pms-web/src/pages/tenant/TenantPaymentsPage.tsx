@@ -1045,14 +1045,14 @@ function TenantPaymentsPage() {
                 {method !== "flutterwave" && (
                   <>
                     <div className="tpay-field">
-                      <label htmlFor="pay-destination">Pay to</label>
+                      <label htmlFor="pay-destination">Payment destination</label>
                       <select
                         id="pay-destination"
                         value={destinationId}
                         onChange={(event) => setDestinationId(event.target.value)}
                         required
                       >
-                        <option value="">Choose payment destination</option>
+                        <option value="">Choose where to send your payment</option>
                         {paymentOptions.destinations
                           .filter((item) =>
                             method === "mpesa"
@@ -1085,7 +1085,7 @@ function TenantPaymentsPage() {
                         required
                       />
                       <small style={{ color: "var(--tp-muted)" }}>
-                        Use the transaction code from your M-PESA or bank confirmation.
+                        Enter the transaction code from your M-PESA or bank confirmation. Your payment will remain pending until your property manager verifies it.
                       </small>
                     </div>
                   </>
