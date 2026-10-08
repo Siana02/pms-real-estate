@@ -173,8 +173,15 @@ class TenantPortalController extends Controller
             $destination = PaymentDestination::where('id', $validated['payment_destination_id'] ?? 0)
                 ->where('organization_id', $lease->organization_id)
                 ->where('property_id', $lease->property_id)
-                ->where('method', $validated['payment_method'] === 'mpesa' ? 'mpesa_paybill' : 'bank')
                 ->where('is_active', true)
+                ->when(
+                    $validated['payment_method'] === 'mpesa',
+                    fn ($query) => $query->whereIn('method', ['mpesa_number', 'mpesa_till', 'mpesa_paybill'])
+                )
+                ->when(
+                    $validated['payment_method'] === 'bank_transfer',
+                    fn ($query) => $query->where('method', 'bank')
+                )
                 ->first();
 
             abort_if(!$destination, 422, 'That payment destination is no longer available.');
