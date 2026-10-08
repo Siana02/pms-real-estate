@@ -1350,7 +1350,8 @@ class TenantPortalController extends Controller
             default => 'open',
         };
     }
-}    private function paymentOptionsPayload(?Lease $lease): array
+
+    private function paymentOptionsPayload(?Lease $lease): array
     {
         if (!$lease) {
             return ['destinations' => [], 'online' => ['available' => false]];
@@ -1378,5 +1379,4 @@ class TenantPortalController extends Controller
             ],
         ];
     }
-
-
+}
