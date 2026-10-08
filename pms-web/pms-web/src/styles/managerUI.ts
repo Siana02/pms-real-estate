@@ -526,6 +526,9 @@ border-color: transparent;
 .mg-drawer {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
   z-index: 80;
   display: flex;
   justify-content: flex-end;
@@ -539,8 +542,10 @@ border-color: transparent;
 .mg-drawer__panel {
   display: flex;
   flex-direction: column;
-  width: min(32rem, 100%);
+  width: min(38rem, 100%);
+  max-height: 100dvh;
   height: 100%;
+  min-height: 0;
   border-left: 1px solid var(--pms-border);
   background: var(--pms-bg);
   box-shadow: var(--pms-shadow);
@@ -576,12 +581,16 @@ border-color: transparent;
 }
  
 .mg-drawer__body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
   padding: 1.25rem;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
  
 .mg-drawer__foot {
