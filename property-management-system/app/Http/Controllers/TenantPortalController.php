@@ -688,7 +688,8 @@ class TenantPortalController extends Controller
         return Lease::where('tenant_id', $tenant->id)
             ->whereNotIn('status', ['ended', 'terminated'])
             ->with('deposit')
-            ->orderByDesc('start_date')
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'upcoming' THEN 1 ELSE 2 END")
+            ->orderByDesc('id')
             ->first();
     }
 
