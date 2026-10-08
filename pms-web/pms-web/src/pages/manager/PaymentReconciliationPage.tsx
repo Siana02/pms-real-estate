@@ -7,12 +7,14 @@ import { formatDate, formatMoney, readCurrency, rows, asNumber, asString, toReco
 
 type ReconciliationStatus = "pending" | "reconciled" | "reconciled_with_credit" | "needs_review" | "unmatched";
 interface Allocation { id:number; amount:number; rentObligation:{id:number; period:string; due_date:string; amount_due:number}|null }
+interface Credit { id:number; amount:number; remaining_amount:number; status:string; notes:string|null }
 interface Transaction {
  id:number; provider:string; external_transaction_id:string; amount:number; currency:string; payer_phone:string|null;
  payment_reference:string|null; transaction_at:string; status:ReconciliationStatus; reconciliation_note:string|null;
  matchedLease:{id:number; tenant:{id:number;name:string}|null; property:{id:number;name:string}|null; unit:{id:number;unit_number:string}|null}|null;
  matchedRentObligation:{id:number;period:string;due_date:string;amount_due:number;balance:number;status:string}|null;
- payment:{id:number; amount:number; allocations:Allocation[]}|null;
+ payment:{id:number; amount:number; allocations:Allocation[]; credits:Credit[]}|null;
+ paymentDestination:{propertyName:string|null}|null;
 }
 interface Lease { id:number; label:string }
 
@@ -23,8 +25,19 @@ const STATUS: {id:ReconciliationStatus|"all";label:string}[]=[
 
 function parse(payload:unknown):Transaction[]{
  return rows(toRecord(payload).data ?? payload).map(r=>{
-  const lease=toRecord(r.matchedLease), tenant=toRecord(lease.tenant), property=toRecord(lease.property), unit=toRecord(lease.unit);
-  const obligation=toRecord(r.matchedRentObligation), payment=toRecord(r.payment);
+  const lease=toRecord(r.matchedLease ?? r.matched_lease), tenant=toRecord(lease.tenant), property=toRecord(lease.property), unit=toRecord(lease.unit);
+  const obligation=toRecord(r.matchedRentObligation ?? r.matched_rent_obligation);
+  const payment=toRecord(r.payment);
+  const destination=toRecord(r.paymentDestination ?? r.payment_destination);
+  const destinationProperty=toRecord(destination.property);
+  const allocations=rows(payment.allocations).map(a=>{
+   const o=toRecord(a.rentObligation ?? a.rent_obligation);
+   return {id:asNumber(a.id),amount:asNumber(a.amount),rentObligation:o.id?{id:asNumber(o.id),period:asString(o.period),due_date:asString(o.due_date),amount_due:asNumber(o.amount_due)}:null};
+  });
+  const credits=rows(payment.rentPaymentCredits ?? payment.rent_payment_credits).map(c=>({
+   id:asNumber(c.id),amount:asNumber(c.amount),remaining_amount:asNumber(c.remaining_amount),
+   status:asString(c.status),notes:asString(c.notes)||null
+  }));
   return {
    id:asNumber(r.id), provider:asString(r.provider)||"unknown", external_transaction_id:asString(r.external_transaction_id),
    amount:asNumber(r.amount), currency:asString(r.currency)||"KES", payer_phone:asString(r.payer_phone)||null,
@@ -33,7 +46,8 @@ function parse(payload:unknown):Transaction[]{
    reconciliation_note:asString(r.reconciliation_note)||null,
    matchedLease:lease.id?{id:asNumber(lease.id),tenant:tenant.id?{id:asNumber(tenant.id),name:asString(tenant.name)}:null,property:property.id?{id:asNumber(property.id),name:asString(property.name)}:null,unit:unit.id?{id:asNumber(unit.id),unit_number:asString(unit.unit_number)}:null}:null,
    matchedRentObligation:obligation.id?{id:asNumber(obligation.id),period:asString(obligation.period),due_date:asString(obligation.due_date),amount_due:asNumber(obligation.amount_due),balance:asNumber(obligation.balance),status:asString(obligation.status)}:null,
-   payment:payment.id?{id:asNumber(payment.id),amount:asNumber(payment.amount),allocations:rows(payment.allocations).map(a=>{const o=toRecord(a.rentObligation);return{id:asNumber(a.id),amount:asNumber(a.amount),rentObligation:o.id?{id:asNumber(o.id),period:asString(o.period),due_date:asString(o.due_date),amount_due:asNumber(o.amount_due)}:null}})}:null
+   payment:payment.id?{id:asNumber(payment.id),amount:asNumber(payment.amount),allocations,credits}:null,
+   paymentDestination:destination.id?{propertyName:asString(destinationProperty.name)||null}:null
   };
  });
 }
@@ -74,14 +88,16 @@ function ReconciliationPage(){
   <section className="mg-stats"><article className="mg-stat"><p className="mg-stat__label">Transactions</p><p className="mg-stat__value">{summary.total}</p></article><article className="mg-stat"><p className="mg-stat__label">Needs review</p><p className="mg-stat__value">{summary.review}</p></article><article className="mg-stat"><p className="mg-stat__label">Unmatched</p><p className="mg-stat__value">{summary.unmatched}</p></article><article className="mg-stat"><p className="mg-stat__label">Reconciled</p><p className="mg-stat__value">{summary.reconciled}</p></article></section>
   <div className="mg-toolbar"><div className="mg-search"><Search/><input className="mg-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search transaction, tenant, phone, reference or unit…"/></div><div className="mg-chips">{STATUS.map(s=><button key={s.id} className={`mg-chip${filter===s.id?" mg-chip--on":""}`} onClick={()=>setFilter(s.id)}>{s.label}</button>)}</div></div>
   <section className="mg-panel"><div className="mg-panel__head"><h2 className="mg-panel__title"><WalletCards/> Incoming transactions</h2><span className="mg-panel__meta">{visible.length} shown</span></div>
-   {loading?<div className="mg-panel__body">{[1,2,3,4].map(i=><span key={i} className="mg-skeleton" style={{height:"2.4rem",marginBottom:".6rem"}}/>)}</div>:visible.length===0?<div className="mg-empty"><WalletCards/><p className="mg-empty__title">No transactions found</p><p className="mg-empty__text">{items.length?"Try a different filter or search.":"External payment transactions will appear here once the payment rails begin sending them to the PMS."}</p></div>:<div className="mg-tablewrap"><table className="mg-table"><thead><tr><th>Date</th><th>Tenant / destination</th><th>Reference</th><th>Allocation</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(x=><tr key={x.id} onClick={()=>setSelected(x)} style={{cursor:"pointer"}}><td className="mg-nowrap">{formatDate(x.transaction_at)}<span className="mg-sub">{x.provider} · {x.external_transaction_id}</span></td><td><span className="mg-strong">{x.matchedLease?.tenant?.name||"Unmatched payer"}</span><span className="mg-sub">{x.matchedLease?.unit?.unit_number||"—"} · {x.matchedLease?.property?.name||"Destination pending"}</span></td><td><span className="mg-strong">{x.payment_reference||"No reference"}</span><span className="mg-sub">{x.payer_phone||"No phone"}</span></td><td><span className="mg-strong">{formatMoney(x.amount,x.currency)}</span>{x.payment?.allocations?.length?<span className="mg-sub">{x.payment.allocations.length} rent allocation{x.payment.allocations.length===1?"":"s"}</span>:null}</td><td><span className={`mg-badge mg-badge--${statusClass(x.status)}`}>{statusLabel(x.status)}</span></td><td className="mg-num"><ArrowRight/></td></tr>)}</tbody></table></div>}
+   {loading?<div className="mg-panel__body">{[1,2,3,4].map(i=><span key={i} className="mg-skeleton" style={{height:"2.4rem",marginBottom:".6rem"}}/>)}</div>:visible.length===0?<div className="mg-empty"><WalletCards/><p className="mg-empty__title">No transactions found</p><p className="mg-empty__text">{items.length?"Try a different filter or search.":"External payment transactions will appear here once the payment rails begin sending them to the PMS."}</p></div>:<div className="mg-tablewrap"><table className="mg-table"><thead><tr><th>Date</th><th>Tenant / destination</th><th>Reference</th><th>Allocation</th><th>Status</th><th></th></tr></thead><tbody>{visible.map(x=><tr key={x.id} onClick={()=>setSelected(x)} style={{cursor:"pointer"}}><td className="mg-nowrap">{formatDate(x.transaction_at)}<span className="mg-sub">{x.provider} · {x.external_transaction_id}</span></td><td><span className="mg-strong">{x.matchedLease?.tenant?.name||"Unmatched payer"}</span><span className="mg-sub">{x.matchedLease?.unit?.unit_number||"—"} · {x.matchedLease?.property?.name||x.paymentDestination?.propertyName||"Payment destination"}</span></td><td><span className="mg-strong">{x.payment_reference||"No reference"}</span><span className="mg-sub">{x.payer_phone||"No phone"}</span></td><td><span className="mg-strong">{formatMoney(x.amount,x.currency)}</span>{x.payment?.allocations?.length?<span className="mg-sub">{x.payment.allocations.length} rent allocation{x.payment.allocations.length===1?"":"s"}</span>:null}
+{x.payment?.credits?.length?<span className="mg-sub">{formatMoney(x.payment.credits.reduce((sum,c)=>sum+c.amount,0),x.currency)} credit created</span>:null}</td><td><span className={`mg-badge mg-badge--${statusClass(x.status)}`}>{statusLabel(x.status)}</span></td><td className="mg-num"><ArrowRight/></td></tr>)}</tbody></table></div>}
   </section>
  </div>
  {selected&&<div className="mg-drawer" role="dialog" aria-modal="true" onClick={e=>{if(e.target===e.currentTarget)setSelected(null)}}><div className="mg-drawer__panel"><div className="mg-drawer__head"><div><span className="mg-eyebrow"><Clock3/> Transaction details</span><h2 className="mg-drawer__title">{formatMoney(selected.amount,selected.currency)}</h2><p className="mg-drawer__sub">{selected.external_transaction_id} · {formatDate(selected.transaction_at)}</p></div><button className="mg-iconbtn" onClick={()=>setSelected(null)} aria-label="Close"><X/></button></div>
  <div className="mg-drawer__body"><div className="mg-grid2"><div className="mg-stat"><p className="mg-stat__label">Tenant</p><p className="mg-strong">{selected.matchedLease?.tenant?.name||"Not matched"}</p></div><div className="mg-stat"><p className="mg-stat__label">Payer</p><p className="mg-strong">{selected.payer_phone||"—"}</p></div></div>
   <div className="mg-stat"><p className="mg-stat__label">Payment reference</p><p className="mg-strong">{selected.payment_reference||"No reference supplied"}</p></div>
   {selected.reconciliation_note&&<div className="mg-alert"><AlertCircle/><span>{selected.reconciliation_note}</span></div>}
-  <div className="mg-panel"><div className="mg-panel__head"><h3 className="mg-panel__title">Rent allocation</h3></div>{selected.payment?.allocations?.length?<div className="mg-panel__body">{selected.payment.allocations.map(a=><div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:".75rem 0",borderBottom:"1px solid #e5e7eb"}}><span>{a.rentObligation?.period?new Date(a.rentObligation.period).toLocaleDateString(undefined,{month:"long",year:"numeric"}):"Rent obligation"}</span><strong>{formatMoney(a.amount,selected.currency)}</strong></div>)}</div>:<div className="mg-empty"><p className="mg-empty__text">No rent allocation has been recorded.</p></div>}</div>
+  <div className="mg-panel"><div className="mg-panel__head"><h3 className="mg-panel__title">Rent allocation</h3></div>{selected.payment?.allocations?.length||selected.payment?.credits?.length?<div className="mg-panel__body">{selected.payment.allocations.map(a=><div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:".75rem 0",borderBottom:"1px solid #e5e7eb"}}><span>{a.rentObligation?.period?new Date(a.rentObligation.period).toLocaleDateString(undefined,{month:"long",year:"numeric"}):"Rent obligation"}</span><strong>{formatMoney(a.amount,selected.currency)}</strong></div>)}
+{selected.payment.credits.map(c=><div key={`credit-${c.id}`} style={{display:"flex",justifyContent:"space-between",padding:".75rem 0",borderBottom:"1px solid #e5e7eb"}}><span><strong>Future rent credit</strong><span className="mg-sub">{c.status==="available"?formatMoney(c.remaining_amount,selected.currency)+" remaining":"Credit "+c.status}</span></span><strong>{formatMoney(c.amount,selected.currency)}</strong></div>)}</div>:<div className="mg-empty"><p className="mg-empty__text">No rent allocation has been recorded.</p></div>}</div>
  </div><div className="mg-drawer__foot">{["needs_review","unmatched"].includes(selected.status)?<button className="mg-btn mg-btn--primary" onClick={()=>setResolving(true)}><XCircle/> Resolve transaction</button>:null}<button className="mg-btn mg-btn--subtle" onClick={()=>setSelected(null)}>Close</button></div></div></div>}
  {resolving&&selected&&["needs_review","unmatched"].includes(selected.status)&&<ResolveDrawer transaction={selected} leases={leases} onClose={()=>setResolving(false)} onDone={()=>{setResolving(false);setSelected(null);void load()}}/>}
  </div></DashboardLayout>
