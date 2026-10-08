@@ -56,4 +56,9 @@ class Payment extends Model
     {
         return $this->belongsTo(PaymentDestination::class, 'payment_destination_id');
     }
+
+    public function rentPaymentCredits()
+    {
+        return $this->hasMany(RentPaymentCredit::class, 'source_payment_id');
+    }
 }
