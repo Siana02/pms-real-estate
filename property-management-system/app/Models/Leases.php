@@ -15,6 +15,7 @@ class Leases extends Model
         'property_id',
         'unit_id',
         'tenant_id',
+        'tenant_payment_reference',
         'start_date',
         'requested_move_in_date',
         'requested_move_out_date',
@@ -116,6 +117,15 @@ class Leases extends Model
         }
 
         return $startDate > $today ? 'upcoming' : 'active';
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Leases $lease) {
+            if (!$lease->tenant_payment_reference) {
+                $lease->tenant_payment_reference = 'PMS-' . strtoupper(bin2hex(random_bytes(5)));
+            }
+        });
     }
 
     protected $appends = ['agreement_finalized'];
