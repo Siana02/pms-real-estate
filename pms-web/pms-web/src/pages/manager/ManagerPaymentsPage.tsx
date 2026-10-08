@@ -65,7 +65,7 @@ function parsePayments(payload: unknown): PaymentRecord[] {
     return {
       id: asNumber(record.id),
       lease_id: asNumber(record.lease_id),
-      tenant: namedRef(record.tenant, "name"),
+      tenant: (() => { const tenant = toRecord(record.tenant); const name = asString(tenant.name) || [asString(tenant.first_name), asString(tenant.last_name)].filter(Boolean).join(" ") || asString(tenant.full_name) || asString(tenant.email); return tenant.id ? { id: asNumber(tenant.id), name } : null; })(),
       property: namedRef(record.property, "name"),
       unit: unitNumber
         ? { id: asNumber(unit.id), unit_number: unitNumber }
@@ -91,7 +91,7 @@ function parseLeaseOptions(payload: unknown): LeaseOption[] {
       const tenant = toRecord(record.tenant);
       const property = toRecord(record.property);
       const unit = toRecord(record.unit);
-      const tenantName = asString(tenant.name);
+      const tenantName = asString(tenant.name) || [asString(tenant.first_name), asString(tenant.last_name)].filter(Boolean).join(" ") || asString(tenant.full_name) || asString(tenant.email);
       const propertyName = asString(property.name);
       const unitNumber = asString(unit.unit_number);
 
