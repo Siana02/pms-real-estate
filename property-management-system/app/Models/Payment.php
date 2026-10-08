@@ -12,6 +12,7 @@ class Payment extends Model
     protected $fillable = [
         'organization_id',
         'lease_id',
+        'payment_destination_id',
         'amount',
         'payment_date',
         'payment_method',
