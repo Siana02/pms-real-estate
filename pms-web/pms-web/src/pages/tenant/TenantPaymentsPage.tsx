@@ -350,7 +350,7 @@ const styles = `
 /* ------------------------------------------------------------------ */
  
 type PaymentStatus = "paid" | "pending" | "overdue" | "partial" | "failed";
-type PayMethod = "flutterwave";
+type PayMethod = "flutterwave" | "mpesa" | "bank_transfer";
  
 interface TenantPayment {
   id: number | string;
@@ -370,6 +370,18 @@ interface RentSummary {
   balance: number | string | null;
   monthly_rent: number | string | null;
   paid_this_year: number | string | null;
+}
+
+interface PaymentDestination {
+  id: number;
+  method: "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank";
+  label: string | null;
+  details: Record<string, string | null>;
+}
+
+interface PaymentOptions {
+  destinations: PaymentDestination[];
+  online: { available: boolean; label?: string; description?: string };
 }
  
 /* ------------------------------------------------------------------ */
@@ -433,7 +445,25 @@ function methodLabel(method: string | null): string {
   if (!method) return "—";
   if (method === "mpesa") return "M-PESA";
   if (method === "bank_transfer") return "Bank transfer";
+  if (method === "flutterwave") return "Online payment";
   return method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, " ");
+}
+
+function destinationLabel(destination: PaymentDestination): string {
+  return destination.label || ({
+    mpesa_number: "M-PESA",
+    mpesa_till: "M-PESA Till",
+    mpesa_paybill: "M-PESA PayBill",
+    bank: "Bank transfer",
+  } as Record<string, string>)[destination.method];
+}
+
+function destinationDetail(destination: PaymentDestination): string {
+  const details = destination.details;
+  if (destination.method === "mpesa_number") return `Send to ${details.number ?? "—"}`;
+  if (destination.method === "mpesa_till") return `Till ${details.till ?? "—"}`;
+  if (destination.method === "mpesa_paybill") return `PayBill ${details.paybill ?? "—"} · Account ${details.account ?? "—"}`;
+  return [details.bank_name, details.account_name, details.account_number ? `Account ••••${details.account_number.slice(-4)}` : null, details.branch].filter(Boolean).join(" · ");
 }
  
 const STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -476,7 +506,9 @@ const FILTERS: { key: "all" | "paid" | "pending"; label: string }[] = [
 ];
  
 const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
-  { key: "flutterwave", label: "Flutterwave", icon: <CreditCard /> },
+  { key: "flutterwave", label: "Pay online", icon: <CreditCard /> },
+  { key: "mpesa", label: "M-PESA manually", icon: <Smartphone /> },
+  { key: "bank_transfer", label: "Bank transfer", icon: <Wallet /> },
 ];
  
 /* ------------------------------------------------------------------ */
@@ -491,13 +523,19 @@ function TenantPaymentsPage() {
   const [error, setError] = useState("");
   const [payments, setPayments] = useState<TenantPayment[]>([]);
   const [summary, setSummary] = useState<RentSummary | null>(null);
+  const [paymentOptions, setPaymentOptions] = useState<PaymentOptions>({
+    destinations: [],
+    online: { available: false },
+  });
  
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "paid" | "pending">("all");
  
   const [payOpen, setPayOpen] = useState(false);
   const [amount, setAmount] = useState("");
-  const [method] = useState<PayMethod>("flutterwave");
+  const [method, setMethod] = useState<PayMethod>("flutterwave");
+  const [destinationId, setDestinationId] = useState("");
+  const [reference, setReference] = useState("");
   const [gatewayNotice, setGatewayNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -508,6 +546,10 @@ function TenantPaymentsPage() {
       const response = await apiRequest("/tenant/payments");
       setPayments(unwrap<TenantPayment>(response));
       setSummary(unwrapSummary(response));
+      if (response && typeof response === "object") {
+        const options = (response as { payment_options?: PaymentOptions }).payment_options;
+        if (options) setPaymentOptions(options);
+      }
       setError("");
     } catch (caught) {
       setError(
@@ -537,8 +579,11 @@ function TenantPaymentsPage() {
  
   useEffect(() => {
     if (!payOpen) return;
-    setAmount(String(Math.round(toNumber(summary?.amount_due))) || "");
-  }, [payOpen, summary]);
+    setAmount(String(Math.round(toNumber(summary?.balance ?? summary?.amount_due))) || "");
+    setMethod(paymentOptions.online.available ? "flutterwave" : paymentOptions.destinations.some((item) => item.method.startsWith("mpesa")) ? "mpesa" : "bank_transfer");
+    setDestinationId("");
+    setReference("");
+  }, [payOpen, summary, paymentOptions]);
  
   const outstanding = toNumber(
     summary?.balance ?? summary?.amount_due ?? undefined
@@ -593,15 +638,19 @@ function TenantPaymentsPage() {
         method: "POST",
         body: JSON.stringify({
           amount: value,
-          payment_method: "flutterwave",
+          payment_method: method,
+          payment_destination_id: method === "flutterwave" ? undefined : Number(destinationId),
+          reference: method === "flutterwave" ? undefined : reference.trim(),
         }),
       })) as { checkout_url?: string };
 
-      if (!response.checkout_url) {
-        throw new Error("Flutterwave did not return a checkout link.");
+      if (method === "flutterwave") {
+        if (!response.checkout_url) throw new Error("Secure checkout could not be started.");
+        window.location.assign(response.checkout_url);
+      } else {
+        setSubmitted(true);
+        await load();
       }
-
-      window.location.assign(response.checkout_url);
     } catch (caught) {
       setSubmitError(
         caught instanceof Error
@@ -932,20 +981,26 @@ function TenantPaymentsPage() {
                     style={{ fontSize: "0.8125rem", fontWeight: 600 }}
                     id="pay-method-label"
                   >
-                    Pay with
+                    How would you like to pay?
                   </span>
-                  <div
-                    className="tpay-methods"
-                    role="group"
-                    aria-labelledby="pay-method-label"
-                  >
-                    {METHODS.map((option) => (
+                  <div className="tpay-methods" role="group" aria-labelledby="pay-method-label">
+                    {METHODS.filter((option) =>
+                      option.key === "flutterwave"
+                        ? paymentOptions.online.available
+                        : option.key === "mpesa"
+                          ? paymentOptions.destinations.some((item) => item.method.startsWith("mpesa"))
+                          : paymentOptions.destinations.some((item) => item.method === "bank")
+                    ).map((option) => (
                       <button
                         key={option.key}
                         type="button"
                         className="tpay-method"
                         aria-pressed={method === option.key}
-                        onClick={() => setMethod(option.key)}
+                        onClick={() => {
+                          setMethod(option.key);
+                          setDestinationId("");
+                          setReference("");
+                        }}
                       >
                         {option.icon}
                         {option.label}
@@ -953,17 +1008,62 @@ function TenantPaymentsPage() {
                     ))}
                   </div>
                 </div>
- 
-                {method === "mpesa" && (
-                  <div className="tpay-field">
-                    <label htmlFor="pay-phone">M-PESA number</label>
-                    <input
-                      id="pay-phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(event) => setPhone(event.target.value)}
-                      placeholder="07xx xxx xxx"
-                    />
+
+                {method !== "flutterwave" && (
+                  <>
+                    <div className="tpay-field">
+                      <label htmlFor="pay-destination">Pay to</label>
+                      <select
+                        id="pay-destination"
+                        value={destinationId}
+                        onChange={(event) => setDestinationId(event.target.value)}
+                        required
+                      >
+                        <option value="">Choose payment destination</option>
+                        {paymentOptions.destinations
+                          .filter((item) =>
+                            method === "mpesa"
+                              ? item.method.startsWith("mpesa")
+                              : item.method === "bank"
+                          )
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {destinationLabel(item)} — {destinationDetail(item)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    {destinationId && (() => {
+                      const selected = paymentOptions.destinations.find((item) => String(item.id) === destinationId);
+                      return selected ? (
+                        <div style={{ padding: ".75rem", border: "1px solid var(--tp-line)", borderRadius: "var(--tp-r-sm)", background: "var(--tp-surface-sunken)" }}>
+                          <strong>{destinationLabel(selected)}</strong>
+                          <small style={{ display: "block", marginTop: ".2rem", color: "var(--tp-muted)" }}>{destinationDetail(selected)}</small>
+                        </div>
+                      ) : null;
+                    })()}
+                    <div className="tpay-field">
+                      <label htmlFor="pay-reference">Transaction reference</label>
+                      <input
+                        id="pay-reference"
+                        value={reference}
+                        onChange={(event) => setReference(event.target.value)}
+                        placeholder="e.g. QAB123XYZ"
+                        required
+                      />
+                      <small style={{ color: "var(--tp-muted)" }}>
+                        Use the transaction code from your M-PESA or bank confirmation.
+                      </small>
+                    </div>
+                  </>
+                )}
+
+                {method === "flutterwave" && (
+                  <div style={{ padding: ".75rem", border: "1px solid var(--tp-line)", borderRadius: "var(--tp-r-sm)", background: "var(--tp-surface-sunken)" }}>
+                    <strong>Secure online checkout</strong>
+                    <small style={{ display: "block", marginTop: ".2rem", color: "var(--tp-muted)" }}>
+                      You'll see the total and any applicable processing fee before confirming.
+                    </small>
                   </div>
                 )}
  
@@ -988,7 +1088,7 @@ function TenantPaymentsPage() {
                     ) : (
                       <>
                         <CreditCard />
-                        Pay {money(Number(amount) || 0, currency)}
+                        {method === "flutterwave" ? "Continue to checkout" : "I've paid"}
                       </>
                     )}
                   </button>
