@@ -196,8 +196,16 @@ class FlutterwaveController extends Controller
             return ['status' => $payment->status];
         }
 
+        $paymentMethod = match ($tx['payment_type'] ?? null) {
+            'mobilemoney' => 'mpesa',
+            'card' => 'card',
+            'banktransfer', 'bank_transfer' => 'bank_transfer',
+            default => 'other',
+        };
+
         $payment->update([
             'status' => 'paid',
+            'payment_method' => $paymentMethod,
             'provider_transaction_id' => (string) ($tx['id'] ?? $transactionId),
             'reference' => $tx['flw_ref'] ?? $payment->reference,
             'receipt_url' => $tx['receipt_url'] ?? null,
