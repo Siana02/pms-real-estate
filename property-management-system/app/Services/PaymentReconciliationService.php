@@ -145,6 +145,10 @@ class PaymentReconciliationService
 
     public function resolve(PaymentTransaction $transaction, Leases $lease): PaymentTransaction
     {
+        if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+            return $transaction->fresh(['matchedLease.tenant', 'matchedLease.property', 'matchedLease.unit', 'matchedRentObligation', 'payment.allocations.rentObligation']);
+        }
+
         abort_unless($transaction->organization_id === $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
 
         return DB::transaction(function () use ($transaction, $lease) {
