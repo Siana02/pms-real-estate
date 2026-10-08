@@ -971,6 +971,10 @@ class TenantPortalController extends Controller
             'country' => $property?->country,
             'manager_name' => $organization?->name,
             'manager_logo_url' => $organization?->logo_url,
+            'manager_tagline' => $this->organizationField($organization, 'tagline'),
+            'manager_address' => $this->organizationField($organization, 'address'),
+            'manager_city' => $this->organizationField($organization, 'city'),
+            'manager_country' => $this->organizationField($organization, 'country'),
             'manager_phone' => $this->organizationField($organization, 'phone'),
             'manager_email' => $this->organizationField($organization, 'email'),
         ];
