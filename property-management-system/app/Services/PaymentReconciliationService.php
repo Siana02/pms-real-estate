@@ -59,7 +59,12 @@ class PaymentReconciliationService
 
         if ($candidates->isEmpty() && $phone) {
             $candidates = $query->with('tenant')->whereHas('tenant', function ($q) use ($phone) {
-                $q->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', '') = ?", [$phone]);
+                $q->where(function ($phoneQuery) use ($phone) {
+                    $local = Str::startsWith($phone, '254') ? '0' . substr($phone, 3) : $phone;
+                    $phoneQuery
+                        ->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', '') = ?", [$phone])
+                        ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', '') = ?", [$local]);
+                });
             })->get();
         }
 
