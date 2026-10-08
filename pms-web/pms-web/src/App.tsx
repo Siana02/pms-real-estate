@@ -24,7 +24,8 @@ import TenantDashboardPage from "./pages/tenant/TenantDashboardPage";
 import MyHomePage from "./pages/tenant/MyHomePage";
 import TenantPaymentsPage from "./pages/tenant/TenantPaymentsPage";
 import TenantMaintenancePage from "./pages/tenant/TenantMaintenancePageV3";
-import TenantLeasePage from "./pages/tenant/TenantLeasePage";\nimport TenantNotificationsPage from "./pages/tenant/TenantNotificationsPage";
+import TenantLeasePage from "./pages/tenant/TenantLeasePage";
+import TenantNotificationsPage from "./pages/tenant/TenantNotificationsPage";
 import { applyTheme, readThemeId } from "./styles/themes";
 
 type Portal = "manager" | "tenant";
