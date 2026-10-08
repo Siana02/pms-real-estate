@@ -434,7 +434,7 @@ function methodLabel(method: string | null): string {
   if (!method) return "—";
   if (method === "mpesa") return "M-PESA";
   if (method === "bank_transfer") return "Bank transfer";
-  return method === "flutterwave" ? "Flutterwave" : method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, " ");
+  return method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, " ");
 }
  
 const STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -478,4 +478,41 @@ const FILTERS: { key: "all" | "paid" | "pending"; label: string }[] = [
  
 const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
   { key: "flutterwave", label: "Flutterwave", icon: <CreditCard /> },
-];;
+];  async function submitPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const value = Number(amount);
+
+    if (!Number.isFinite(value) || value <= 0) {
+      setSubmitError("Enter the amount you want to pay.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const response = (await apiRequest("/tenant/payments", {
+        method: "POST",
+        body: JSON.stringify({
+          amount: value,
+          payment_method: "flutterwave",
+        }),
+      })) as { checkout_url?: string };
+
+      if (!response.checkout_url) {
+        throw new Error("Flutterwave did not return a checkout link.");
+      }
+
+      window.location.assign(response.checkout_url);
+    } catch (caught) {
+      setSubmitError(
+        caught instanceof Error
+          ? caught.message
+          : "We couldn't start that payment. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+;
