@@ -350,12 +350,16 @@ class TenantPortalController extends Controller
 
         if ($signing) {
             abort_if($lease->tenant_signed_at !== null, 422, 'You have already signed this agreement.');
+
+            // Employer and next-of-kin fields are explicitly optional during
+            // tenant onboarding ("Not provided" is a valid value). Do not
+            // block lease signing because those optional profile fields are
+            // empty. The tenant is signing the reviewed lease copy itself.
             abort_if(
-                blank($tenant->phone) || blank($tenant->national_id) ||
-                blank($tenant->employer_name) || blank($tenant->employer_phone) ||
-                blank($tenant->next_of_kin_name) || blank($tenant->next_of_kin_phone),
+                blank($tenant->first_name) || blank($tenant->last_name) ||
+                blank($tenant->email) || blank($tenant->phone),
                 422,
-                'Complete your tenant details before signing the lease.'
+                'Your basic tenant contact details are incomplete. Please ask the property manager to update your profile before signing.'
             );
         }
 
