@@ -19,6 +19,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\EmployeeRequestController;
 use App\Http\Controllers\OrganizationPaymentSettingsController;
 use App\Http\Controllers\FlutterwaveController;
+use App\Http\Controllers\PaymentDestinationController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,10 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
+    Route::get('organization/payment-destinations', [PaymentDestinationController::class, 'index']);
+    Route::post('organization/payment-destinations', [PaymentDestinationController::class, 'store']);
+    Route::patch('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'update']);
+    Route::delete('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'destroy']);
     Route::put('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'update']);
     Route::get('organization/flutterwave', [FlutterwaveController::class, 'show']);
     Route::post('organization/flutterwave', [FlutterwaveController::class, 'connect']);
