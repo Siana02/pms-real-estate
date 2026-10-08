@@ -19,13 +19,16 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $organizationId = $request->user()->organization_id;
-        $canViewFinancials = app(PermissionService::class)->has($request->user(), 'financial.reports.view');
+        $organization = Organization::find($organizationId);
+        $user = $request->user();
+        $isOwnerOrAdmin = in_array($user->role, ['admin', 'owner'], true)
+            || ($organization?->owner_user_id === $user->id);
+        $canViewFinancials = $isOwnerOrAdmin
+            || app(PermissionService::class)->has($user, 'financial.reports.view');
         $now = CarbonImmutable::now();
         $monthStart = $now->startOfMonth();
         $monthEnd = $now->endOfMonth();
         $trendStart = $monthStart->subMonths(5);
-
-        $organization = Organization::find($organizationId);
 
         $properties = Property::where('organization_id', $organizationId)
             ->orderBy('name')
