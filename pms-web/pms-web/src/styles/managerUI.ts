@@ -259,6 +259,24 @@ border-color: transparent;
  
 .mg-input::placeholder,
 .mg-textarea::placeholder { color: var(--pms-faint); }
+
+/* Native dropdown menus need an explicit readable palette. Browser/OS
+   defaults can otherwise inherit a dark theme and make option text
+   disappear against the popup background. */
+.mg-root select,
+.mg-root select option,
+.mg-root select optgroup {
+  color-scheme: light;
+}
+.mg-root select option,
+.mg-root select optgroup {
+  background: #fff;
+  color: #0f172a;
+}
+.mg-root select option:checked {
+  background: #e8eef8;
+  color: #0f172a;
+}
  
 .mg-textarea { min-height: 5.5rem; resize: vertical; line-height: 1.5; }
  
