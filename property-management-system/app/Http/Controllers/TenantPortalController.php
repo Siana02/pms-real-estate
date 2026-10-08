@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\LeaseProvisioner;
+use App\Services\RentLedgerService;
 
 /**
  * Read/write endpoints for the tenant portal.
