@@ -32,7 +32,7 @@ return new class extends Migration
             $table->text('reconciliation_note')->nullable();
             $table->json('raw_payload')->nullable();
             $table->timestamps();
-            $table->unique(['organization_id', 'provider', 'external_transaction_id']);
+            $table->unique(['organization_id', 'provider', 'external_transaction_id'], 'payment_transactions_org_provider_external_id_unique');
             $table->index(['organization_id', 'status']);
             $table->index(['organization_id', 'transaction_at']);
             $table->index(['organization_id', 'payment_reference']);
