@@ -446,6 +446,11 @@ class PropertyTenantWorkflowTest extends TestCase
             'tenant_terms' => 'Tenant accepts the current lease terms.',
         ]);
 
+        $this->withToken($managerToken)
+            ->getJson('/api/leases')
+            ->assertOk()
+            ->assertJsonPath('0.tenant_terms', 'Tenant accepts the current lease terms.');
+
         $this->withToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
                 'requested_move_in_date' => now()->addMonths(2)->toDateString(),
