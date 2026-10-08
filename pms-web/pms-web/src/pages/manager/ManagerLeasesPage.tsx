@@ -632,12 +632,7 @@ function ManagerLeasesPage() {
           current.map((lease) =>
             lease.id === selectedLeaseId
               ? {
-                  ...lease,
-                  tenant_signature: freshSelected.tenant_signature,
-                  tenant_signed_at: freshSelected.tenant_signed_at,
-                  manager_signature: freshSelected.manager_signature,
-                  manager_signed_at: freshSelected.manager_signed_at,
-                  agreement_finalized: freshSelected.agreement_finalized,
+                  ...freshSelected,
                 }
               : lease
           )
