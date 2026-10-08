@@ -51,3 +51,19 @@ body {
   min-height: 100svh;
   box-sizing: border-box;
 }
+
+
+/* Global native-select fallback: option text must remain readable in every
+   portal/page, regardless of the browser's dark-mode defaults. */
+select {
+  color-scheme: light;
+}
+select option,
+select optgroup {
+  background: #fff;
+  color: #0f172a;
+}
+select option:checked {
+  background: #e8eef8;
+  color: #0f172a;
+}
