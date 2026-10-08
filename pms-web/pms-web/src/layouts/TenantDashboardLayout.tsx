@@ -99,6 +99,20 @@ const styles = `
   font-size: 0.9375rem;
   color: inherit;
 }
+
+/* Keep native select popups readable across browsers/OS themes. */
+.tp-root select {
+  color-scheme: light;
+}
+.tp-root select option,
+.tp-root select optgroup {
+  background: #fff;
+  color: #0f172a;
+}
+.tp-root select option:checked {
+  background: #e8eef8;
+  color: #0f172a;
+}
  
 .tp-root a {
   color: inherit;
