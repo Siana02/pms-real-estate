@@ -32,4 +32,14 @@ class AuditLogService
             'user_agent' => $request?->userAgent() ?? request()->userAgent(),
         ]);
     }
+
+    public function suppressGenericAudit(?Request $request = null): void
+    {
+        ($request ?? request())->attributes->set('suppress_generic_audit', true);
+    }
+
+    public function genericAuditSuppressed(?Request $request = null): bool
+    {
+        return (bool) ($request ?? request())->attributes->get('suppress_generic_audit', false);
+    }
 }
