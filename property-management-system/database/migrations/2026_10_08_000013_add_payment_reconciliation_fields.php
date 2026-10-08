@@ -10,9 +10,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('leases', function (Blueprint $table) {
-            $table->string('tenant_payment_reference', 32)->nullable()->unique()->after('tenant_id');
-        });
+        if (!Schema::hasColumn('leases', 'tenant_payment_reference')) {
+            Schema::table('leases', function (Blueprint $table) {
+                $table->string('tenant_payment_reference', 32)->nullable()->after('tenant_id');
+            });
+        }
+
+        $hasUniquePaymentReference = collect(DB::select(
+            "SHOW INDEX FROM \`leases\` WHERE Column_name = 'tenant_payment_reference' AND Non_unique = 0"
+        ))->isNotEmpty();
+
+        if (!$hasUniquePaymentReference) {
+            Schema::table('leases', function (Blueprint $table) {
+                $table->unique('tenant_payment_reference', 'leases_tenant_payment_reference_unique');
+            });
+        }
 
         Schema::create('payment_transactions', function (Blueprint $table) {
             $table->id();
@@ -50,7 +62,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('payment_transactions');
         Schema::table('leases', function (Blueprint $table) {
-            $table->dropUnique(['tenant_payment_reference']);
+            $table->dropUnique('leases_tenant_payment_reference_unique');
             $table->dropColumn('tenant_payment_reference');
         });
     }
