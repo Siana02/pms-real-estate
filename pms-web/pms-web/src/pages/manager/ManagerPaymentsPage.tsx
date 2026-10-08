@@ -433,14 +433,15 @@ function ManagerPaymentsPage() {
           .includes(needle);
       })
       .sort((a, b) => (a.payment_date ?? "") < (b.payment_date ?? "") ? 1 : -1);
-  }, [scoped, type, query]);
+  }, [scoped, type, query, statusFilter]);
 
   const totals = useMemo(() => {
-    const collected = scoped.reduce((sum, payment) => sum + payment.amount, 0);
-    const rent = scoped
+    const confirmed = scoped.filter((payment) => payment.status === "paid");
+    const collected = confirmed.reduce((sum, payment) => sum + payment.amount, 0);
+    const rent = confirmed
       .filter((payment) => payment.payment_type === "rent")
       .reduce((sum, payment) => sum + payment.amount, 0);
-    const deposits = scoped
+    const deposits = confirmed
       .filter((payment) => payment.payment_type === "deposit")
       .reduce((sum, payment) => sum + payment.amount, 0);
 
@@ -467,8 +468,8 @@ function ManagerPaymentsPage() {
               </span>
               <h1 className="mg-title">Payments</h1>
               <p className="mg-subtitle">
-                Every payment received across your organization. A recorded
-                payment is money already in hand — rent, deposits and utilities
+                Every payment and tenant payment submission across your organization. Confirmed
+                payments are separated from submissions awaiting verification — rent, deposits and utilities
                 are separated so your rent collection stays honest.
               </p>
             </div>
