@@ -18,6 +18,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\EmployeeRequestController;
 use App\Http\Controllers\OrganizationPaymentSettingsController;
+use App\Http\Controllers\FlutterwaveController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,9 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
     Route::put('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'update']);
+    Route::get('organization/flutterwave', [FlutterwaveController::class, 'show']);
+    Route::post('organization/flutterwave', [FlutterwaveController::class, 'connect']);
+    Route::delete('organization/flutterwave', [FlutterwaveController::class, 'disconnect']);
     Route::post('organization/logo', [OrganizationController::class, 'uploadLogo']);
     Route::delete('organization/logo', [OrganizationController::class, 'removeLogo']);
     Route::get('team', [TeamController::class, 'index']);
@@ -71,6 +75,10 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::apiResource('maintenance-requests', MaintenanceRequestController::class);
     Route::get('dashboard', [DashboardController::class, 'index']);
 });
+
+Route::get('webhooks/flutterwave', fn () => response()->json(['message' => 'Use POST.'], 405));
+Route::post('webhooks/flutterwave', [FlutterwaveController::class, 'webhook']);
+Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
 
 Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
     Route::get('overview', [TenantPortalController::class, 'overview']);
