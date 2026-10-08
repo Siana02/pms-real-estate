@@ -15,11 +15,13 @@ class OrganizationPaymentSettingsController extends Controller
             'organization_id' => $user->organization_id,
         ]);
 
-        $configured = $settings->preferred_method === 'mpesa'
-            ? filled($settings->mpesa_number)
-            : ($settings->preferred_method === 'bank'
-                ? filled($settings->bank_name) && filled($settings->bank_account_name) && filled($settings->bank_account_number)
-                : false);
+        $configured = match ($settings->preferred_method) {
+            'mpesa_number' => filled($settings->mpesa_number),
+            'mpesa_till' => filled($settings->mpesa_till),
+            'mpesa_paybill' => filled($settings->mpesa_paybill),
+            'bank' => filled($settings->bank_name) && filled($settings->bank_account_name) && filled($settings->bank_account_number),
+            default => false,
+        };
 
         if (!$canManage) {
             return response()->json([
