@@ -104,7 +104,7 @@ class DashboardController extends Controller
             ->take(5)
             ->values();
 
-        $propertiesPayload = $properties->map(function (Property $property) use ($activeLeases, $units) {
+        $propertiesPayload = $properties->map(function (Property $property) use ($activeLeases, $units, $canViewFinancials) {
             $propertyUnits = $units->where('property_id', $property->id);
             $leases = $activeLeases->where('property_id', $property->id);
             $occupiedUnitIds = $leases->pluck('unit_id')->unique();
