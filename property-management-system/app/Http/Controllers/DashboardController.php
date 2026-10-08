@@ -22,7 +22,7 @@ class DashboardController extends Controller
         $organizationId = $request->user()->organization_id;
         $organization = Organization::find($organizationId);
         $user = $request->user();
-        $isOwnerOrAdmin = in_array($user->role, ['admin', 'owner'], true)
+        $isOwnerOrAdmin = in_array($user->role, ['admin', 'owner', 'property_manager'], true)
             || ($organization?->owner_user_id === $user->id);
         $canViewFinancials = $isOwnerOrAdmin;
         $now = CarbonImmutable::now();
