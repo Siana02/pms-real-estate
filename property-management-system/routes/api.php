@@ -76,6 +76,8 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::apiResource('leases', LeasesController::class);
     Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
     Route::apiResource('payments', PaymentController::class);
+    Route::post('payments/{payment}/verify', [PaymentController::class, 'verify']);
+    Route::post('payments/{payment}/reject', [PaymentController::class, 'reject']);
     Route::apiResource('expenses', ExpenseController::class);
     Route::apiResource('maintenance-requests', MaintenanceRequestController::class);
     Route::get('dashboard', [DashboardController::class, 'index']);
