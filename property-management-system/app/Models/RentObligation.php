@@ -56,14 +56,10 @@ class RentObligation extends Model
 
     public function getAmountPaidAttribute(): float
     {
-        $allocated = (float) $this->payments()
-            ->where('status', 'paid')
-            ->whereHas('allocations', fn ($query) => $query->where('rent_obligation_id', $this->id))
-            ->with('allocations')
-            ->get()
-            ->sum(fn (Payment $payment) => (float) $payment->allocations
-                ->where('rent_obligation_id', $this->id)
-                ->sum(fn (PaymentAllocation $allocation) => (float) $allocation->amount));
+        $allocated = (float) PaymentAllocation::query()
+            ->where('rent_obligation_id', $this->id)
+            ->whereHas('payment', fn ($query) => $query->where('status', 'paid'))
+            ->sum('amount');
 
         $legacy = (float) $this->payments()
             ->where('status', 'paid')
