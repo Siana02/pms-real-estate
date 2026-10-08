@@ -7,6 +7,7 @@ use App\Models\Leases;
 use Illuminate\Http\Request;
 use App\Services\PermissionService;
 use App\Services\AuditLogService;
+use App\Services\RentLedgerService;
 
 class PaymentController extends Controller
 {
@@ -45,6 +46,10 @@ class PaymentController extends Controller
             'organization_id' => $request->user()->organization_id,
         ]);
 
+        if ($payment->payment_type === 'rent') {
+            app(RentLedgerService::class)->attachPayment($payment);
+        }
+
         return response()->json([
             'message' => 'Payment recorded successfully.',
             'payment' => $payment->load('lease'),
@@ -61,6 +66,7 @@ class PaymentController extends Controller
             'status' => 'paid',
             'payment_date' => $payment->payment_date ?: now()->toDateString(),
         ]);
+        app(RentLedgerService::class)->attachPayment($payment->fresh());
 
         app(AuditLogService::class)->record(
             'PAYMENT_VERIFIED',
@@ -125,6 +131,7 @@ class PaymentController extends Controller
         ]);
 
         $payment->update($validated);
+        app(RentLedgerService::class)->attachPayment($payment->fresh());
 
         return response()->json([
             'message' => 'Payment updated successfully.',
