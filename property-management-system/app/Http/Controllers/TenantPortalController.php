@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MaintenanceRequest;
 use App\Models\Organization;
 use App\Models\Payment;
+use App\Models\FlutterwaveIntegration;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -160,12 +161,76 @@ class TenantPortalController extends Controller
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
-            'payment_method' => 'required|in:mpesa,bank_transfer,card,cash,other',
+            'payment_method' => 'required|in:flutterwave,mpesa,bank_transfer,card,cash,other',
             'payment_type' => 'nullable|in:rent,deposit,utility,other',
             'phone' => 'nullable|string|max:50',
             'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
+
+        if ($validated['payment_method'] === 'flutterwave') {
+            $integration = FlutterwaveIntegration::where('organization_id', $lease->organization_id)->first();
+
+            abort_if(
+                !$integration,
+                422,
+                'Online payments have not been connected by your property manager yet.'
+            );
+
+            $txRef = 'PMS-ORG-' . $lease->organization_id . '-LEASE-' . $lease->id . '-' . strtoupper((string) str()->uuid());
+
+            $payment = Payment::create([
+                'organization_id' => $lease->organization_id,
+                'lease_id' => $lease->id,
+                'amount' => $validated['amount'],
+                'payment_date' => now()->toDateString(),
+                'payment_method' => 'card',
+                'payment_type' => $validated['payment_type'] ?? 'rent',
+                'status' => 'pending',
+                'provider' => 'flutterwave',
+                'tx_ref' => $txRef,
+                'notes' => $this->paymentNotes($validated),
+            ]);
+
+            $customerName = trim(($tenant->first_name ?? '') . ' ' . ($tenant->last_name ?? ''));
+
+            $response = \Illuminate\Support\Facades\Http::withToken($integration->secret_key)
+                ->acceptJson()
+                ->post('https://api.flutterwave.com/v3/payments', [
+                    'tx_ref' => $txRef,
+                    'amount' => $validated['amount'],
+                    'currency' => $integration->currency,
+                    'redirect_url' => rtrim((string) config('app.url'), '/') . '/api/webhooks/flutterwave/callback',
+                    'customer' => [
+                        'email' => $tenant->email,
+                        'name' => $customerName !== '' ? $customerName : 'Tenant',
+                        'phonenumber' => $tenant->phone,
+                    ],
+                    'customizations' => [
+                        'title' => 'Rent payment',
+                        'description' => 'Rent payment for your property tenancy.',
+                    ],
+                    'meta' => [
+                        'organization_id' => $lease->organization_id,
+                        'lease_id' => $lease->id,
+                        'tenant_id' => $tenant->id,
+                        'payment_id' => $payment->id,
+                    ],
+                ]);
+
+            if (!$response->successful() || $response->json('status') !== 'success' || !is_string($response->json('data.link'))) {
+                $payment->update(['status' => 'failed']);
+                abort(502, 'Flutterwave could not start the payment. Please try again.');
+            }
+
+            return response()->json([
+                'message' => 'Flutterwave checkout created.',
+                'status' => 'pending',
+                'checkout_url' => $response->json('data.link'),
+                'tx_ref' => $txRef,
+                'payment_id' => $payment->id,
+            ], 201);
+        }
 
         $payment = Payment::create([
             'organization_id' => $lease->organization_id,
@@ -174,6 +239,7 @@ class TenantPortalController extends Controller
             'payment_date' => CarbonImmutable::now()->toDateString(),
             'payment_method' => $validated['payment_method'],
             'payment_type' => $validated['payment_type'] ?? 'rent',
+            'status' => $payment->status ?? 'paid',
             'reference' => $validated['reference'] ?? null,
             'notes' => $this->paymentNotes($validated),
         ]);
