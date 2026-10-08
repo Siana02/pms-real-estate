@@ -184,7 +184,7 @@ class TenantPortalController extends Controller
                 'lease_id' => $lease->id,
                 'amount' => $validated['amount'],
                 'payment_date' => now()->toDateString(),
-                'payment_method' => 'card',
+                'payment_method' => 'other',
                 'payment_type' => $validated['payment_type'] ?? 'rent',
                 'status' => 'pending',
                 'provider' => 'flutterwave',
