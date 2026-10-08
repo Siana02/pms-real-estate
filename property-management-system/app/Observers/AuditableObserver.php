@@ -11,7 +11,10 @@ class AuditableObserver
     {
         if (! auth()->check() || ! $model->getAttribute('organization_id')) return;
 
-        app(AuditLogService::class)->record(
+        $audit = app(AuditLogService::class);
+        if ($audit->genericAuditSuppressed()) return;
+
+        $audit->record(
             'CREATED',
             class_basename($model).' created.',
             $model,
@@ -24,6 +27,9 @@ class AuditableObserver
     {
         if (! auth()->check() || ! $model->getAttribute('organization_id')) return;
 
+        $audit = app(AuditLogService::class);
+        if ($audit->genericAuditSuppressed()) return;
+
         $changes = $model->getChanges();
         if (empty($changes)) return;
 
@@ -32,7 +38,7 @@ class AuditableObserver
             $old[$key] = $model->getOriginal($key);
         }
 
-        app(AuditLogService::class)->record(
+        $audit->record(
             'UPDATED',
             class_basename($model).' updated.',
             $model,
@@ -45,7 +51,10 @@ class AuditableObserver
     {
         if (! auth()->check() || ! $model->getAttribute('organization_id')) return;
 
-        app(AuditLogService::class)->record(
+        $audit = app(AuditLogService::class);
+        if ($audit->genericAuditSuppressed()) return;
+
+        $audit->record(
             'DELETED',
             class_basename($model).' deleted.',
             $model,
