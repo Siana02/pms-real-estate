@@ -9,11 +9,13 @@ use App\Services\AuditLogService;
 use App\Services\PaymentReconciliationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Services\PermissionService;
 
 class PaymentReconciliationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $transactions=PaymentTransaction::where('organization_id',$request->user()->organization_id)
             ->with(['paymentDestination.property:id,name','matchedLease.tenant','matchedLease.property','matchedLease.unit','matchedRentObligation','payment'])
             ->latest('transaction_at')->get();
@@ -22,6 +24,7 @@ class PaymentReconciliationController extends Controller
 
     public function ingest(Request $request, PaymentReconciliationService $service): JsonResponse
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.record'), 403);
         $validated=$request->validate([
             'payment_destination_id'=>['nullable','integer','exists:payment_destinations,id'],
             'provider'=>['required','string','max:50'],'external_transaction_id'=>['required','string','max:100'],
@@ -39,6 +42,7 @@ class PaymentReconciliationController extends Controller
 
     public function resolve(Request $request, PaymentTransaction $paymentTransaction, PaymentReconciliationService $service): JsonResponse
     {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403, 'Payment reconciliation requires payment editing permission.');
         abort_if($paymentTransaction->organization_id!==$request->user()->organization_id,403);
         $validated=$request->validate(['lease_id'=>['required','integer','exists:leases,id']]);
         $lease=Leases::where('organization_id',$request->user()->organization_id)->findOrFail($validated['lease_id']);
