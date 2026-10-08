@@ -105,7 +105,7 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccount("");
     setBankName("");
     setAccountName("");
-    setAccountNumber("");
+    setAccountNumber(d.account_number ?? "");
     setBranch("");
     setError("");
   }
