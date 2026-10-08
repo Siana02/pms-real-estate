@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Leases;
 use Illuminate\Http\Request;
 use App\Services\PermissionService;
+use App\Services\AuditLogService;
 
 class PaymentController extends Controller
 {
@@ -13,7 +14,7 @@ class PaymentController extends Controller
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $payments = Payment::where('organization_id', $request->user()->organization_id)
-            ->with('lease')
+            ->with(['lease.tenant', 'lease.property', 'lease.unit', 'paymentDestination'])
             ->latest('payment_date')
             ->get();
 
@@ -50,13 +51,62 @@ class PaymentController extends Controller
         ], 201);
     }
 
+    public function verify(Request $request, Payment $payment)
+    {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403, 'Payment verification requires payment editing permission.');
+        $this->authorizeOrganization($request, $payment);
+        abort_if($payment->status !== 'pending', 422, 'Only payments awaiting verification can be confirmed.');
+
+        $payment->update([
+            'status' => 'paid',
+            'payment_date' => $payment->payment_date ?: now()->toDateString(),
+        ]);
+
+        app(AuditLogService::class)->record(
+            'PAYMENT_VERIFIED',
+            'Confirmed a tenant-submitted payment.',
+            $payment,
+            ['status' => 'pending'],
+            ['status' => 'paid', 'reference' => $payment->reference],
+            $request
+        );
+
+        return response()->json([
+            'message' => 'Payment confirmed.',
+            'payment' => $payment->fresh()->load(['lease.tenant', 'lease.property', 'lease.unit', 'paymentDestination']),
+        ]);
+    }
+
+    public function reject(Request $request, Payment $payment)
+    {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403, 'Payment verification requires payment editing permission.');
+        $this->authorizeOrganization($request, $payment);
+        abort_if($payment->status !== 'pending', 422, 'Only payments awaiting verification can be rejected.');
+
+        $payment->update(['status' => 'failed']);
+
+        app(AuditLogService::class)->record(
+            'PAYMENT_REJECTED',
+            'Rejected a tenant-submitted payment.',
+            $payment,
+            ['status' => 'pending'],
+            ['status' => 'failed', 'reference' => $payment->reference],
+            $request
+        );
+
+        return response()->json([
+            'message' => 'Payment rejected.',
+            'payment' => $payment->fresh()->load(['lease.tenant', 'lease.property', 'lease.unit', 'paymentDestination']),
+        ]);
+    }
+
     public function show(Request $request, Payment $payment)
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $this->authorizeOrganization($request, $payment);
 
         return response()->json(
-            $payment->load('lease')
+            $payment->load(['lease.tenant', 'lease.property', 'lease.unit', 'paymentDestination'])
         );
     }
 
