@@ -981,6 +981,10 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
+  const [employerName, setEmployerName] = useState("");
+  const [employerPhone, setEmployerPhone] = useState("");
+  const [nextOfKinName, setNextOfKinName] = useState("");
+  const [nextOfKinPhone, setNextOfKinPhone] = useState("");
   const [status, setStatus] = useState("active");
   const [notes, setNotes] = useState("");
   const [createLogin, setCreateLogin] = useState(true);
@@ -1100,6 +1104,10 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
           email: email.trim() || null,
           phone: phone.trim(),
           national_id: nationalId.trim() || null,
+          employer_name: employerName.trim() || null,
+          employer_phone: employerPhone.trim() || null,
+          next_of_kin_name: nextOfKinName.trim() || null,
+          next_of_kin_phone: nextOfKinPhone.trim() || null,
           status,
           notes: notes.trim() || null,
           create_login: createLogin && email.trim().length > 0,
@@ -1275,6 +1283,74 @@ function AddTenantDrawer({ onClose, onCreated }: DrawerProps) {
                 </select>
               </div>
             </div>
+
+            <div className="tn-grid2">
+              <div>
+                <label className="tn-field__label" htmlFor="tn-employer">
+                  Employer
+                </label>
+                <input
+                  id="tn-employer"
+                  className="tn-input"
+                  value={employerName}
+                  onChange={(event) => setEmployerName(event.target.value)}
+                  placeholder="Not provided"
+                  autoComplete="organization"
+                />
+              </div>
+
+              <div>
+                <label className="tn-field__label" htmlFor="tn-employer-phone">
+                  Employer phone
+                </label>
+                <input
+                  id="tn-employer-phone"
+                  className="tn-input"
+                  type="tel"
+                  inputMode="tel"
+                  value={employerPhone}
+                  onChange={(event) => setEmployerPhone(event.target.value)}
+                  placeholder="Not provided"
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
+
+            <div className="tn-grid2">
+              <div>
+                <label className="tn-field__label" htmlFor="tn-next-of-kin">
+                  Next of kin
+                </label>
+                <input
+                  id="tn-next-of-kin"
+                  className="tn-input"
+                  value={nextOfKinName}
+                  onChange={(event) => setNextOfKinName(event.target.value)}
+                  placeholder="Not provided"
+                  autoComplete="name"
+                />
+              </div>
+
+              <div>
+                <label className="tn-field__label" htmlFor="tn-next-of-kin-phone">
+                  Next of kin phone
+                </label>
+                <input
+                  id="tn-next-of-kin-phone"
+                  className="tn-input"
+                  type="tel"
+                  inputMode="tel"
+                  value={nextOfKinPhone}
+                  onChange={(event) => setNextOfKinPhone(event.target.value)}
+                  placeholder="Not provided"
+                  autoComplete="tel"
+                />
+              </div>
+            </div>
+
+            <p className="tn-field__hint">
+              These details are included in the lease automatically. Leave a field blank if the information is not available yet.
+            </p>
  
             <div>
               <label className="tn-field__label" htmlFor="tn-notes">
