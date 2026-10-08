@@ -320,6 +320,35 @@ public function store(Request $request)
         $audit->suppressGenericAudit($request);
         $tenant->update($validated);
 
+        // Keep the unsigned canonical agreement copies in sync with tenant
+        // profile fields without replacing any lease-specific contractual edits.
+        if ($tenant->wasChanged([
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'national_id',
+            'employer_name',
+            'employer_phone',
+            'next_of_kin_name',
+            'next_of_kin_phone',
+        ])) {
+            $tenantLease = Lease::where('tenant_id', $tenant->id)
+                ->whereNotIn('status', ['ended', 'terminated'])
+                ->whereNull('tenant_signed_at')
+                ->whereNull('manager_signed_at')
+                ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'upcoming' THEN 1 ELSE 2 END")
+                ->orderByDesc('id')
+                ->first();
+
+            if ($tenantLease) {
+                $tenantLease->update([
+                    'manager_terms' => $this->syncTenantDetailsInAgreement($tenantLease->manager_terms, $tenant),
+                    'tenant_terms' => $this->syncTenantDetailsInAgreement($tenantLease->tenant_terms, $tenant),
+                ]);
+            }
+        }
+
         $tenantName = trim("{$tenant->first_name} {$tenant->last_name}");
         $location = $tenant->property?->name
             ? "{$tenant->property->name}" . ($tenant->unit?->unit_number ? " · Unit {$tenant->unit->unit_number}" : '')
@@ -451,6 +480,24 @@ public function store(Request $request)
                 ->where('priority', 'urgent')
                 ->count(),
         ];
+    }
+
+    private function syncTenantDetailsInAgreement(?string $agreement, Tenant $tenant): ?string
+    {
+        if ($agreement === null || $agreement === '') return $agreement;
+
+        $values = [
+            '/^Tenant: .*$/m' => 'Tenant: ' . trim($tenant->first_name . ' ' . $tenant->last_name),
+            '/^Tenant email: .*$/m' => 'Tenant email: ' . ($tenant->email ?? 'Not provided'),
+            '/^Tenant phone: .*$/m' => 'Tenant phone: ' . ($tenant->phone ?? 'Not provided'),
+            '/^National ID: .*$/m' => 'National ID: ' . ($tenant->national_id ?? 'Not provided'),
+            '/^Employer: .*$/m' => 'Employer: ' . ($tenant->employer_name ?: 'Not provided'),
+            '/^Employer phone: .*$/m' => 'Employer phone: ' . ($tenant->employer_phone ?: 'Not provided'),
+            '/^Next of kin: .*$/m' => 'Next of kin: ' . ($tenant->next_of_kin_name ?: 'Not provided'),
+            '/^Next of kin phone: .*$/m' => 'Next of kin phone: ' . ($tenant->next_of_kin_phone ?: 'Not provided'),
+        ];
+
+        return preg_replace(array_keys($values), array_values($values), $agreement);
     }
 
     private function authorizeOrganization(Request $request, Tenant $tenant)
