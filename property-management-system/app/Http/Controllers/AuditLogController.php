@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Leases;
 use App\Models\MaintenanceRequest;
 use App\Models\Payment;
+use App\Models\PaymentDestination;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -55,6 +56,7 @@ class AuditLogController extends Controller
             'Tenant' => Tenant::with(['property', 'unit'])->find($log->auditable_id),
             'MaintenanceRequest' => MaintenanceRequest::with(['property', 'unit', 'tenant'])->find($log->auditable_id),
             'Payment' => Payment::with(['lease.property', 'lease.unit', 'lease.tenant'])->find($log->auditable_id),
+            'PaymentDestination' => PaymentDestination::with('property')->find($log->auditable_id),
             'Leases' => Leases::with(['property', 'unit', 'tenant'])->find($log->auditable_id),
             'Property' => Property::find($log->auditable_id),
             'Unit' => Unit::with('property')->find($log->auditable_id),
@@ -87,6 +89,12 @@ class AuditLogController extends Controller
                 'location' => $record->lease?->property?->name
                     ? $record->lease->property->name . ($record->lease->unit?->unit_number ? " · Unit {$record->lease->unit->unit_number}" : '')
                     : null,
+            ],
+            'PaymentDestination' => [
+                'type' => 'Payment destination',
+                'id' => $record->id,
+                'label' => $record->label ?: ucwords(str_replace('_', ' ', $record->method)),
+                'location' => $record->property?->name,
             ],
             'Leases' => [
                 'type' => 'Lease',
