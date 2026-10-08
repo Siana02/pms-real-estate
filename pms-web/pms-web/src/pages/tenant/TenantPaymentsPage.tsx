@@ -974,7 +974,9 @@ function TenantPaymentsPage() {
                 <CheckCircle2 />
                 <h3>Payment started</h3>
                 <p>
-                  Your payment is being processed securely by Flutterwave. Your balance will update after the transaction is verified.
+                  {method === "flutterwave"
+                    ? "Your online payment is being processed securely. Your balance will update after the transaction is verified."
+                    : "Your payment reference has been submitted and is awaiting verification by your property manager."}
                 </p>
                 <button
                   type="button"
