@@ -510,11 +510,11 @@ class TenantPortalController extends Controller
 
         $validated = $request->validate([
             'phone' => ['required', 'string', 'max:50'],
-            'national_id' => ['required', 'string', 'max:100'],
-            'employer_name' => ['required', 'string', 'max:255'],
-            'employer_phone' => ['required', 'string', 'max:50'],
-            'next_of_kin_name' => ['required', 'string', 'max:255'],
-            'next_of_kin_phone' => ['required', 'string', 'max:50'],
+            'national_id' => ['nullable', 'string', 'max:100'],
+            'employer_name' => ['nullable', 'string', 'max:255'],
+            'employer_phone' => ['nullable', 'string', 'max:50'],
+            'next_of_kin_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin_phone' => ['nullable', 'string', 'max:50'],
         ]);
 
         return DB::transaction(function () use ($tenant, $lease, $validated) {
