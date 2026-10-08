@@ -340,6 +340,7 @@ class TenantPortalController extends Controller
         abort_if($lease->tenant_signed_at !== null, 422, 'Your signed copy is locked. Only the lease end date can be changed after signing.');
 
         $validated = $request->validate([
+            'tenant_terms' => ['nullable', 'string'],
             'requested_move_in_date' => ['nullable', 'date'],
             'requested_move_out_date' => ['nullable', 'date', 'after_or_equal:requested_move_in_date'],
             'tenant_signature' => 'nullable|string|max:20',
