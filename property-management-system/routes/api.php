@@ -73,6 +73,10 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
 
 Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
     Route::get('overview', [TenantPortalController::class, 'overview']);
+    Route::get('profile', [TenantPortalController::class, 'profile']);
+    Route::patch('profile', [TenantPortalController::class, 'updateProfile']);
+    Route::post('profile/photo', [TenantPortalController::class, 'uploadProfilePhoto']);
+    Route::delete('profile/photo', [TenantPortalController::class, 'removeProfilePhoto']);
     Route::get('payments', [TenantPortalController::class, 'payments']);
     Route::post('payments', [TenantPortalController::class, 'storePayment']);
     Route::get('maintenance-requests', [TenantMaintenanceController::class, 'index']);
