@@ -762,6 +762,37 @@ function TenantPaymentsPage() {
             </div>
           )}
         </section>
+
+        <section className="tp-section" aria-label="Available payment methods">
+          <div className="tp-section__head">
+            <div>
+              <h2 className="tp-section__title">Payment options</h2>
+              <p className="tp-section__sub">Choose how you want to pay. Your property manager's payment destinations are shown here before you confirm a manual payment.</p>
+            </div>
+          </div>
+
+          <div className="tpay-methods" style={{ marginTop: "1rem" }}>
+            {paymentOptions.online.available && (
+              <button type="button" className="tpay-method" onClick={() => { setMethod("flutterwave"); setPayOpen(true); }}>
+                <CreditCard />
+                <span><strong style={{ display: "block" }}>Pay online</strong><small style={{ color: "var(--tp-muted)" }}>Secure checkout by M-PESA, card or bank transfer.</small></span>
+              </button>
+            )}
+            {paymentOptions.destinations.map((destination) => (
+              <button key={destination.id} type="button" className="tpay-method" onClick={() => {
+                setMethod(destination.method === "bank" ? "bank_transfer" : "mpesa");
+                setDestinationId(String(destination.id));
+                setPayOpen(true);
+              }}>
+                {destination.method === "bank" ? <Building2 /> : <Smartphone />}
+                <span><strong style={{ display: "block" }}>{destinationLabel(destination)}</strong><small style={{ color: "var(--tp-muted)" }}>{destinationDetail(destination)}</small></span>
+              </button>
+            ))}
+            {!paymentOptions.online.available && paymentOptions.destinations.length === 0 && (
+              <div className="tp-card tp-empty"><Wallet /><p className="tp-empty__text">No payment destinations have been configured yet.</p></div>
+            )}
+          </div>
+        </section>
  
         <section className="tp-section" aria-label="Payment history">
           <div className="tp-section__head">
