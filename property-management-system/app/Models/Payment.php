@@ -47,6 +47,11 @@ class Payment extends Model
         return $this->belongsTo(RentObligation::class, 'rent_obligation_id');
     }
 
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
     public function paymentDestination()
     {
         return $this->belongsTo(PaymentDestination::class, 'payment_destination_id');
