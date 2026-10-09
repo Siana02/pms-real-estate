@@ -59,10 +59,11 @@ class RegisterDarajaC2bShortcodes extends Command
                 continue;
             }
 
+            $wasRegistered = $registration->exists && $registration->status === 'registered';
             $token = $registration->callback_token ?: Str::random(48);
             $registration->callback_token = $token;
             $registration->callback_token_hash = hash('sha256', $token);
-            $registration->status = 'pending';
+            $registration->status = $wasRegistered ? 'registered' : 'pending';
             $registration->last_error = null;
             $registration->save();
 
@@ -94,7 +95,7 @@ class RegisterDarajaC2bShortcodes extends Command
             } catch (Throwable $exception) {
                 $failed++;
                 $registration->update([
-                    'status' => 'action_required',
+                    'status' => $wasRegistered ? 'registered' : 'action_required',
                     'last_error' => mb_substr($exception::class . ': ' . $exception->getMessage(), 0, 2000),
                 ]);
                 $this->error("Registration failed for shortcode {$shortcode}; check app permissions, environment and merchant authorization.");
