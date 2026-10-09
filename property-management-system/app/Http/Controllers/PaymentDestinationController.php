@@ -47,12 +47,23 @@ class PaymentDestinationController extends Controller
             'label' => ['nullable', 'string', 'max:100'],
             'details' => ['required', 'array'],
             'is_active' => ['nullable', 'boolean'],
+            'daraja_shortcode_type' => ['nullable', 'in:PayBill,Till'],
+            'daraja_passkey' => ['nullable', 'string', 'max:1000'],
+            'account_reference_format' => ['nullable', 'string', 'max:120', 'regex:/^[A-Za-z0-9\/{}_-]+$/'],
         ]);
 
         $property = Property::where('organization_id', $request->user()->organization_id)
             ->findOrFail($validated['property_id']);
 
         $details = $this->validateDetails($validated['method'], $validated['details']);
+        $isDarajaMethod = in_array($validated['method'], ['mpesa_till', 'mpesa_paybill'], true);
+        $shortcodeType = $validated['daraja_shortcode_type'] ?? ($validated['method'] === 'mpesa_till' ? 'Till' : ($validated['method'] === 'mpesa_paybill' ? 'PayBill' : null));
+        abort_if($isDarajaMethod && $shortcodeType !== ($validated['method'] === 'mpesa_till' ? 'Till' : 'PayBill'), 422,
+            'The Daraja shortcode type must match the selected payment destination.');
+
+        $passkey = filled($validated['daraja_passkey'] ?? null) ? trim($validated['daraja_passkey']) : null;
+        $hasConfig = $isDarajaMethod && filled($passkey) && filled($shortcodeType);
+        $referenceFormat = $this->validateReferenceFormat($validated['account_reference_format'] ?? null);
 
         $destination = PaymentDestination::create([
             'organization_id' => $request->user()->organization_id,
@@ -61,6 +72,11 @@ class PaymentDestinationController extends Controller
             'label' => $validated['label'] ?? null,
             'details' => $details,
             'is_active' => $validated['is_active'] ?? true,
+            'daraja_shortcode_type' => $isDarajaMethod ? $shortcodeType : null,
+            'daraja_passkey' => $isDarajaMethod ? $passkey : null,
+            'daraja_authorization_status' => $hasConfig ? 'awaiting_merchant_authorization' : 'not_configured',
+            'account_reference_format' => $isDarajaMethod ? $referenceFormat : null,
+            'c2b_registration_status' => 'not_registered',
         ]);
 
         app(AuditLogService::class)->record(
@@ -68,12 +84,12 @@ class PaymentDestinationController extends Controller
             "Added {$this->methodLabel($destination->method)} payment destination for {$property->name}.",
             $destination,
             [],
-            ['method' => $destination->method, 'active' => true],
+            ['method' => $destination->method, 'active' => $destination->is_active, 'daraja_status' => $destination->daraja_authorization_status],
             $request
         );
 
         return response()->json([
-            'message' => 'Payment destination added.',
+            'message' => 'Payment destination added. Daraja merchant authorization is not yet verified.',
             'data' => $this->payload($destination->load('property:id,name')),
         ], 201);
     }
@@ -88,20 +104,61 @@ class PaymentDestinationController extends Controller
             'label' => ['nullable', 'string', 'max:100'],
             'details' => ['sometimes', 'required', 'array'],
             'is_active' => ['sometimes', 'boolean'],
+            'daraja_shortcode_type' => ['sometimes', 'nullable', 'in:PayBill,Till'],
+            'daraja_passkey' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'account_reference_format' => ['sometimes', 'nullable', 'string', 'max:120', 'regex:/^[A-Za-z0-9\/{}_-]+$/'],
         ]);
 
         $method = $validated['method'] ?? $paymentDestination->method;
         $details = array_key_exists('details', $validated)
             ? $this->validateDetails($method, $validated['details'])
             : $paymentDestination->details;
+        $isDarajaMethod = in_array($method, ['mpesa_till', 'mpesa_paybill'], true);
+        $expectedType = $method === 'mpesa_till' ? 'Till' : ($method === 'mpesa_paybill' ? 'PayBill' : null);
+        $shortcodeType = array_key_exists('daraja_shortcode_type', $validated)
+            ? $validated['daraja_shortcode_type']
+            : ($isDarajaMethod ? ($paymentDestination->daraja_shortcode_type ?: $expectedType) : null);
+        abort_if($isDarajaMethod && $shortcodeType !== $expectedType, 422,
+            'The Daraja shortcode type must match the selected payment destination.');
 
-        $old = ['method' => $paymentDestination->method, 'is_active' => $paymentDestination->is_active];
+        $oldShortcode = $paymentDestination->darajaShortcode();
+        $newShortcode = match ($method) {
+            'mpesa_paybill' => (string) ($details['paybill'] ?? ''),
+            'mpesa_till' => (string) ($details['till'] ?? ''),
+            default => null,
+        };
+        $merchantChanged = $method !== $paymentDestination->method
+            || $oldShortcode !== $newShortcode
+            || $shortcodeType !== $paymentDestination->daraja_shortcode_type;
+        $passkeyWasSubmitted = array_key_exists('daraja_passkey', $validated);
+        $passkey = $passkeyWasSubmitted
+            ? (filled($validated['daraja_passkey']) ? trim($validated['daraja_passkey']) : null)
+            : ($merchantChanged ? null : $paymentDestination->daraja_passkey);
+        $hasConfig = $isDarajaMethod && filled($newShortcode) && filled($passkey) && filled($shortcodeType);
+        $referenceFormat = array_key_exists('account_reference_format', $validated)
+            ? $this->validateReferenceFormat($validated['account_reference_format'])
+            : $paymentDestination->account_reference_format;
+
+        $old = [
+            'method' => $paymentDestination->method,
+            'is_active' => $paymentDestination->is_active,
+            'daraja_authorization_status' => $paymentDestination->daraja_authorization_status,
+        ];
 
         $paymentDestination->update([
             'method' => $method,
             'label' => array_key_exists('label', $validated) ? $validated['label'] : $paymentDestination->label,
             'details' => $details,
             'is_active' => array_key_exists('is_active', $validated) ? $validated['is_active'] : $paymentDestination->is_active,
+            'daraja_shortcode_type' => $isDarajaMethod ? $shortcodeType : null,
+            'daraja_passkey' => $isDarajaMethod ? $passkey : null,
+            'daraja_authorization_status' => $hasConfig
+                ? (($merchantChanged || $passkeyWasSubmitted) ? 'awaiting_merchant_authorization' : $paymentDestination->daraja_authorization_status)
+                : 'not_configured',
+            'daraja_authorization_checked_at' => ($merchantChanged || $passkeyWasSubmitted) ? null : $paymentDestination->daraja_authorization_checked_at,
+            'account_reference_format' => $isDarajaMethod ? $referenceFormat : null,
+            'c2b_registration_status' => ($merchantChanged || $passkeyWasSubmitted) ? 'not_registered' : $paymentDestination->c2b_registration_status,
+            'c2b_registered_at' => ($merchantChanged || $passkeyWasSubmitted) ? null : $paymentDestination->c2b_registered_at,
         ]);
 
         app(AuditLogService::class)->record(
@@ -109,12 +166,12 @@ class PaymentDestinationController extends Controller
             "Updated {$this->methodLabel($paymentDestination->method)} payment destination.",
             $paymentDestination,
             $old,
-            ['method' => $paymentDestination->method, 'is_active' => $paymentDestination->is_active],
+            ['method' => $paymentDestination->method, 'is_active' => $paymentDestination->is_active, 'daraja_authorization_status' => $paymentDestination->daraja_authorization_status],
             $request
         );
 
         return response()->json([
-            'message' => 'Payment destination updated.',
+            'message' => 'Payment destination updated. Any changed Daraja merchant configuration must be re-verified.',
             'data' => $this->payload($paymentDestination->fresh('property:id,name')),
         ]);
     }
@@ -177,6 +234,20 @@ class PaymentDestinationController extends Controller
         return $digits;
     }
 
+    private function validateReferenceFormat(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+        abort_if(!str_contains($value, '{unit}') && !str_contains($value, '{lease}'), 422,
+            'Account-reference format must contain {unit} or {lease}, for example 51683/{unit}.');
+        abort_if(preg_match('/\{(?!unit\}|lease\})/', $value), 422,
+            'Only the {unit} and {lease} placeholders are supported.');
+        return $value;
+    }
+
     private function requiredString(mixed $value, string $label): string
     {
         $value = trim((string) $value);
@@ -186,6 +257,10 @@ class PaymentDestinationController extends Controller
 
     private function payload(PaymentDestination $destination): array
     {
+        $platformConfigured = (bool) config('daraja.platform_enabled')
+            && filled(config('daraja.consumer_key'))
+            && filled(config('daraja.consumer_secret'));
+
         return [
             'id' => $destination->id,
             'property_id' => $destination->property_id,
@@ -194,6 +269,17 @@ class PaymentDestinationController extends Controller
             'label' => $destination->label,
             'details' => $destination->details,
             'is_active' => $destination->is_active,
+            'account_reference_format' => $destination->account_reference_format,
+            'daraja' => [
+                'shortcode_type' => $destination->daraja_shortcode_type,
+                'has_passkey' => filled($destination->daraja_passkey),
+                'authorization_status' => $destination->daraja_authorization_status,
+                'authorization_checked_at' => $destination->daraja_authorization_checked_at?->toIso8601String(),
+                'c2b_registration_status' => $destination->c2b_registration_status,
+                'c2b_registered_at' => $destination->c2b_registered_at?->toIso8601String(),
+                'platform_configured' => $platformConfigured,
+                'stk_push_available' => $destination->stkPushReady(),
+            ],
         ];
     }
 
