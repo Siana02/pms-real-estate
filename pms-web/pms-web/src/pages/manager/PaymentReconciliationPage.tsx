@@ -72,7 +72,8 @@ function ResolveDrawer({transaction,leases,destinations,onClose,onDone}:{transac
   return d.is_active&&d.daraja?.c2b_authorization_status==="ready"&&shortcodeValue===shortcode&&(candidateIds.length===0||candidateIds.includes(d.id));
  });
  const chosenDestination=eligibleDestinations.find(d=>String(d.id)===destinationId);
- const eligibleLeases=chosenDestination?leases.filter(l=>l.property_id===chosenDestination.property_id):leases;
+ const selectedPropertyId=transaction.paymentDestination?.propertyId??chosenDestination?.property_id;
+ const eligibleLeases=selectedPropertyId?leases.filter(l=>l.property_id===selectedPropertyId):leases;
  async function resolve(){
   if(!leaseId||(isC2b&&!destinationId))return;
   setSaving(true);setError("");
