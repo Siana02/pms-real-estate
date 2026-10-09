@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Leases;
 use App\Models\PaymentDestination;
 use App\Models\PaymentTransaction;
+use App\Models\DarajaC2bEvent;
 use App\Services\AuditLogService;
 use App\Services\PaymentReconciliationService;
 use Illuminate\Http\JsonResponse;
@@ -65,6 +66,7 @@ class PaymentReconciliationController extends Controller
 
         if ($isC2b) {
             abort_if(!$destination, 422, 'Select the correct property payment destination before resolving this C2B payment.');
+            abort_if(!$destination->is_active || $destination->c2b_authorization_status !== 'ready', 422, 'The selected destination is not active and verified for C2B.');
             abort_if((string) $destination->darajaShortcode() !== (string) ($payload['business_short_code'] ?? ''),
                 422, 'The selected destination shortcode does not match the received M-PESA payment.');
 
@@ -93,6 +95,16 @@ class PaymentReconciliationController extends Controller
 
         $before = $paymentTransaction->status;
         $transaction = $service->resolve($paymentTransaction, $lease);
+
+        if ($isC2b && !empty($payload['c2b_event_id'])) {
+            DarajaC2bEvent::whereKey((int) $payload['c2b_event_id'])->update([
+                'organization_id' => $transaction->organization_id,
+                'payment_destination_id' => $destination?->id,
+                'payment_transaction_id' => $transaction->id,
+                'status' => 'routed',
+                'review_reason' => null,
+            ]);
+        }
 
         app(AuditLogService::class)->record(
             'PAYMENT_TRANSACTION_RECONCILED',
