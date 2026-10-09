@@ -299,6 +299,7 @@ class DarajaController extends Controller
         $receipt = (string) ($items->get('MpesaReceiptNumber') ?? '');
         $amount = (float) ($items->get('Amount') ?? 0);
         $phone = (string) ($items->get('PhoneNumber') ?? $checkout->phone);
+        $transactionAt = $this->transactionDate($items->get('TransactionDate'));
 
         if ($receipt === '' || $amount <= 0) {
             $checkout->update(['status' => 'needs_review', 'callback_payload' => $payload]);
@@ -332,7 +333,7 @@ class DarajaController extends Controller
                         'currency' => 'KES',
                         'payer_phone' => null,
                         'payment_reference' => 'DAR-REVIEW-' . $locked->id,
-                        'transaction_at' => now(),
+                        'transaction_at' => $transactionAt,
                         'raw_payload' => ['source' => 'stk_callback', 'amount_mismatch' => true],
                     ]);
                     return;
