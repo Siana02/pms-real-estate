@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\DarajaIntegration;
 use App\Models\PaymentDestination;
+use App\Models\OrganizationDarajaCredential;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -11,19 +11,21 @@ use RuntimeException;
 
 class DarajaService
 {
-    public function accessToken(?DarajaIntegration $legacyIntegration = null): string
+    public function accessToken(PaymentDestination $destination): string
     {
         $environment = (string) config('daraja.environment', 'sandbox');
-        $consumerKey = config('daraja.consumer_key');
-        $consumerSecret = config('daraja.consumer_secret');
+        $credential = OrganizationDarajaCredential::where('organization_id', $destination->organization_id)->first();
 
-        if (!config('daraja.platform_enabled') || !filled($consumerKey) || !filled($consumerSecret)) {
-            throw new RuntimeException('The MARSWebz Daraja platform integration is not configured.');
+        if (!$credential || !$credential->isConfigured()) {
+            throw new RuntimeException('This organization has not configured its own Daraja consumer key and consumer secret.');
         }
 
-        $cacheKey = 'daraja:platform-token:' . $environment;
-        return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($consumerKey, $consumerSecret, $environment) {
-            $response = Http::withBasicAuth((string) $consumerKey, (string) $consumerSecret)
+        $consumerKey = (string) $credential->consumer_key;
+        $consumerSecret = (string) $credential->consumer_secret;
+        $cacheKey = 'daraja:organization-token:' . $environment . ':' . $destination->organization_id . ':' . hash('sha256', $consumerKey);
+
+        return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($consumerKey, $consumerSecret) {
+            $response = Http::withBasicAuth($consumerKey, $consumerSecret)
                 ->acceptJson()->timeout(15)
                 ->get($this->baseUrl() . '/oauth/v1/generate', ['grant_type' => 'client_credentials']);
             $response->throw();
@@ -65,7 +67,7 @@ class DarajaService
             'TransactionDesc' => 'Rent payment',
         ];
 
-        $response = Http::withToken($this->accessToken())
+        $response = Http::withToken($this->accessToken($destination))
             ->acceptJson()->asJson()->timeout(20)
             ->post($this->baseUrl() . '/mpesa/stkpush/v1/processrequest', $payload);
         $response->throw();
@@ -120,12 +122,16 @@ class DarajaService
     }
 
     /**
-     * Register the canonical C2B callback pair for one platform-managed shortcode.
-     * Callers must use the shared registration record; never register per organization.
+     * Register the shared C2B callback pair using the owning organization's Daraja app.
      */
-    public function registerC2BUrls(string $shortcode, string $confirmationUrl, string $validationUrl): array
+    public function registerC2BUrls(PaymentDestination $destination, string $confirmationUrl, string $validationUrl): array
     {
-        $response = Http::withToken($this->accessToken())
+        $shortcode = $destination->darajaShortcode();
+        if (!filled($shortcode)) {
+            throw new RuntimeException('A merchant shortcode is required for C2B registration.');
+        }
+
+        $response = Http::withToken($this->accessToken($destination))
             ->acceptJson()->asJson()->timeout(20)
             ->post($this->baseUrl() . '/mpesa/c2b/v1/registerurl', [
                 'ShortCode' => $shortcode,
@@ -143,7 +149,24 @@ class DarajaService
         return $data;
     }
 
-    public function baseUrl(?DarajaIntegration $legacyIntegration = null): string
+    /**
+     * Sandbox STK requests must use Safaricom's published Lipa Na M-Pesa Online
+     * test shortcode/passkey, not a real merchant shortcode.
+     */
+    private function assertEnvironmentShortcode(PaymentDestination $destination, ?string $shortcode): void
+    {
+        if (config('daraja.environment', 'sandbox') !== 'sandbox') {
+            return;
+        }
+
+        if ($destination->daraja_shortcode_type !== 'PayBill' || $shortcode !== '174379') {
+            throw new RuntimeException(
+                'Daraja sandbox STK testing requires the Safaricom sandbox PayBill shortcode 174379 and its sandbox passkey. A real PayBill/Till must use verified production credentials and authorization.'
+            );
+        }
+    }
+
+    public function baseUrl(): string
     {
         return config('daraja.environment', 'sandbox') === 'production'
             ? 'https://api.safaricom.co.ke'
