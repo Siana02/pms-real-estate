@@ -37,6 +37,7 @@ class DarajaController extends Controller
             'has_consumer_key' => (bool) $integration?->consumer_key,
             'has_consumer_secret' => (bool) $integration?->consumer_secret,
             'has_passkey' => (bool) $integration?->passkey,
+            'c2b_registered_at' => $integration?->c2b_registered_at,
             'c2b_registered_at' => $integration?->c2b_registered_at?->toIso8601String(),
             'stk_callback_url' => $callbacks['stk'],
             'c2b_confirmation_url' => $callbacks['confirmation'],
@@ -146,6 +147,36 @@ class DarajaController extends Controller
             'message' => 'C2B confirmation and validation URLs registered with Safaricom.',
             'c2b_registered_at' => $integration->fresh()->c2b_registered_at?->toIso8601String(),
         ]);
+    }
+
+
+    public function registerC2B(Request $request, DarajaService $daraja): JsonResponse
+    {
+        $this->authorizeManager($request);
+        $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->firstOrFail();
+        abort_if(!$integration->enabled, 422, 'Enable Daraja before registering C2B callbacks.');
+        abort_if($integration->shortcode_type !== 'PayBill', 422, 'Daraja C2B URL registration is supported for PayBill shortcodes. Till direct-payment callbacks depend on Safaricom provisioning; STK Push remains available.');
+
+        $urls = $this->callbackUrls($integration);
+        abort_if(!str_starts_with((string) config('app.url'), 'https://'), 422, 'C2B callback registration requires APP_URL to use HTTPS.');
+
+        try {
+            $result = $daraja->registerC2BUrls($integration, $urls['c2b_confirmation_url'], $urls['c2b_validation_url']);
+        } catch (Throwable $exception) {
+            Log::warning('Daraja C2B URL registration failed.', [
+                'organization_id' => $integration->organization_id,
+                'exception' => $exception::class,
+            ]);
+            return response()->json(['message' => 'Safaricom could not register the C2B URLs. Check the shortcode, Daraja app permissions, environment and callback URL, then try again.'], 422);
+        }
+
+        $integration->update(['c2b_registered_at' => now()]);
+
+        return response()->json([
+            'message' => 'C2B confirmation and validation URLs registered with Safaricom.',
+            'c2b_registered_at' => $integration->fresh()->c2b_registered_at,
+            'response_description' => $result['ResponseDescription'] ?? 'Success',
+        ] + $urls);
     }
 
     public function initiateStk(Request $request, DarajaService $daraja): JsonResponse
