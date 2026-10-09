@@ -134,7 +134,9 @@ class PaymentDestinationController extends Controller
         $merchantChanged = $method !== $paymentDestination->method
             || $oldShortcode !== $newShortcode
             || $shortcodeType !== $paymentDestination->daraja_shortcode_type;
+        $reactivated = !$paymentDestination->is_active && (bool) ($validated['is_active'] ?? false);
         $passkeyWasSubmitted = array_key_exists('daraja_passkey', $validated);
+        $stkAuthorizationChanged = $merchantChanged || $passkeyWasSubmitted || $reactivated;
         $passkey = $passkeyWasSubmitted
             ? (filled($validated['daraja_passkey']) ? trim($validated['daraja_passkey']) : null)
             : ($merchantChanged ? null : $paymentDestination->daraja_passkey);
@@ -160,15 +162,15 @@ class PaymentDestinationController extends Controller
                 ? ($paymentDestination->daraja_callback_token ?: Str::random(48))
                 : null,
             'daraja_authorization_status' => $hasConfig
-                ? (($merchantChanged || $passkeyWasSubmitted) ? 'awaiting_merchant_authorization' : $paymentDestination->daraja_authorization_status)
+                ? ($stkAuthorizationChanged ? 'awaiting_merchant_authorization' : $paymentDestination->daraja_authorization_status)
                 : 'not_configured',
-            'daraja_authorization_checked_at' => ($merchantChanged || $passkeyWasSubmitted) ? null : $paymentDestination->daraja_authorization_checked_at,
+            'daraja_authorization_checked_at' => $stkAuthorizationChanged ? null : $paymentDestination->daraja_authorization_checked_at,
             'account_reference_format' => $isDarajaMethod ? $referenceFormat : null,
             'c2b_registration_status' => $merchantChanged ? 'not_registered' : $paymentDestination->c2b_registration_status,
             'c2b_authorization_status' => $isDarajaMethod
-                ? ($merchantChanged ? 'awaiting_merchant_authorization' : ($paymentDestination->c2b_authorization_status ?: 'not_configured'))
+                ? (($merchantChanged || $reactivated) ? 'awaiting_merchant_authorization' : ($paymentDestination->c2b_authorization_status ?: 'not_configured'))
                 : 'not_configured',
-            'c2b_authorization_checked_at' => $merchantChanged ? null : $paymentDestination->c2b_authorization_checked_at,
+            'c2b_authorization_checked_at' => ($merchantChanged || $reactivated) ? null : $paymentDestination->c2b_authorization_checked_at,
             'c2b_registered_at' => $merchantChanged ? null : $paymentDestination->c2b_registered_at,
         ]);
 
