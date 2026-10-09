@@ -382,6 +382,7 @@ interface PaymentDestination {
 interface PaymentOptions {
   destinations: PaymentDestination[];
   online: { available: boolean; label?: string; description?: string };
+  stk_push?: { available: boolean; label?: string; description?: string };
 }
  
 /* ------------------------------------------------------------------ */
@@ -527,6 +528,7 @@ function TenantPaymentsPage() {
   const [paymentOptions, setPaymentOptions] = useState<PaymentOptions>({
     destinations: [],
     online: { available: false },
+    stk_push: { available: false },
   });
  
   const [query, setQuery] = useState("");
@@ -790,6 +792,12 @@ function TenantPaymentsPage() {
                 <span><strong style={{ display: "block" }}>Pay online</strong><small style={{ color: "var(--tp-muted)" }}>Secure checkout by M-PESA, card or bank transfer.</small></span>
               </button>
             )}
+            {paymentOptions.stk_push?.available && (
+              <button type="button" className="tpay-method" onClick={() => { setMethod("mpesa_stk"); setPayOpen(true); }}>
+                <Smartphone />
+                <span><strong style={{ display: "block" }}>Pay with M-PESA prompt</strong><small style={{ color: "var(--tp-muted)" }}>Get a secure STK Push prompt on your phone.</small></span>
+              </button>
+            )}
             {paymentOptions.destinations.map((destination) => (
               <button key={destination.id} type="button" className="tpay-method" onClick={() => {
                 setMethod(destination.method === "bank" ? "bank_transfer" : "mpesa");
@@ -1034,8 +1042,10 @@ function TenantPaymentsPage() {
                     {METHODS.filter((option) =>
                       option.key === "flutterwave"
                         ? paymentOptions.online.available
-                        : option.key === "mpesa" || option.key === "mpesa_stk"
-                          ? paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill", "mpesa_number"].includes(item.method))
+                        : option.key === "mpesa_stk"
+                          ? Boolean(paymentOptions.stk_push?.available)
+                          : option.key === "mpesa"
+                            ? paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill", "mpesa_number"].includes(item.method))
                           : paymentOptions.destinations.some((item) => item.method === "bank")
                     ).map((option) => (
                       <button
