@@ -165,7 +165,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
             ], 200),
         ]);
 
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Invalid Access Token');
 
         app(DarajaService::class)->initiateStk(
