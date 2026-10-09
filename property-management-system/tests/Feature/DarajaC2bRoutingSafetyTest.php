@@ -117,6 +117,52 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertSame(1, PaymentTransaction::count());
     }
 
+    public function test_c2b_callback_can_link_to_the_same_verified_stk_receipt_when_reference_is_shortened(): void
+    {
+        $created = $this->createDestinationAndLease('STK Properties', 'stk-properties@example.test', '51683/{unit}');
+        $now = now();
+
+        $transactionId = DB::table('payment_transactions')->insertGetId([
+            'organization_id' => $created['organization_id'],
+            'payment_destination_id' => $created['destination_id'],
+            'provider' => 'mpesa_daraja',
+            'external_transaction_id' => 'STKRECEIPT01',
+            'amount' => 25000,
+            'currency' => 'KES',
+            'payer_phone' => '254712345678',
+            'payment_reference' => 'LEASE-' . $created['organization_id'],
+            'transaction_at' => '2026-10-09 12:00:00',
+            'status' => 'reconciled',
+            'matched_lease_id' => $created['lease_id'],
+            'reconciliation_note' => 'Confirmed by authenticated STK callback.',
+            'raw_payload' => json_encode(['source' => 'stk_callback', 'environment' => 'sandbox']),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $registration = DarajaC2bRegistration::create([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'callback_token_hash' => hash('sha256', 'stk-callback-token'),
+            'callback_token' => 'stk-callback-token',
+            'status' => 'registered',
+            'registered_at' => $now,
+        ]);
+
+        $event = app(DarajaC2bRoutingService::class)->receive($registration, [
+            'BusinessShortCode' => '123456',
+            'TransID' => 'STKRECEIPT01',
+            'TransAmount' => '25000.00',
+            'MSISDN' => '254712345678',
+            'BillRefNumber' => 'P1A',
+            'TransTime' => '20261009120000',
+        ], app(PaymentReconciliationService::class));
+
+        $this->assertSame('routed', $event->status);
+        $this->assertSame($transactionId, $event->payment_transaction_id);
+        $this->assertSame(1, PaymentTransaction::count());
+    }
+
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
     {
         $now = now();
