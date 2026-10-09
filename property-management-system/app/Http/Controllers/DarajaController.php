@@ -12,11 +12,8 @@ use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -25,92 +22,17 @@ class DarajaController extends Controller
     public function show(Request $request): JsonResponse
     {
         $this->authorizeManager($request);
-        $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->first();
-
         return response()->json([
-            'configured' => (bool) $integration,
-            'enabled' => (bool) $integration?->enabled,
-            'environment' => $integration?->environment ?? 'sandbox',
-            'shortcode' => $integration?->shortcode,
-            'shortcode_type' => $integration?->shortcode_type ?? 'PayBill',
-            'has_consumer_key' => (bool) $integration?->consumer_key,
-            'has_consumer_secret' => (bool) $integration?->consumer_secret,
-            'has_passkey' => (bool) $integration?->passkey,
-            'c2b_registered_at' => $integration?->c2b_registered_at?->toIso8601String(),
-            ...$this->callbackUrls($integration),
-        ]);
+            'message' => 'Daraja application credentials and C2B registration are managed by the MARSWebz platform, not organization settings.',
+        ], 410);
     }
 
     public function save(Request $request): JsonResponse
     {
         $this->authorizeManager($request);
-        $validated = $request->validate([
-            'environment' => ['required', Rule::in(['sandbox', 'production'])],
-            'shortcode' => ['required', 'string', 'regex:/^\d{5,7}$/'],
-            'shortcode_type' => ['required', Rule::in(['PayBill', 'Till'])],
-            'consumer_key' => ['nullable', 'string', 'max:500'],
-            'consumer_secret' => ['nullable', 'string', 'max:500'],
-            'passkey' => ['nullable', 'string', 'max:1000'],
-            'enabled' => ['required', 'boolean'],
-        ]);
-
-        if ($validated['environment'] === 'production' && !str_starts_with((string) config('app.url'), 'https://')) {
-            return response()->json([
-                'message' => 'Production Daraja requires APP_URL to use HTTPS so Safaricom can reach the callbacks.',
-            ], 422);
-        }
-
-        $organizationId = $request->user()->organization_id;
-        $existing = DarajaIntegration::where('organization_id', $organizationId)->first();
-        $environmentChanged = $existing && $existing->environment !== $validated['environment'];
-        $shortcodeChanged = $existing && $existing->shortcode !== $validated['shortcode'];
-        $configurationChanged = $environmentChanged || $shortcodeChanged;
-        $consumerKey = filled($validated['consumer_key'] ?? null)
-            ? trim($validated['consumer_key'])
-            : ($environmentChanged ? null : $existing?->consumer_key);
-        $consumerSecret = filled($validated['consumer_secret'] ?? null)
-            ? trim($validated['consumer_secret'])
-            : ($environmentChanged ? null : $existing?->consumer_secret);
-        $passkey = filled($validated['passkey'] ?? null)
-            ? trim($validated['passkey'])
-            : ($configurationChanged ? null : $existing?->passkey);
-
-        abort_if(!filled($consumerKey) || !filled($consumerSecret), 422,
-            'Consumer key and consumer secret are required for this Daraja environment.');
-        abort_if($validated['enabled'] && !filled($passkey), 422,
-            'Enter the passkey for the selected shortcode to enable STK Push.');
-
-        $integration = DarajaIntegration::updateOrCreate(
-            ['organization_id' => $organizationId],
-            [
-                'environment' => $validated['environment'],
-                'shortcode' => $validated['shortcode'],
-                'shortcode_type' => $validated['shortcode_type'],
-                'callback_token' => $existing?->callback_token ?: Str::random(48),
-                'consumer_key' => $consumerKey,
-                'consumer_secret' => $consumerSecret,
-                'passkey' => $passkey,
-                'enabled' => $validated['enabled'],
-                'c2b_registered_at' => $configurationChanged ? null : $existing?->c2b_registered_at,
-            ]
-        );
-
-        Cache::forget('daraja:token:' . $organizationId . ':sandbox');
-        Cache::forget('daraja:token:' . $organizationId . ':production');
-
         return response()->json([
-            'message' => 'Daraja settings saved. Credentials are encrypted at rest and never returned by the API.',
-            'configured' => true,
-            'enabled' => $integration->enabled,
-            'environment' => $integration->environment,
-            'shortcode' => $integration->shortcode,
-            'shortcode_type' => $integration->shortcode_type,
-            'has_consumer_key' => (bool) $integration->consumer_key,
-            'has_consumer_secret' => (bool) $integration->consumer_secret,
-            'has_passkey' => (bool) $integration->passkey,
-            'c2b_registered_at' => $integration->c2b_registered_at?->toIso8601String(),
-            ...$this->callbackUrls($integration),
-        ]);
+            'message' => 'Organization-level Daraja credentials are disabled. Configure platform credentials in the backend environment and merchant destinations in property settings.',
+        ], 410);
     }
 
     public function registerC2B(Request $request): JsonResponse
