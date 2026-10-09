@@ -15,6 +15,7 @@ class DarajaIntegration extends Model
         'consumer_key' => 'encrypted',
         'consumer_secret' => 'encrypted',
         'passkey' => 'encrypted',
+        'callback_token' => 'encrypted',
         'webhook_token' => 'encrypted',
         'c2b_registered_at' => 'datetime',
         'enabled' => 'boolean',
