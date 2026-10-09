@@ -1369,7 +1369,11 @@ class TenantPortalController extends Controller
     private function paymentOptionsPayload(?Lease $lease): array
     {
         if (!$lease) {
-            return ['destinations' => [], 'online' => ['available' => false], 'stk_push' => ['available' => false]];
+            return [
+                'destinations' => [],
+                'online' => ['available' => false],
+                'stk_push' => ['available' => false],
+            ];
         }
 
         $destinations = PaymentDestination::where('organization_id', $lease->organization_id)
@@ -1377,6 +1381,19 @@ class TenantPortalController extends Controller
             ->where('is_active', true)
             ->orderBy('id')
             ->get();
+
+        $daraja = DarajaIntegration::where('organization_id', $lease->organization_id)
+            ->where('enabled', true)->first();
+        $expectedMethod = $daraja?->shortcode_type === 'Till' ? 'mpesa_till' : 'mpesa_paybill';
+        $shortcodeKey = $expectedMethod === 'mpesa_till' ? 'till' : 'paybill';
+        $stkAvailable = $daraja
+            && filled($daraja->passkey)
+            && PaymentDestination::where('organization_id', $lease->organization_id)
+                ->where('property_id', $lease->property_id)
+                ->where('is_active', true)
+                ->where('method', $expectedMethod)
+                ->whereJsonContains('details->' . $shortcodeKey, $daraja->shortcode)
+                ->exists();
 
         return [
             'destinations' => $destinations->map(function (PaymentDestination $destination) {
@@ -1393,10 +1410,9 @@ class TenantPortalController extends Controller
                 'description' => 'Pay securely by M-PESA, card or bank transfer.',
             ],
             'stk_push' => [
-                'available' => DarajaIntegration::where('organization_id', $lease->organization_id)->where('enabled', true)->whereNotNull('passkey')->exists(),
+                'available' => (bool) $stkAvailable,
                 'label' => 'M-PESA STK Push',
                 'description' => 'Receive a secure M-PESA prompt on your phone.',
             ],
         ];
-    }
-}
+    }}
