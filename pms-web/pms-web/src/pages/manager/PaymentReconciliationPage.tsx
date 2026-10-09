@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, Clock3, RefreshCw, Search, Walle
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
 import { managerStyles } from "../../styles/managerUI";
-import { formatDate, formatMoney, readCurrency, rows, asNumber, asString, toRecord } from "../../services/format";
+import { formatDate, formatMoney, rows, asNumber, asString, toRecord } from "../../services/format";
 
 type ReconciliationStatus = "pending" | "reconciled" | "reconciled_with_credit" | "needs_review" | "unmatched";
 interface Allocation { id:number; amount:number; rentObligation:{id:number; period:string; due_date:string; amount_due:number}|null }
