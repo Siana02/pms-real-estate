@@ -95,6 +95,8 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
 Route::get('webhooks/flutterwave', fn () => response()->json(['message' => 'Use POST.'], 405));
 Route::post('webhooks/flutterwave', [FlutterwaveController::class, 'webhook']);
 Route::post('webhooks/daraja/stk', [DarajaController::class, 'stkCallback'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/{callbackToken}/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/{callbackToken}/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
