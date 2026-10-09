@@ -43,11 +43,66 @@ class PaymentReconciliationController extends Controller
     public function resolve(Request $request, PaymentTransaction $paymentTransaction, PaymentReconciliationService $service): JsonResponse
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403, 'Payment reconciliation requires payment editing permission.');
-        abort_if($paymentTransaction->organization_id!==$request->user()->organization_id,403);
-        $validated=$request->validate(['lease_id'=>['required','integer','exists:leases,id']]);
-        $lease=Leases::where('organization_id',$request->user()->organization_id)->findOrFail($validated['lease_id']);
-        $before=$paymentTransaction->status; $transaction=$service->resolve($paymentTransaction,$lease);
-        app(AuditLogService::class)->record('PAYMENT_TRANSACTION_RECONCILED','Manually matched an external payment transaction to a tenant rent obligation.',$transaction,['status'=>$before],['status'=>'reconciled','lease_id'=>$lease->id],$request);
-        return response()->json(['message'=>'Payment transaction reconciled.','data'=>$transaction]);
+        abort_if((int) $paymentTransaction->organization_id !== (int) $request->user()->organization_id, 403);
+
+        $validated = $request->validate([
+            'lease_id' => ['required', 'integer', 'exists:leases,id'],
+            'payment_destination_id' => ['nullable', 'integer', 'exists:payment_destinations,id'],
+        ]);
+        $lease = Leases::where('organization_id', $request->user()->organization_id)
+            ->findOrFail($validated['lease_id']);
+
+        $payload = $paymentTransaction->raw_payload ?? [];
+        $isC2b = ($payload['source'] ?? null) === 'c2b_confirmation';
+        $destination = null;
+
+        if (!empty($validated['payment_destination_id'])) {
+            $destination = PaymentDestination::where('organization_id', $request->user()->organization_id)
+                ->findOrFail($validated['payment_destination_id']);
+        } elseif ($paymentTransaction->payment_destination_id) {
+            $destination = $paymentTransaction->paymentDestination;
+        }
+
+        if ($isC2b) {
+            abort_if(!$destination, 422, 'Select the correct property payment destination before resolving this C2B payment.');
+            abort_if((string) $destination->darajaShortcode() !== (string) ($payload['business_short_code'] ?? ''),
+                422, 'The selected destination shortcode does not match the received M-PESA payment.');
+
+            $candidateIds = $payload['candidate_destination_ids'] ?? [];
+            if (is_array($candidateIds) && $candidateIds !== []) {
+                abort_unless(in_array((int) $destination->id, array_map('intval', $candidateIds), true),
+                    422, 'The selected destination was not among the destinations identified for this payment.');
+            }
+
+            if ($paymentTransaction->payment_destination_id
+                && (int) $paymentTransaction->payment_destination_id !== (int) $destination->id) {
+                abort(422, 'This payment is already associated with a different destination.');
+            }
+
+            if (!$paymentTransaction->payment_destination_id) {
+                $paymentTransaction->update(['payment_destination_id' => $destination->id]);
+                $paymentTransaction->refresh();
+            }
+        }
+
+        if ($destination) {
+            abort_if((int) $destination->organization_id !== (int) $lease->organization_id
+                || (int) $destination->property_id !== (int) $lease->property_id,
+                422, 'The selected lease does not belong to the selected payment destination.');
+        }
+
+        $before = $paymentTransaction->status;
+        $transaction = $service->resolve($paymentTransaction, $lease);
+
+        app(AuditLogService::class)->record(
+            'PAYMENT_TRANSACTION_RECONCILED',
+            'Manually matched an external payment transaction to a tenant rent obligation.',
+            $transaction,
+            ['status' => $before],
+            ['status' => $transaction->status, 'lease_id' => $lease->id, 'payment_destination_id' => $destination?->id],
+            $request
+        );
+
+        return response()->json(['message' => 'Payment transaction reconciled.','data' => $transaction]);
     }
 }
