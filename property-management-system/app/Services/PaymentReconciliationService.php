@@ -322,7 +322,7 @@ class PaymentReconciliationService
     private function paymentMethod(string $provider): string
     {
         return match (Str::lower($provider)) {
-            'mpesa', 'safaricom' => 'mpesa',
+            'mpesa', 'safaricom', 'mpesa_daraja' => 'mpesa',
             'flutterwave' => 'card',
             'bank' => 'bank_transfer',
             default => 'other',
