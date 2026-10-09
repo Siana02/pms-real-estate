@@ -95,6 +95,87 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         );
     }
 
+    public function test_stk_push_sends_the_prompt_request_with_the_organization_token_and_merchant_passkey(): void
+    {
+        Cache::flush();
+        config(['app.url' => 'https://pms.example.test']);
+        Http::fake([
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
+                'ResponseCode' => '0',
+                'ResponseDescription' => 'Success. Request accepted for processing',
+                'MerchantRequestID' => 'merchant-request-test',
+                'CheckoutRequestID' => 'ws_CO_test_stk_push',
+                'CustomerMessage' => 'Success. Request accepted for processing',
+            ], 200),
+        ]);
+
+        $result = app(DarajaService::class)->initiateStk(
+            $this->configuredDestination('ready'),
+            '254712345678',
+            2500,
+            'P1A'
+        );
+
+        $this->assertSame('ws_CO_test_stk_push', $result['CheckoutRequestID']);
+        Http::assertSent(fn (Request $request) =>
+            str_contains($request->url(), '/mpesa/stkpush/v1/processrequest')
+            && $request->hasHeader('Authorization', 'Bearer test-organization-token')
+            && $request['BusinessShortCode'] === '174379'
+            && $request['PartyA'] === '254712345678'
+            && $request['PhoneNumber'] === '254712345678'
+            && $request['PartyB'] === '174379'
+            && $request['TransactionType'] === 'CustomerPayBillOnline'
+            && $request['Amount'] === 2500
+            && $request['AccountReference'] === 'P1A'
+            && $request['TransactionDesc'] === 'Rent payment'
+            && $request['CallBackURL'] === 'https://pms.example.test/api/webhooks/daraja/callback-token-secret/stk'
+            && filled($request['Password'])
+            && preg_match('/^\\d{14}$/', (string) $request['Timestamp']) === 1
+        );
+    }
+
+    public function test_stk_push_rejects_unverified_destination_before_calling_safaricom(): void
+    {
+        Http::fake();
+
+        $this->expectException(\\RuntimeException::class);
+        $this->expectExceptionMessage('M-PESA STK Push is not ready for this property payment destination.');
+
+        try {
+            app(DarajaService::class)->initiateStk(
+                $this->configuredDestination('awaiting_merchant_authorization'),
+                '254712345678',
+                2500,
+                'P1A'
+            );
+        } finally {
+            Http::assertNothingSent();
+        }
+    }
+
+    public function test_stk_push_propagates_gateway_rejection_instead_of_reporting_a_prompt_as_sent(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
+                'ResponseCode' => '1',
+                'ResponseDescription' => 'Invalid Access Token',
+            ], 200),
+        ]);
+
+        $this->expectException(\\RuntimeException::class);
+        $this->expectExceptionMessage('Invalid Access Token');
+
+        app(DarajaService::class)->initiateStk(
+            $this->configuredDestination('ready'),
+            '254712345678',
+            2500,
+            'P1A'
+        );
+    }
+
     public function test_sandbox_query_rejects_a_real_merchant_shortcode(): void
     {
         $destination = $this->configuredDestination('ready');
