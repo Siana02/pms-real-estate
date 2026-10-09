@@ -21,30 +21,34 @@ type GuestLink = {
 };
 
 const styles = `
-.gpl-page { min-height:100vh; padding:clamp(1rem,3vw,2rem); background:var(--pms-page-bg, #f7f8fa); color:var(--pms-heading,#172b3f); }
+.gpl-page { min-height:100vh; padding:clamp(1rem,3vw,2rem); background:#f4f7fb; color:#172b3f; }
 .gpl-wrap { max-width:78rem; margin:0 auto; display:grid; gap:1rem; }
-.gpl-hero,.gpl-card { border:1px solid var(--pms-border-soft,#e4e9ee); border-radius:1rem; background:var(--pms-surface,#fff); padding:1.25rem; }
+.gpl-hero,.gpl-card { border:1px solid #dbe4ee; border-radius:1rem; background:#fff; padding:1.25rem; box-shadow:0 8px 24px rgba(20,45,70,.045); }
 .gpl-hero { display:flex; gap:1rem; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; }
 .gpl-kicker { margin:0 0 .35rem; color:var(--pms-muted,#718096); font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
-.gpl-title { margin:0; font-size:clamp(1.4rem,3vw,2rem); letter-spacing:-.035em; }
-.gpl-copy { max-width:52rem; margin:.55rem 0 0; color:var(--pms-muted,#64748b); line-height:1.6; font-size:.9rem; }
+.gpl-title { margin:0; color:#142b42 !important; font-size:clamp(1.65rem,3.2vw,2.25rem); line-height:1.2; font-weight:800; letter-spacing:-.035em; }
+.gpl-copy { max-width:52rem; margin:.55rem 0 0; color:#526579 !important; line-height:1.65; font-size:.92rem; }
 .gpl-note { display:flex; gap:.65rem; align-items:flex-start; padding:.85rem 1rem; border-radius:.75rem; background:#eff6ff; color:#1e4d7a; font-size:.83rem; line-height:1.5; }
 .gpl-note svg { width:1.1rem; flex:none; margin-top:.1rem; }
-.gpl-toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+.gpl-toolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; flex-wrap:wrap; padding:.25rem 0; }
+.gpl-toolbar strong { display:block; color:#142b42 !important; font-size:1.25rem; line-height:1.35; font-weight:800; }
+.gpl-toolbar .gpl-copy { margin-top:.35rem; }
 .gpl-btn { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; border:1px solid #d4dce4; border-radius:.65rem; padding:.62rem .8rem; background:#fff; color:#263e54; font:inherit; font-size:.82rem; font-weight:650; cursor:pointer; }
 .gpl-btn:disabled { opacity:.55; cursor:not-allowed; }
 .gpl-btn--primary { background:#183c5b; border-color:#183c5b; color:white; }
 .gpl-btn svg { width:1rem; height:1rem; }
 .gpl-list { display:grid; gap:.75rem; }
-.gpl-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1rem; align-items:center; border:1px solid var(--pms-border-soft,#e4e9ee); border-radius:.9rem; background:#fff; padding:1rem; }
-.gpl-row__title { margin:0; font-size:.98rem; font-weight:700; }
-.gpl-row__meta { display:flex; flex-wrap:wrap; gap:.35rem .75rem; margin-top:.35rem; color:var(--pms-muted,#64748b); font-size:.78rem; line-height:1.5; }
+.gpl-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1.25rem; align-items:center; border:1px solid #dbe4ee; border-radius:.9rem; background:#fff; padding:1.25rem; box-shadow:0 5px 18px rgba(20,45,70,.04); }
+.gpl-row__title { margin:0; color:#172b3f !important; font-size:1.05rem; line-height:1.35; font-weight:750; }
+.gpl-row__meta { display:flex; flex-wrap:wrap; gap:.4rem .85rem; margin-top:.5rem; color:#526579 !important; font-size:.82rem; line-height:1.55; }
 .gpl-row__status { display:flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#426d55; font-size:.75rem; }
 .gpl-row__status svg { width:.9rem; height:.9rem; }
 .gpl-row__actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.45rem; }
 .gpl-email { width:100%; max-width:21rem; margin-top:.7rem; padding:.6rem .7rem; border:1px solid #d8e0e7; border-radius:.55rem; color:inherit; background:#fff; font:inherit; font-size:.85rem; }
 .gpl-error { padding:.75rem .9rem; border:1px solid #f1c8c8; border-radius:.7rem; background:#fff5f5; color:#9a3333; font-size:.85rem; }
-.gpl-success { padding:.75rem .9rem; border:1px solid #bde4ca; border-radius:.7rem; background:#f2fbf5; color:#24663b; font-size:.85rem; }
+.gpl-success { padding:.75rem .9rem; border:1px solid #9ed9b1; border-radius:.7rem; background:#effaf2; color:#205c35; font-size:.85rem; line-height:1.5; }
+.gpl-row__feedback { grid-column:1 / -1; display:flex; align-items:flex-start; gap:.55rem; margin-top:.15rem; padding:.75rem .85rem; border:1px solid #9ed9b1; border-radius:.7rem; background:#effaf2; color:#205c35; font-size:.82rem; line-height:1.5; }
+.gpl-row__feedback svg { width:1rem; height:1rem; flex:none; margin-top:.1rem; }
 @media(max-width:700px) { .gpl-row { grid-template-columns:1fr; } .gpl-row__actions { justify-content:flex-start; } }
 `;
 
@@ -55,6 +59,7 @@ export default function ManagerGuestPaymentLinksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [messageLeaseId, setMessageLeaseId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,7 +81,7 @@ export default function ManagerGuestPaymentLinksPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function createLink(item: GuestLink) {
-    setBusy(item.lease_id); setError(""); setMessage("");
+    setBusy(item.lease_id); setError(""); setMessage(""); setMessageLeaseId(item.lease_id);
     try {
       const response = await apiRequest("/guest-payment-links", {
         method: "POST",
@@ -94,9 +99,15 @@ export default function ManagerGuestPaymentLinksPage() {
     } finally { setBusy(null); }
   }
 
-  async function copyLink(url: string) {
-    try { await navigator.clipboard.writeText(url); setMessage("Link copied. You can paste it into WhatsApp or another private conversation."); }
-    catch { setError("Clipboard access was blocked. Open the link and copy it from your browser's address bar."); }
+  async function copyLink(url: string, leaseId: number) {
+    setError("");
+    setMessageLeaseId(leaseId);
+    try {
+      await navigator.clipboard.writeText(url);
+      setMessage("Link copied. You can paste it into WhatsApp or another private conversation.");
+    } catch {
+      setMessage("Clipboard access was blocked. Select the URL field above and copy it manually.");
+    }
   }
 
   async function resendEmail(item: GuestLink) {
@@ -113,8 +124,7 @@ export default function ManagerGuestPaymentLinksPage() {
       </header>
       <div className="gpl-note"><ShieldCheck /><span>Links are long, private access tokens. Email is the default delivery method; you can also copy the same link and share it privately on WhatsApp. SMS delivery is not enabled.</span></div>
       {error && <div className="gpl-error" role="alert">{error}</div>}
-      {message && <div className="gpl-success" role="status">{message}</div>}
-      <div className="gpl-toolbar"><div><strong>Current tenancies</strong><p className="gpl-copy">Links are reused for the same lease, so refreshing this page will not invalidate a tenant's saved link.</p></div></div>
+      <div className="gpl-toolbar"><div><strong>Current tenancies</strong><p className="gpl-copy">Create or resend a tenant's secure payment link. Links are reused for the same lease, so refreshing this page will not invalidate a tenant's saved link.</p></div></div>
       {loading ? <div className="gpl-card"><LoaderCircle /> Loading tenancies…</div> :
         items.length === 0 ? <div className="gpl-card">No current tenancies are available for guest payment links.</div> :
         <div className="gpl-list">{items.map(item => <article className="gpl-row" key={item.lease_id}>
@@ -126,11 +136,12 @@ export default function ManagerGuestPaymentLinksPage() {
             {item.guest_url && <input className="gpl-email" aria-label="Guest payment URL" readOnly value={item.guest_url} onFocus={e => e.currentTarget.select()} />}
           </div>
           <div className="gpl-row__actions">
-            {item.guest_url && <button className="gpl-btn" onClick={() => void copyLink(item.guest_url!)}><Copy /> Copy link</button>}
+            {item.guest_url && <button className="gpl-btn" onClick={() => void copyLink(item.guest_url!, item.lease_id)}><Copy /> Copy link</button>}
             <button className="gpl-btn gpl-btn--primary" disabled={busy === item.lease_id} onClick={() => void (item.link_created ? resendEmail(item) : createLink(item))}>
               {busy === item.lease_id ? <LoaderCircle /> : item.link_created ? <Mail /> : <Wallet />}
               {busy === item.lease_id ? "Working…" : item.link_created ? "Email / resend" : "Create & email link"}
             </button>
+            {message && messageLeaseId === item.lease_id && <div className="gpl-row__feedback" role="status"><Check /> <span>{message}</span></div>}
           </div>
         </article>)}</div>}
       <p className="gpl-copy">Only leases that are currently active are listed. A new tenancy gets its own link; links from a previous lease cannot be used for the new tenant.</p>
