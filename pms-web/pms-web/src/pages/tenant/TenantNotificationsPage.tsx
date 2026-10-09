@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
 import { apiRequest } from "../../services/api";
 import {
@@ -11,9 +11,7 @@ import {
   CreditCard,
   Info,
   Megaphone,
-  Settings2,
   Wrench,
-  X,
 } from "lucide-react";
 
 type NotificationItem = {
@@ -75,12 +73,6 @@ const styles = `
 .tn-empty__icon { display:inline-flex; padding:.8rem; border-radius:50%; background:var(--tp-surface-tint); color:var(--tp-blue); }
 .tn-empty h3 { margin:.8rem 0 .3rem; font-size:.95rem; }
 .tn-empty p { margin:0 auto; max-width:28rem; color:var(--tp-muted); font-size:.82rem; line-height:1.5; }
-.tn-toast { position:fixed; right:1rem; bottom:1rem; z-index:100; display:flex; align-items:flex-start; gap:.7rem; width:min(24rem,calc(100vw - 2rem)); padding:.9rem; border:1px solid var(--tp-line); border-radius:.8rem; background:#fff; box-shadow:var(--tp-shadow-pop); }
-.tn-toast__icon { color:var(--tp-blue); }
-.tn-toast strong { display:block; font-size:.82rem; }
-.tn-toast span { display:block; margin-top:.2rem; color:var(--tp-muted); font-size:.74rem; }
-.tn-toast button { margin-left:auto; color:var(--tp-faint); }
-.tn-toast button svg { width:1rem; height:1rem; }
 @media (max-width:640px) {
   .tn-hero { flex-direction:column; }
   .tn-permission { width:100%; justify-content:space-between; }
@@ -118,14 +110,6 @@ function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
-  );
-  const [toast, setToast] = useState<NotificationItem | null>(null);
-  const itemsRef = useRef<Set<string>>(new Set());
-  const [desktopEnabled, setDesktopEnabled] = useState(
-    typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
-  );
 
   async function loadNotifications(initial = false) {
     try {
@@ -145,34 +129,13 @@ function NotificationsPage() {
     loadNotifications(true);
     const interval = window.setInterval(async () => {
       if (!active) return;
-      const next = await loadNotifications();
-      if (!next.length) return;
-      const known = itemsRef.current;
-      const fresh = next.filter((item) => !known.has(item.id));
-      if (fresh[0]) {
-        setToast(fresh[0]);
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification(fresh[0].title, {
-            body: fresh[0].body || "You have a new property portal update.",
-            tag: fresh[0].id,
-          });
-        }
-      }
-      itemsRef.current = new Set(next.map((item) => item.id));
+      // Keep updates in the persistent notification list instead of showing
+      // transient in-page or browser pop-ups that can obscure the portal.
+      await loadNotifications();
     }, 60000);
     return () => { active = false; window.clearInterval(interval); };
   }, []);
 
-
-  async function enableDesktopNotifications() {
-    if (!("Notification" in window)) {
-      setPermission("unsupported");
-      return;
-    }
-    const result = await Notification.requestPermission();
-    setPermission(result);
-    setDesktopEnabled(result === "granted");
-  }
 
   const filtered = useMemo(
     () => filter === "all" ? items : items.filter((item) => categoryOf(item) === filter),
@@ -196,13 +159,6 @@ function NotificationsPage() {
               <p>Stay on top of maintenance, rent and property announcements without hunting through separate sections of the portal.</p>
             </div>
           </div>
-          {permission === "default" && (
-            <div className="tn-permission">
-              <span>Get important updates on this device</span>
-              <button type="button" onClick={enableDesktopNotifications}><Bell /> Enable</button>
-            </div>
-          )}
-          {permission === "denied" && <div className="tn-permission"><span>Browser notifications are blocked.</span></div>}
         </section>
 
         <div className="tn-filters" aria-label="Notification categories">
@@ -245,25 +201,8 @@ function NotificationsPage() {
           </div>
         )}
 
-        <section className="tn-settings">
-          <div className="tn-settings__copy">
-            <Settings2 className="tn-settings__icon" />
-            <div>
-              <h3>Device notifications</h3>
-              <p>{desktopEnabled ? "This device can show property updates while the portal is open." : "Allow browser notifications to see new updates as they arrive."}</p>
-            </div>
-          </div>
-          <button type="button" className="tn-switch" data-on={desktopEnabled} onClick={enableDesktopNotifications} aria-label="Enable device notifications" />
-        </section>
       </div>
 
-      {toast && (
-        <div className="tn-toast" role="status">
-          <Bell className="tn-toast__icon" />
-          <div><strong>{toast.title}</strong><span>{toast.body || "New property portal update."}</span></div>
-          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss"><X /></button>
-        </div>
-      )}
     </TenantDashboardLayout>
   );
 }
