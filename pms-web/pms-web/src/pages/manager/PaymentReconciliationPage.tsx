@@ -10,7 +10,7 @@ type ReconciliationStatus = "pending" | "reconciled" | "reconciled_with_credit" 
 interface Allocation { id:number; amount:number; rentObligation:{id:number; period:string; due_date:string; amount_due:number}|null }
 interface Credit { id:number; amount:number; remaining_amount:number; status:string; notes:string|null }
 interface Transaction {
- id:number; provider:string; external_transaction_id:string; amount:number; currency:string; payer_phone:string|null;
+ id:number; provider:string; external_transaction_id:string; amount:number; currency:string; payer_phone:string|null; merchantShortcode:string|null; source:string|null;
  payment_reference:string|null; transaction_at:string; status:ReconciliationStatus; reconciliation_note:string|null;
  matchedLease:{id:number; tenant:{id:number;name:string}|null; property:{id:number;name:string}|null; unit:{id:number;unit_number:string}|null}|null;
  matchedRentObligation:{id:number;period:string;due_date:string;amount_due:number;balance:number;status:string}|null;
