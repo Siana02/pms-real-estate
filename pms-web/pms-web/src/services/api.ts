@@ -116,10 +116,10 @@ export async function downloadFile(path: string, fallbackFilename: string): Prom
   URL.revokeObjectURL(url);
 }
 
-export async function apiRequest(
+export async function apiRequest<T = unknown>(
   path: string,
   options: RequestInit = {}
-): Promise<unknown> {
+): Promise<T> {
   const headers = new Headers(options.headers);
 
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
@@ -172,5 +172,5 @@ export async function apiRequest(
     );
   }
 
-  return data;
+  return data as T;
 }
