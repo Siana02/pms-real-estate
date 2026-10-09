@@ -103,6 +103,7 @@ class ReviewDarajaC2bEvents extends Command
 
         $payload = [
             'source' => 'c2b_confirmation',
+            'environment' => $event->environment,
             'business_short_code' => $event->shortcode,
             'bill_reference' => $event->payment_reference,
             'c2b_event_id' => $event->id,
