@@ -8,7 +8,7 @@ class DarajaIntegration extends Model
 {
     protected $fillable = [
         'organization_id', 'environment', 'shortcode', 'shortcode_type', 'callback_token',
-        'consumer_key', 'consumer_secret', 'passkey', 'webhook_token', 'enabled', 'c2b_registered_at',
+        'consumer_key', 'consumer_secret', 'passkey', 'enabled', 'c2b_registered_at',
     ];
 
     protected $casts = [
@@ -16,7 +16,6 @@ class DarajaIntegration extends Model
         'consumer_secret' => 'encrypted',
         'passkey' => 'encrypted',
         'callback_token' => 'encrypted',
-        'webhook_token' => 'encrypted',
         'c2b_registered_at' => 'datetime',
         'enabled' => 'boolean',
     ];
