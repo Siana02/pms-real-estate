@@ -117,7 +117,7 @@ export default function ManagerGuestPaymentLinksPage() {
   return <DashboardLayout><style>{managerStyles}</style><style>{styles}</style>
     <main className="gpl-page"><div className="gpl-wrap">
       <header className="gpl-hero">
-        <div><p className="gpl-kicker">Tenant payment access</p><h1 className="gpl-title">Guest payment links</h1>
+        <div><p className="gpl-kicker">Tenant payment access</p><h1 className="gpl-title">Tenant payment links</h1>
           <p className="gpl-copy">Give tenants a way to pay without creating an account or signing in. Each link is tied to one lease, property and unit; it stays usable during that tenancy and stops working when the lease ends or is terminated.</p>
         </div>
         <button className="gpl-btn" onClick={() => void load()} disabled={loading}><RefreshCw /> Refresh</button>
