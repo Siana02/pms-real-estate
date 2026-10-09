@@ -65,7 +65,7 @@ class DarajaController extends Controller
         }
 
         abort_if(!filled($consumerKey) || !filled($consumerSecret), 422, 'Consumer key and consumer secret are required the first time you connect Daraja.');
-        abort_if($validated['enabled'] && $validated['shortcode_type'] !== 'Till' && !filled($passkey), 422, 'A passkey is required to enable STK Push.');
+        abort_if($validated['enabled'] && !filled($passkey), 422, 'A passkey is required to enable STK Push.');
 
         $integration = DarajaIntegration::updateOrCreate(
             ['organization_id' => $organizationId],
@@ -118,7 +118,11 @@ class DarajaController extends Controller
 
         $destination = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)->where('is_active', true)
-            ->whereIn('method', ['mpesa_till', 'mpesa_paybill'])->first();
+            ->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
+            ->where(function ($query) use ($integration) {
+                $query->whereJsonContains('details->paybill', $integration->shortcode)
+                    ->orWhereJsonContains('details->till', $integration->shortcode);
+            })->first();
         abort_if(!$destination, 422, 'Your property manager has not configured a PayBill or Till destination.');
 
         $phone = $daraja->normalizePhone($validated['phone']);
