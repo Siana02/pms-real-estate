@@ -1,16 +1,16 @@
 <?php
 
-namespace Tests\\Unit;
+namespace Tests\Unit;
 
-use App\\Models\\Organization;
-use App\\Models\\OrganizationDarajaCredential;
-use App\\Models\\PaymentDestination;
-use App\\Services\\DarajaService;
-use Illuminate\\Foundation\\Testing\\RefreshDatabase;
-use Illuminate\\Http\\Client\\Request;
-use Illuminate\\Support\\Facades\\Cache;
-use Illuminate\\Support\\Facades\\Http;
-use Tests\\TestCase;
+use App\Models\Organization;
+use App\Models\OrganizationDarajaCredential;
+use App\Models\PaymentDestination;
+use App\Services\DarajaService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
 
 class PaymentDestinationDarajaConfigurationTest extends TestCase
 {
@@ -100,7 +100,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $destination = $this->configuredDestination('ready');
         $destination->details = ['paybill' => '123456', 'account' => 'Rent'];
 
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Daraja sandbox STK testing requires the Safaricom sandbox PayBill shortcode 174379');
 
         app(DarajaService::class)->queryStk($destination, 'ws_CO_test_query');
