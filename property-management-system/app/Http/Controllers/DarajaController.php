@@ -239,7 +239,7 @@ class DarajaController extends Controller
         $checkout = DarajaStkCheckout::create([
             'organization_id' => $lease->organization_id,
             'lease_id' => $lease->id,
-            'payment_destination_id' => $destination?->id,
+            'payment_destination_id' => null,
             'account_reference' => substr($shortReference, 0, 12),
             'tenant_payment_reference' => $fullReference,
             'phone' => $phone,
@@ -383,12 +383,8 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Shortcode is not configured.']);
         }
 
-        $destination = PaymentDestination::where('organization_id', $integration->organization_id)
-            ->where('is_active', true)->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
-            ->where(function ($query) use ($shortcode) {
-                $query->whereJsonContains('details->paybill', $shortcode)
-                    ->orWhereJsonContains('details->till', $shortcode);
-            })->first();
+        // C2B shortcode is organization-wide and may receive payments for any of its properties.
+        // Leave the destination unset so reconciliation can match the full tenant reference across properties.
 
         try {
             $reconciliation->ingest([
