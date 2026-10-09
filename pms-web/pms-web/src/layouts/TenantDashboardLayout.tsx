@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { apiRequest } from "../services/api";
 import {
   Bell,
   Building2,
@@ -1187,7 +1188,7 @@ function TenantDashboardLayout({
               />
               {globalQuery.trim().length >= 2 && <div id="tenant-global-search-results" className="tp-search-results" role="status">
                 <div className="tp-search-results__meta">{globalSearchLoading ? "Searching your records…" : globalSearchError || (globalResults.length ? `${globalResults.length} matching records` : "No matching records found")}</div>
-                {!globalSearchLoading && !globalSearchError && globalResults.map(result => <button type="button" key={result.key} className="tp-search-result" onClick={() => { navigate(result.to); setGlobalQuery(""); }}><strong>{result.title}</strong><small>{result.detail || result.to.replace("/tenant/","").replaceAll("-"," ")}</small></button>)}
+                {!globalSearchLoading && !globalSearchError && globalResults.map(result => <button type="button" key={result.key} className="tp-search-result" onClick={() => { navigate(result.to); setGlobalQuery(""); }}><strong>{result.title}</strong><small>{result.detail || result.to.replace("/tenant/","").replace(/-/g," ")}</small></button>)}
               </div>}
             </div>
  
