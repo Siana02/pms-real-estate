@@ -95,7 +95,9 @@ class GuestTenantPaymentLinkController extends Controller
         $sent = false;
         $emailError = null;
 
-        if ($request->boolean('send_email', true) && $recipient !== '' && filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+        if ($request->boolean('send_email', true) && config('mail.default') === 'log') {
+            $emailError = 'Email is currently configured in log-only mode. Configure SMTP mail delivery to send automatically; the secure link is ready to copy.';
+        } elseif ($request->boolean('send_email', true) && $recipient !== '' && filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             $tenantName = trim(($lease->tenant?->first_name ?? '') . ' ' . ($lease->tenant?->last_name ?? '')) ?: 'Tenant';
             $organizationName = $lease->organization?->name ?? 'Property management';
             try {
