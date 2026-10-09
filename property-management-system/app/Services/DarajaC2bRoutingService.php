@@ -70,6 +70,45 @@ class DarajaC2bRoutingService
             $organizations = $destinations->pluck('organization_id')->unique()->values();
             $event->candidate_destination_ids = $destinations->pluck('id')->values()->all();
 
+            $existingReceipt = PaymentTransaction::where('provider', 'mpesa_daraja')
+                ->where('external_transaction_id', $receipt)
+                ->first();
+
+            if ($existingReceipt && $matches->count() === 1) {
+                $matchedLease = $matches->first()['lease'];
+                $matchedDestination = $matches->first()['destination'];
+                $sameDestination = (int) $existingReceipt->organization_id === (int) $matchedDestination->organization_id
+                    && (int) $existingReceipt->payment_destination_id === (int) $matchedDestination->id;
+                $sameLease = !$existingReceipt->matched_lease_id
+                    || (int) $existingReceipt->matched_lease_id === (int) $matchedLease->id;
+
+                if (!$sameDestination || !$sameLease) {
+                    $event->organization_id = null;
+                    $event->payment_destination_id = null;
+                    $event->payment_transaction_id = null;
+                    $event->status = 'needs_review';
+                    $event->review_reason = 'This M-PESA receipt is already recorded against a different organization, destination or lease. Automatic allocation is blocked.';
+                    $event->save();
+                    Log::critical('C2B receipt conflicts with an existing payment transaction.', [
+                        'event_id' => $event->id,
+                        'existing_transaction_id' => $existingReceipt->id,
+                        'existing_organization_id' => $existingReceipt->organization_id,
+                        'existing_destination_id' => $existingReceipt->payment_destination_id,
+                        'existing_lease_id' => $existingReceipt->matched_lease_id,
+                        'receipt' => $receipt,
+                    ]);
+                    return $event->fresh();
+                }
+            } elseif ($existingReceipt) {
+                $event->organization_id = null;
+                $event->payment_destination_id = null;
+                $event->payment_transaction_id = null;
+                $event->status = 'needs_review';
+                $event->review_reason = 'This M-PESA receipt already exists in the rent ledger but the callback reference does not identify the same destination and lease unambiguously.';
+                $event->save();
+                return $event->fresh();
+            }
+
             if ($matches->count() === 1) {
                 $match = $matches->first();
                 $destination = $match['destination'];
