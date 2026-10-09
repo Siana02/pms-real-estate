@@ -50,6 +50,7 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
     Route::get('organization/daraja', [DarajaController::class, 'show']);
     Route::put('organization/daraja', [DarajaController::class, 'save']);
+    Route::post('organization/daraja/register-c2b', [DarajaController::class, 'registerC2B'])->middleware('throttle:6,1');
     Route::get('organization/payment-destinations', [PaymentDestinationController::class, 'index']);
     Route::post('organization/payment-destinations', [PaymentDestinationController::class, 'store']);
     Route::patch('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'update']);
