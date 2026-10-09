@@ -15,15 +15,10 @@ class RegisterDarajaC2bShortcodes extends Command
         {--shortcode= : Register one shortcode only}
         {--force : Re-register callbacks even if already registered}';
 
-    protected $description = 'Register shared C2B callbacks once per shortcode using MARSWebz platform credentials';
+    protected $description = 'Register shared C2B callbacks once per shortcode using the owning organization Daraja credentials';
 
     public function handle(DarajaService $daraja): int
     {
-        if (!config('daraja.platform_enabled') || !filled(config('daraja.consumer_key')) || !filled(config('daraja.consumer_secret'))) {
-            $this->error('The MARSWebz platform Daraja credentials are not configured.');
-            return self::FAILURE;
-        }
-
         $base = rtrim((string) config('app.url'), '/');
         if (!str_starts_with($base, 'https://')) {
             $this->error('C2B registration requires a public HTTPS APP_URL.');
