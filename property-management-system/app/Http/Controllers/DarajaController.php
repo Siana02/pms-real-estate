@@ -383,7 +383,7 @@ class DarajaController extends Controller
             ?? $request->input('BillRefNumber')
             ?? '');
 
-        if (!$registration || ($shortcode !== '' && $shortcode !== $registration->shortcode)) {
+        if (!$registration || $shortcode === '' || $shortcode !== $registration->shortcode) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration']);
         }
 
