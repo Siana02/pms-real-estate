@@ -23,6 +23,7 @@ use App\Http\Controllers\PaymentDestinationController;
 use App\Http\Controllers\PaymentReconciliationController;
 use App\Http\Controllers\DarajaController;
 use App\Http\Controllers\OrganizationDarajaCredentialController;
+use App\Http\Controllers\GuestTenantPaymentLinkController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -40,12 +41,17 @@ Route::get('team/invitations/{token}', [TeamController::class, 'showInvitation']
 Route::post('team/invitations/{token}/accept', [TeamController::class, 'acceptInvitation']);
 Route::get('properties/{property}/available-units', [UnitController::class, 'availableForRegistration']);
 Route::get('properties/{property}/registration-availability', [UnitController::class, 'registrationAvailability']);
+Route::get('guest-payments/{token}', [GuestTenantPaymentLinkController::class, 'show'])->middleware('throttle:30,1');
+Route::post('guest-payments/{token}/stk-push', [GuestTenantPaymentLinkController::class, 'initiateStk'])->middleware('throttle:6,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('change-password', [AuthController::class, 'changePassword']);
 });
 
 Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
+    Route::get('guest-payment-links', [GuestTenantPaymentLinkController::class, 'index']);
+    Route::post('guest-payment-links', [GuestTenantPaymentLinkController::class, 'store'])->middleware('throttle:20,1');
+    Route::delete('guest-payment-links/{guestTenantPaymentLink}', [GuestTenantPaymentLinkController::class, 'revoke']);
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
