@@ -62,6 +62,27 @@ class DarajaService
         return $data;
     }
 
+
+    public function registerC2BUrls(DarajaIntegration $integration, string $confirmationUrl, string $validationUrl): array
+    {
+        $response = Http::withToken($this->accessToken($integration))
+            ->acceptJson()->asJson()->timeout(20)
+            ->post($this->baseUrl($integration) . '/mpesa/c2b/v1/registerurl', [
+                'ShortCode' => $integration->shortcode,
+                'ResponseType' => 'Completed',
+                'ConfirmationURL' => $confirmationUrl,
+                'ValidationURL' => $validationUrl,
+            ]);
+        $response->throw();
+        $data = $response->json();
+
+        if ((string) ($data['ResponseCode'] ?? '') !== '0') {
+            throw new RuntimeException($data['ResponseDescription'] ?? 'Safaricom did not register the C2B callback URLs.');
+        }
+
+        return $data;
+    }
+
     public function baseUrl(DarajaIntegration $integration): string
     {
         return $integration->environment === 'production'
