@@ -15,9 +15,11 @@ interface Transaction {
  matchedLease:{id:number; tenant:{id:number;name:string}|null; property:{id:number;name:string}|null; unit:{id:number;unit_number:string}|null}|null;
  matchedRentObligation:{id:number;period:string;due_date:string;amount_due:number;balance:number;status:string}|null;
  payment:{id:number; amount:number; allocations:Allocation[]; credits:Credit[]}|null;
- paymentDestination:{propertyName:string|null}|null;
+ paymentDestination:{id:number;propertyId:number;propertyName:string|null;method:string;details:Record<string,unknown>}|null;
+ rawPayload:Record<string,unknown>;
 }
-interface Lease { id:number; label:string }
+interface Lease { id:number; label:string; property_id:number }
+interface Destination { id:number; property_id:number; property_name:string|null; method:string; details:Record<string,unknown>; is_active:boolean; daraja?:{c2b_authorization_status?:string} }
 
 const STATUS: {id:ReconciliationStatus|"all";label:string}[]=[
  {id:"all",label:"All"}, {id:"needs_review",label:"Needs review"}, {id:"unmatched",label:"Unmatched"},
@@ -49,38 +51,60 @@ function parse(payload:unknown):Transaction[]{
    matchedLease:lease.id?{id:asNumber(lease.id),tenant:tenant.id?{id:asNumber(tenant.id),name:tenantName}:null,property:property.id?{id:asNumber(property.id),name:asString(property.name)}:null,unit:unit.id?{id:asNumber(unit.id),unit_number:asString(unit.unit_number)}:null}:null,
    matchedRentObligation:obligation.id?{id:asNumber(obligation.id),period:asString(obligation.period),due_date:asString(obligation.due_date),amount_due:asNumber(obligation.amount_due),balance:asNumber(obligation.balance),status:asString(obligation.status)}:null,
    payment:payment.id?{id:asNumber(payment.id),amount:asNumber(payment.amount),allocations,credits}:null,
-   paymentDestination:destination.id?{propertyName:asString(destinationProperty.name)||null}:null
+   paymentDestination:destination.id?{id:asNumber(destination.id),propertyId:asNumber(destination.property_id),propertyName:asString(destinationProperty.name)||asString(destination.property_name)||null,method:asString(destination.method),details:toRecord(destination.details)}:null,
+   rawPayload:toRecord(r.raw_payload)
   };
  });
 }
 function statusLabel(s:ReconciliationStatus){return s==="needs_review"?"Needs review":s==="unmatched"?"Unmatched":s==="reconciled_with_credit"?"Credit":"Reconciled";}
 function statusClass(s:ReconciliationStatus){return s==="reconciled"?"ok":s==="reconciled_with_credit"?"info":s==="needs_review"?"warn":s==="unmatched"?"danger":"muted";}
 
-function ResolveDrawer({transaction,leases,onClose,onDone}:{transaction:Transaction;leases:Lease[];onClose:()=>void;onDone:()=>void}){
+function ResolveDrawer({transaction,leases,destinations,onClose,onDone}:{transaction:Transaction;leases:Lease[];destinations:Destination[];onClose:()=>void;onDone:()=>void}){
  const [leaseId,setLeaseId]=useState(transaction.matchedLease?.id?String(transaction.matchedLease.id):"");
+ const [destinationId,setDestinationId]=useState(transaction.paymentDestination?.id?String(transaction.paymentDestination.id):"");
  const [saving,setSaving]=useState(false),[error,setError]=useState("");
+ const payload=transaction.rawPayload??{};
+ const isC2b=payload.source==="c2b_confirmation";
+ const shortcode=String(payload.business_short_code??"");
+ const candidateIds=Array.isArray(payload.candidate_destination_ids)?payload.candidate_destination_ids.map(Number):[];
+ const eligibleDestinations=destinations.filter(d=>{
+  const shortcodeValue=String(d.method==="mpesa_paybill"?(d.details.paybill??""):d.method==="mpesa_till"?(d.details.till??""):"");
+  return d.is_active&&d.daraja?.c2b_authorization_status==="ready"&&shortcodeValue===shortcode&&(candidateIds.length===0||candidateIds.includes(d.id));
+ });
+ const chosenDestination=eligibleDestinations.find(d=>String(d.id)===destinationId);
+ const eligibleLeases=chosenDestination?leases.filter(l=>l.property_id===chosenDestination.property_id):leases;
  async function resolve(){
-  if(!leaseId)return; setSaving(true);setError("");
-  try{await apiRequest(`/payment-reconciliation/transactions/${transaction.id}/resolve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lease_id:Number(leaseId)})});onDone();}
-  catch(e){setError(e instanceof Error?e.message:"Could not reconcile transaction.");}finally{setSaving(false);}
+  if(!leaseId||(isC2b&&!destinationId))return;
+  setSaving(true);setError("");
+  try{
+   const body:Record<string,number>={lease_id:Number(leaseId)};
+   if(isC2b)body.payment_destination_id=Number(destinationId);
+   await apiRequest(`/payment-reconciliation/transactions/${transaction.id}/resolve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+   onDone();
+  }catch(e){setError(e instanceof Error?e.message:"Could not reconcile transaction.");}finally{setSaving(false);}
  }
  return <div className="mg-drawer" role="dialog" aria-modal="true" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
   <div className="mg-drawer__panel">
-   <div className="mg-drawer__head"><div><h2 className="mg-drawer__title">Resolve payment</h2><p className="mg-drawer__sub">Choose the lease this external payment belongs to. The PMS will allocate it across the tenant's oldest outstanding rent first.</p></div><button className="mg-iconbtn" onClick={onClose} aria-label="Close"><X/></button></div>
+   <div className="mg-drawer__head"><div><h2 className="mg-drawer__title">Resolve payment</h2><p className="mg-drawer__sub">Choose the verified payment destination and lease. The PMS will allocate the payment across that lease's oldest outstanding rent first.</p></div><button className="mg-iconbtn" onClick={onClose} aria-label="Close"><X/></button></div>
    <div className="mg-drawer__body">
     {error&&<div className="mg-alert"><AlertCircle/><span>{error}</span></div>}
     <div className="mg-stat"><p className="mg-stat__label">Transaction</p><p className="mg-stat__value">{formatMoney(transaction.amount,transaction.currency)}</p><p className="mg-stat__hint">{transaction.external_transaction_id}</p></div>
-    <div className="mg-field"><label className="mg-label" htmlFor="resolve-lease">Lease / tenant</label><select id="resolve-lease" className="mg-select" value={leaseId} onChange={e=>setLeaseId(e.target.value)}><option value="">Choose the correct lease</option>{leases.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}</select></div>
+    {isC2b&&<div className="mg-field"><label className="mg-label" htmlFor="resolve-destination">Verified payment destination</label>
+     {transaction.paymentDestination?<p className="mg-strong">{transaction.paymentDestination.propertyName||"Property"} · {transaction.paymentDestination.method.replace("mpesa_","M-PESA ")}</p>:
+      <select id="resolve-destination" className="mg-select" value={destinationId} onChange={e=>{setDestinationId(e.target.value);setLeaseId("");}}><option value="">Choose the correct property destination</option>{eligibleDestinations.map(d=><option key={d.id} value={d.id}>{d.property_name||`Property #${d.property_id}`} · {d.method==="mpesa_paybill"?"PayBill":"Till"} · #{d.id}</option>)}</select>}
+     <p className="mg-hint">Shortcode: {shortcode||"not provided"}. The destination must have verified C2B authorization.</p>
+    </div>}
+    <div className="mg-field"><label className="mg-label" htmlFor="resolve-lease">Lease / tenant</label><select id="resolve-lease" className="mg-select" value={leaseId} onChange={e=>setLeaseId(e.target.value)}><option value="">Choose the correct lease</option>{eligibleLeases.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}</select></div>
+    {!eligibleLeases.length&&<p className="mg-hint">No leases are available for the selected property. Confirm the destination and lease records before resolving.</p>}
    </div>
-   <div className="mg-drawer__foot"><button className="mg-btn mg-btn--subtle" onClick={onClose}>Cancel</button><button className="mg-btn mg-btn--primary" disabled={!leaseId||saving} onClick={()=>void resolve()}><CheckCircle2/>{saving?"Resolving…":"Resolve payment"}</button></div>
+   <div className="mg-drawer__foot"><button className="mg-btn mg-btn--subtle" onClick={onClose}>Cancel</button><button className="mg-btn mg-btn--primary" disabled={!leaseId||(isC2b&&!destinationId)||saving} onClick={()=>void resolve()}><CheckCircle2/>{saving?"Resolving…":"Resolve payment"}</button></div>
   </div>
  </div>
 }
-
 function ReconciliationPage(){
- const currency=useMemo(readCurrency,[]); const [items,setItems]=useState<Transaction[]>([]),[leases,setLeases]=useState<Lease[]>([]);
+ const currency=useMemo(readCurrency,[]); const [items,setItems]=useState<Transaction[]>([]),[leases,setLeases]=useState<Lease[]>([]),[destinations,setDestinations]=useState<Destination[]>([]);
  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[query,setQuery]=useState(""),[filter,setFilter]=useState("all"),[selected,setSelected]=useState<Transaction|null>(null),[resolving,setResolving]=useState(false);
- const load=useCallback(async()=>{setLoading(true);setError("");try{const [p,l]=await Promise.all([apiRequest("/payment-reconciliation"),apiRequest("/leases")]);setItems(parse(p));setLeases(rows(l).map(r=>{const t=toRecord(r.tenant),u=toRecord(r.unit),pr=toRecord(r.property);return{id:asNumber(r.id),label:[asString(t.name)||`Lease #${asNumber(r.id)}`,asString(u.unit_number)?`· ${asString(u.unit_number)}`:"",asString(pr.name)?`· ${asString(pr.name)}`:""].filter(Boolean).join(" ")}}));}catch(e){setError(e instanceof Error?e.message:"Could not load reconciliation queue.");}finally{setLoading(false);}},[]);
+ const load=useCallback(async()=>{setLoading(true);setError("");try{const [p,l,d]=await Promise.all([apiRequest("/payment-reconciliation"),apiRequest("/leases"),apiRequest("/organization/payment-destinations")]);setItems(parse(p));setLeases(rows(l).map(r=>{const t=toRecord(r.tenant),u=toRecord(r.unit),pr=toRecord(r.property);return{id:asNumber(r.id),property_id:asNumber(r.property_id),label:[asString(t.name)||`Lease #${asNumber(r.id)}`,asString(u.unit_number)?`· ${asString(u.unit_number)}`:"",asString(pr.name)?`· ${asString(pr.name)}`:""].filter(Boolean).join(" ")}}));setDestinations(rows(toRecord(d).data??d).map(r=>({id:asNumber(r.id),property_id:asNumber(r.property_id),property_name:asString(r.property_name)||null,method:asString(r.method),details:toRecord(r.details),is_active:Boolean(r.is_active),daraja:toRecord(r.daraja) as Destination["daraja"]})));}catch(e){setError(e instanceof Error?e.message:"Could not load reconciliation queue.");}finally{setLoading(false);}},[]);
  useEffect(()=>{void load()},[load]);
  const visible=useMemo(()=>{const q=query.trim().toLowerCase();return items.filter(x=>(filter==="all"||x.status===filter)&&(!q||[x.external_transaction_id,x.payment_reference??"",x.payer_phone??"",x.matchedLease?.tenant?.name??"",x.matchedLease?.property?.name??"",x.matchedLease?.unit?.unit_number??""].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.transaction_at.localeCompare(a.transaction_at));},[items,filter,query]);
  const summary=useMemo(()=>({total:items.length,review:items.filter(x=>x.status==="needs_review").length,unmatched:items.filter(x=>x.status==="unmatched").length,reconciled:items.filter(x=>x.status==="reconciled"||x.status==="reconciled_with_credit").length}),[items]);
@@ -101,7 +125,7 @@ function ReconciliationPage(){
   <div className="mg-panel"><div className="mg-panel__head"><h3 className="mg-panel__title">Rent allocation</h3></div>{selected.payment?.allocations?.length||selected.payment?.credits?.length?<div className="mg-panel__body">{selected.payment.allocations.map(a=><div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:".75rem 0",borderBottom:"1px solid #e5e7eb"}}><span>{a.rentObligation?.period?new Date(a.rentObligation.period).toLocaleDateString(undefined,{month:"long",year:"numeric"}):"Rent obligation"}</span><strong>{formatMoney(a.amount,selected.currency)}</strong></div>)}
 {selected.payment.credits.map(c=><div key={`credit-${c.id}`} style={{display:"flex",justifyContent:"space-between",padding:".75rem 0",borderBottom:"1px solid #e5e7eb"}}><span><strong>Future rent credit</strong><span className="mg-sub">{c.status==="available"?formatMoney(c.remaining_amount,selected.currency)+" remaining":"Credit "+c.status}</span></span><strong>{formatMoney(c.amount,selected.currency)}</strong></div>)}</div>:<div className="mg-empty"><p className="mg-empty__text">No rent allocation has been recorded.</p></div>}</div>
  </div><div className="mg-drawer__foot">{["needs_review","unmatched"].includes(selected.status)?<button className="mg-btn mg-btn--primary" onClick={()=>setResolving(true)}><XCircle/> Resolve transaction</button>:null}<button className="mg-btn mg-btn--subtle" onClick={()=>setSelected(null)}>Close</button></div></div></div>, document.body)}
- {resolving&&selected&&["needs_review","unmatched"].includes(selected.status)&&createPortal(<ResolveDrawer transaction={selected} leases={leases} onClose={()=>setResolving(false)} onDone={()=>{setResolving(false);setSelected(null);void load()}}/>, document.body)}
+ {resolving&&selected&&["needs_review","unmatched"].includes(selected.status)&&createPortal(<ResolveDrawer transaction={selected} leases={leases} destinations={destinations} onClose={()=>setResolving(false)} onDone={()=>{setResolving(false);setSelected(null);void load()}}/>, document.body)}
  </div></DashboardLayout>
 }
 export default ReconciliationPage;
