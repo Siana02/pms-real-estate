@@ -168,24 +168,31 @@ class DarajaController extends Controller
             ->orderByDesc('start_date')->first();
         abort_if(!$lease, 422, 'You do not have an active lease to pay rent against.');
 
+        $readyDestinations = PaymentDestination::where('organization_id', $lease->organization_id)
+            ->where('property_id', $lease->property_id)
+            ->where('is_active', true)
+            ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
+            ->get()
+            ->filter(fn (PaymentDestination $destination) => $destination->stkPushReady())
+            ->values();
+
+        abort_if($readyDestinations->isEmpty(), 422,
+            'M-PESA STK Push is not ready for this property. The merchant configuration must be verified first.');
+
         $validated = $request->validate([
             'amount' => ['required', 'integer', 'min:1', 'max:250000'],
             'phone' => ['required', 'string', 'max:30'],
+            'payment_destination_id' => ['nullable', 'integer'],
         ]);
 
-        $integration = DarajaIntegration::where('organization_id', $lease->organization_id)
-            ->where('enabled', true)->first();
-        abort_if(!$integration || !$integration->passkey, 422, 'M-PESA STK Push has not been connected by your property manager.');
-
-        $destinationQuery = PaymentDestination::where('organization_id', $lease->organization_id)
-            ->where('property_id', $lease->property_id)
-            ->where('is_active', true)
-            ->where('method', $integration->shortcode_type === 'Till' ? 'mpesa_till' : 'mpesa_paybill')
-            ->where(function ($query) use ($integration) {
-                $query->whereJsonContains('details->paybill', $integration->shortcode)
-                    ->orWhereJsonContains('details->till', $integration->shortcode);
-            });
-        $destination = $destinationQuery->first();
+        if (!empty($validated['payment_destination_id'])) {
+            $destination = $readyDestinations->firstWhere('id', (int) $validated['payment_destination_id']);
+            abort_if(!$destination, 422, 'The selected payment destination is not available for this lease.');
+        } else {
+            abort_if($readyDestinations->count() !== 1, 422,
+                'This property has multiple STK-ready destinations. Select the payment destination before paying.');
+            $destination = $readyDestinations->first();
+        }
 
         try {
             $phone = $daraja->normalizePhone($validated['phone']);
@@ -209,7 +216,7 @@ class DarajaController extends Controller
         ]);
 
         try {
-            $response = $daraja->initiateStk($integration, $phone, $amount, $checkout->account_reference);
+            $response = $daraja->initiateStk($destination, $phone, $amount, $checkout->account_reference);
             $checkout->update([
                 'checkout_request_id' => $response['CheckoutRequestID'],
                 'merchant_request_id' => $response['MerchantRequestID'] ?? null,
@@ -248,8 +255,14 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
-        $integration = DarajaIntegration::where('organization_id', $checkout->organization_id)->first();
-        abort_unless($this->validCallbackToken($request, $integration), 403, 'Invalid callback token.');
+        $destination = $checkout->paymentDestination;
+        if ($destination && filled($destination->daraja_callback_token)) {
+            abort_unless($this->validDestinationCallbackToken($request, $destination), 403, 'Invalid callback token.');
+        } else {
+            // Backward compatibility for callbacks from checkouts created before destination-level tokens.
+            $integration = DarajaIntegration::where('organization_id', $checkout->organization_id)->first();
+            abort_unless($this->validCallbackToken($request, $integration), 403, 'Invalid callback token.');
+        }
 
         $resultCode = (string) ($callback['ResultCode'] ?? '');
         if ($resultCode !== '0') {
@@ -407,6 +420,13 @@ class DarajaController extends Controller
     {
         $provided = (string) $request->route('callbackToken', '');
         $expected = (string) ($integration?->callback_token ?? '');
+        return $provided !== '' && $expected !== '' && hash_equals($expected, $provided);
+    }
+
+    private function validDestinationCallbackToken(Request $request, PaymentDestination $destination): bool
+    {
+        $provided = (string) $request->route('callbackToken', '');
+        $expected = (string) ($destination->daraja_callback_token ?? '');
         return $provided !== '' && $expected !== '' && hash_equals($expected, $provided);
     }
 

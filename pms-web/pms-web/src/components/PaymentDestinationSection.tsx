@@ -13,6 +13,17 @@ type Destination = {
   label?: string | null;
   details: Record<string, string | null>;
   is_active: boolean;
+  account_reference_format?: string | null;
+  daraja?: {
+    shortcode_type?: string | null;
+    has_passkey?: boolean;
+    authorization_status?: string;
+    authorization_checked_at?: string | null;
+    c2b_registration_status?: string;
+    c2b_registered_at?: string | null;
+    platform_configured?: boolean;
+    stk_push_available?: boolean;
+  };
 };
 
 type Payload = {
@@ -59,6 +70,8 @@ export default function PaymentDestinationSection({ role }: Props) {
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [branch, setBranch] = useState("");
+  const [darajaPasskey, setDarajaPasskey] = useState("");
+  const [accountReferenceFormat, setAccountReferenceFormat] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -107,6 +120,8 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccountName("");
     setAccountNumber("");
     setBranch("");
+    setDarajaPasskey("");
+    setAccountReferenceFormat("");
     setError("");
   }
 
@@ -124,6 +139,8 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccountName(d.account_name ?? "");
     setAccountNumber("");
     setBranch(d.branch ?? "");
+    setDarajaPasskey("");
+    setAccountReferenceFormat(item.account_reference_format ?? "");
     setError("");
   }
 
@@ -141,13 +158,22 @@ export default function PaymentDestinationSection({ role }: Props) {
     setMessage("");
 
     try {
-      const body = JSON.stringify({
+      const payload: Record<string, unknown> = {
         property_id: propertyId,
         method,
         label: label.trim() || null,
         details: details(),
         is_active: true,
-      });
+      };
+
+      if (method === "mpesa_paybill" || method === "mpesa_till") {
+        payload.daraja_shortcode_type = method === "mpesa_till" ? "Till" : "PayBill";
+        payload.account_reference_format = accountReferenceFormat.trim() || null;
+        // Never send an empty passkey while editing: the API omits secrets from responses.
+        if (darajaPasskey.trim()) payload.daraja_passkey = darajaPasskey.trim();
+      }
+
+      const body = JSON.stringify(payload);
 
       if (editingId) {
         await apiRequest(`/organization/payment-destinations/${editingId}`, { method: "PATCH", body });
@@ -211,6 +237,12 @@ export default function PaymentDestinationSection({ role }: Props) {
                     <div style={{ minWidth: 0 }}>
                       <strong style={{ display: "block" }}>{item.label || METHOD_LABEL[item.method]}</strong>
                       <span className="mg-hint" style={{ display: "block", marginTop: ".15rem", overflowWrap: "anywhere" }}>{destinationSummary(item)}</span>
+                      {(item.method === "mpesa_paybill" || item.method === "mpesa_till") && (
+                        <span className="mg-hint" style={{ display: "block", marginTop: ".3rem" }}>
+                          Daraja: {item.daraja?.authorization_status === "ready" ? "Ready for STK Push" : item.daraja?.authorization_status === "awaiting_merchant_authorization" ? "Awaiting merchant authorization" : "Not configured"}
+                          {item.daraja?.stk_push_available ? " · STK Push available" : " · STK Push disabled"}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="mg-actions">
@@ -259,6 +291,34 @@ export default function PaymentDestinationSection({ role }: Props) {
                 {method === "mpesa_number" && <label className="mg-field"><span className="mg-label">M-PESA number</span><input className="mg-input" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="0712345678" /></label>}
                 {method === "mpesa_till" && <label className="mg-field"><span className="mg-label">Till number</span><input className="mg-input" value={till} onChange={(e) => setTill(e.target.value)} placeholder="Enter Till number" /></label>}
                 {method === "mpesa_paybill" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">PayBill number</span><input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" /></label><label className="mg-field"><span className="mg-label">Account / reference</span><input className="mg-input" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="ABC Properties" /></label></div>}
+
+                {(method === "mpesa_paybill" || method === "mpesa_till") && (
+                  <div style={{ marginTop: ".75rem", padding: ".85rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".65rem" }}>
+                    <strong style={{ display: "block", marginBottom: ".35rem" }}>Daraja STK Push setup</strong>
+                    <p className="mg-hint" style={{ marginTop: 0 }}>
+                      MARSWebz manages the platform app credentials. Enter the merchant passkey for this destination only if Safaricom has provisioned STK Push for this shortcode. The passkey is encrypted on the server and never returned to this page.
+                    </p>
+                    <label className="mg-field">
+                      <span className="mg-label">Merchant shortcode type</span>
+                      <input className="mg-input" value={method === "mpesa_till" ? "Till" : "PayBill"} readOnly />
+                    </label>
+                    <label className="mg-field">
+                      <span className="mg-label">Merchant STK passkey</span>
+                      <input className="mg-input" type="password" autoComplete="new-password" value={darajaPasskey} onChange={(e) => setDarajaPasskey(e.target.value)} placeholder={editingId ? "Leave blank to keep the saved passkey" : "Enter merchant passkey"} />
+                    </label>
+                    <label className="mg-field">
+                      <span className="mg-label">Account reference format (for C2B reconciliation)</span>
+                      <input className="mg-input" value={accountReferenceFormat} onChange={(e) => setAccountReferenceFormat(e.target.value)} placeholder="51683/{unit}" />
+                      <span className="mg-hint">Use {"{unit}"} or {"{lease}"} as a placeholder, e.g. 51683/{"{unit}"}. C2B automatic matching is a follow-up step; this template must match the reference format configured for the merchant PayBill.</span>
+                    </label>
+                    {editingId && destinations.find((item) => item.id === editingId)?.daraja && (
+                      <p className="mg-hint">
+                        Current status: {destinations.find((item) => item.id === editingId)?.daraja?.authorization_status ?? "not configured"}.
+                        Saving a new shortcode or passkey returns the destination to authorization review; entering credentials alone does not mark it ready.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {method === "bank" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">Bank</span><input className="mg-input" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="KCB" /></label><label className="mg-field"><span className="mg-label">Account name</span><input className="mg-input" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="ABC Properties Ltd" /></label><label className="mg-field"><span className="mg-label">Account number</span><input className="mg-input" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder={editingId ? "Leave blank to keep current" : "Account number"} /></label><label className="mg-field"><span className="mg-label">Branch</span><input className="mg-input" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Branch" /></label></div>}
 
                 {error && <p className="mg-hint" style={{ color: "#a33" }}>{error}</p>}

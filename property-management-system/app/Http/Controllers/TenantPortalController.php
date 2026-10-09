@@ -1372,7 +1372,7 @@ class TenantPortalController extends Controller
             return [
                 'destinations' => [],
                 'online' => ['available' => false],
-                'stk_push' => ['available' => false],
+                'stk_push' => ['available' => false, 'reason' => 'No active lease is linked to this account.'],
                 'tenant_payment_reference' => null,
             ];
         }
@@ -1383,18 +1383,17 @@ class TenantPortalController extends Controller
             ->orderBy('id')
             ->get();
 
-        $daraja = DarajaIntegration::where('organization_id', $lease->organization_id)
-            ->where('enabled', true)->first();
-        $expectedMethod = $daraja?->shortcode_type === 'Till' ? 'mpesa_till' : 'mpesa_paybill';
-        $shortcodeKey = $expectedMethod === 'mpesa_till' ? 'till' : 'paybill';
-        $stkAvailable = $daraja
-            && filled($daraja->passkey)
-            && PaymentDestination::where('organization_id', $lease->organization_id)
-                ->where('property_id', $lease->property_id)
-                ->where('is_active', true)
-                ->where('method', $expectedMethod)
-                ->whereJsonContains('details->' . $shortcodeKey, $daraja->shortcode)
-                ->exists();
+        $stkDestinations = $destinations
+            ->filter(fn (PaymentDestination $destination) => $destination->stkPushReady())
+            ->values();
+
+        $stkAvailable = $stkDestinations->count() === 1;
+        $stkReason = match (true) {
+            $stkDestinations->count() > 1 => 'More than one STK-ready destination is configured; contact the property manager to select the correct one.',
+            $destinations->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->isEmpty() => 'No PayBill or Till destination is configured for this property.',
+            $destinations->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->contains(fn (PaymentDestination $destination) => $destination->daraja_authorization_status === 'awaiting_merchant_authorization') => 'Merchant authorization is awaiting verification.',
+            default => 'STK Push is not enabled for this property destination.',
+        };
 
         return [
             'tenant_payment_reference' => $lease->tenant_payment_reference,
@@ -1404,6 +1403,10 @@ class TenantPortalController extends Controller
                     'method' => $destination->method,
                     'label' => $destination->label,
                     'details' => $destination->details,
+                    'daraja' => [
+                        'authorization_status' => $destination->daraja_authorization_status,
+                        'stk_push_available' => $destination->stkPushReady(),
+                    ],
                 ];
             })->values(),
             'online' => [
@@ -1412,9 +1415,13 @@ class TenantPortalController extends Controller
                 'description' => 'Pay securely by M-PESA, card or bank transfer.',
             ],
             'stk_push' => [
-                'available' => (bool) $stkAvailable,
+                'available' => $stkAvailable,
+                'payment_destination_id' => $stkAvailable ? $stkDestinations->first()->id : null,
+                'reason' => $stkAvailable ? null : $stkReason,
                 'label' => 'M-PESA STK Push',
-                'description' => 'Receive a secure M-PESA prompt on your phone.',
+                'description' => $stkAvailable
+                    ? 'Receive a secure M-PESA prompt on your phone.'
+                    : $stkReason,
             ],
         ];
     }
