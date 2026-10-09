@@ -334,67 +334,77 @@ class DarajaController extends Controller
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
-    public function c2bConfirmation(Request $request, PaymentReconciliationService $reconciliation): JsonResponse
-    {
+    public function c2bConfirmation(
+        Request $request,
+        PaymentReconciliationService $reconciliation,
+        \App\Services\DarajaC2bRoutingService $routing
+    ): JsonResponse {
         $payload = $request->except(['callbackToken', 'token']);
-        $shortcode = (string) ($payload['BusinessShortCode'] ?? '');
-        $receipt = trim((string) ($payload['TransID'] ?? ''));
-        $amount = (float) ($payload['TransAmount'] ?? 0);
-
-        if ($shortcode === '' || $receipt === '' || $amount <= 0) {
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Required transaction fields are missing'], 400);
-        }
-
-        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->get()
-            ->first(fn (DarajaIntegration $candidate) => $this->validCallbackToken($request, $candidate));
-        if (!$integration) {
-            Log::warning('Daraja C2B callback received for an invalid shortcode or token.');
+        $registration = $this->c2bRegistrationForCallback($request);
+        if (!$registration) {
+            Log::warning('Daraja C2B callback received with an invalid global registration token.');
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration'], 403);
         }
 
-        // Do not bind an organization-wide PayBill receipt to one arbitrary property destination.
+        if ((string) ($payload['BusinessShortCode'] ?? '') !== $registration->shortcode) {
+            Log::warning('Daraja C2B callback shortcode did not match its registration.', [
+                'registration_id' => $registration->id,
+            ]);
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Shortcode does not match callback registration'], 400);
+        }
 
         try {
-            $reconciliation->ingest([
-                'organization_id' => $integration->organization_id,
-                'payment_destination_id' => null,
-                'provider' => 'mpesa_daraja',
-                'external_transaction_id' => $receipt,
-                'amount' => $amount,
-                'currency' => 'KES',
-                'payer_phone' => (string) ($payload['MSISDN'] ?? ''),
-                'payment_reference' => trim((string) ($payload['BillRefNumber'] ?? '')) ?: null,
-                'transaction_at' => $this->transactionDate($payload['TransTime'] ?? null),
-                'raw_payload' => [
-                    'source' => 'c2b_confirmation',
-                    'business_short_code' => $shortcode,
-                    'bill_reference' => trim((string) ($payload['BillRefNumber'] ?? '')),
-                ],
-            ]);
+            $event = $routing->receive($registration, $payload, $reconciliation);
+            if ($event->status === 'needs_review') {
+                Log::notice('Daraja C2B accepted into review queue.', [
+                    'event_id' => $event->id,
+                    'organization_id' => $event->organization_id,
+                    'receipt' => $event->receipt,
+                ]);
+            }
+
+            // Safaricom callbacks are acknowledged once the immutable event is persisted.
+            // Allocation may be pending review; the callback must not guess an owner.
+            return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         } catch (Throwable $exception) {
-            Log::error('Daraja C2B reconciliation failed.', [
-                'organization_id' => $integration->organization_id,
-                'receipt' => $receipt,
+            Log::error('Daraja C2B event persistence/routing failed.', [
+                'registration_id' => $registration->id,
                 'exception' => $exception::class,
             ]);
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Processing failed; retry callback'], 500);
         }
-
-        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
     public function c2bValidation(Request $request): JsonResponse
     {
-        $shortcode = (string) ($request->input('BusinessShortCode') ?? $request->input('ShortCode') ?? '');
-        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->get()
-            ->first(fn (DarajaIntegration $candidate) => $this->validCallbackToken($request, $candidate));
+        $registration = $this->c2bRegistrationForCallback($request);
+        $shortcode = (string) ($request->input('BusinessShortCode')
+            ?? $request->input('ShortCode')
+            ?? $request->input('BillRefNumber')
+            ?? '');
 
-        if (!$integration) {
+        if (!$registration || ($shortcode !== '' && $shortcode !== $registration->shortcode)) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration']);
         }
 
-        // Accept an authenticated payment even if its tenant reference needs manager review.
+        // Validation only authenticates the registered shortcode. Reference matching and allocation
+        // happen from the confirmation event, where the full transaction is persisted for review.
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+    }
+
+    private function c2bRegistrationForCallback(Request $request): ?\App\Models\DarajaC2bRegistration
+    {
+        $provided = (string) $request->route('callbackToken', '');
+        if ($provided === '') {
+            return null;
+        }
+
+        $environment = (string) config('daraja.environment', 'sandbox');
+        return \App\Models\DarajaC2bRegistration::query()
+            ->where('environment', $environment)
+            ->where('callback_token_hash', hash('sha256', $provided))
+            ->where('status', 'registered')
+            ->first();
     }
 
     private function callbackUrls(?DarajaIntegration $integration): array
