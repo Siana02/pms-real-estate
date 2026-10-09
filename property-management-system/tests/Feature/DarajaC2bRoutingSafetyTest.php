@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DarajaC2bRegistration;
 use App\Models\DarajaC2bEvent;
 use App\Models\PaymentTransaction;
+use App\Models\Payment;
 use App\Services\DarajaC2bRoutingService;
 use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
@@ -175,6 +176,98 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         );
 
         $this->assertCount(0, $result['matches'], 'Pending leases must not receive automatic rent allocations.');
+    }
+
+    public function test_direct_c2b_payment_reconciles_once_and_replayed_callback_does_not_duplicate_ledger_entries(): void
+    {
+        $created = $this->createDestinationAndLease('Direct Rent Properties', 'direct-rent@example.test', '51683/{unit}');
+        $registration = DarajaC2bRegistration::create([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'callback_token_hash' => hash('sha256', 'direct-callback-token'),
+            'callback_token' => 'direct-callback-token',
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+        $payload = [
+            'BusinessShortCode' => '123456',
+            'TransID' => 'DIRECTC2B123',
+            'TransAmount' => '25000.00',
+            'MSISDN' => '254712345678',
+            'BillRefNumber' => 'LEASE-' . $created['organization_id'],
+            'TransTime' => '20261009120000',
+        ];
+
+        $routing = app(DarajaC2bRoutingService::class);
+        $first = $routing->receive($registration, $payload, app(PaymentReconciliationService::class));
+        $second = $routing->receive($registration, $payload, app(PaymentReconciliationService::class));
+
+        $this->assertSame('routed', $first->status);
+        $this->assertSame('routed', $second->status);
+        $this->assertSame('123456', $first->shortcode);
+        $this->assertSame('LEASE-' . $created['organization_id'], $first->payment_reference);
+        $this->assertSame('2026-10-09 12:00:00', $first->transaction_at->toDateTimeString());
+
+        $transaction = PaymentTransaction::where('external_transaction_id', 'DIRECTC2B123')->firstOrFail();
+        $this->assertSame('reconciled', $transaction->status);
+        $this->assertSame($created['lease_id'], $transaction->matched_lease_id);
+        $this->assertSame('123456', data_get($transaction->raw_payload, 'business_short_code'));
+        $this->assertSame(1, DarajaC2bEvent::count());
+        $this->assertSame(1, PaymentTransaction::count());
+        $this->assertSame(1, Payment::where('provider_transaction_id', 'DIRECTC2B123')->count());
+        $this->assertSame(1, DB::table('payment_allocations')->count());
+        $this->assertEquals(0.0, (float) $transaction->matchedRentObligation->fresh()->balance);
+    }
+
+    public function test_c2b_confirmation_reuses_tenant_portal_payment_claim_instead_of_counting_it_twice(): void
+    {
+        $created = $this->createDestinationAndLease('Cross Channel Properties', 'cross-channel@example.test', '51683/{unit}');
+        $claim = Payment::create([
+            'organization_id' => $created['organization_id'],
+            'lease_id' => $created['lease_id'],
+            'payment_destination_id' => $created['destination_id'],
+            'amount' => 25000,
+            'payment_date' => '2026-10-09',
+            'payment_method' => 'mpesa',
+            'payment_type' => 'rent',
+            'status' => 'pending',
+            'reference' => 'CROSSCH123',
+            'notes' => 'Submitted by tenant in the portal.',
+        ]);
+        $registration = DarajaC2bRegistration::create([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'callback_token_hash' => hash('sha256', 'cross-channel-token'),
+            'callback_token' => 'cross-channel-token',
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+        $payload = [
+            'BusinessShortCode' => '123456',
+            'TransID' => 'CROSSCH123',
+            'TransAmount' => '25000.00',
+            'MSISDN' => '254712345678',
+            'BillRefNumber' => 'LEASE-' . $created['organization_id'],
+            'TransTime' => '20261009120000',
+        ];
+
+        $event = app(DarajaC2bRoutingService::class)->receive(
+            $registration,
+            $payload,
+            app(PaymentReconciliationService::class)
+        );
+
+        $claim->refresh();
+        $transaction = PaymentTransaction::where('external_transaction_id', 'CROSSCH123')->firstOrFail();
+
+        $this->assertSame('routed', $event->status);
+        $this->assertSame('paid', $claim->status);
+        $this->assertSame('mpesa_daraja', $claim->provider);
+        $this->assertSame('CROSSCH123', $claim->provider_transaction_id);
+        $this->assertSame($claim->id, $transaction->payment_id);
+        $this->assertSame(1, Payment::where('organization_id', $created['organization_id'])->count());
+        $this->assertSame(1, DB::table('payment_allocations')->count());
+        $this->assertSame('reconciled', $transaction->status);
     }
 
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array

@@ -302,12 +302,15 @@ class PaymentReconciliationService
         if ($existingPayment) {
             $sameLease = (int) $existingPayment->lease_id === (int) $lease->id;
             $sameAmount = abs(round((float) $existingPayment->amount, 2) - $totalAmount) < 0.001;
+            $sameDestination = !$existingPayment->payment_destination_id
+                || !$transaction->payment_destination_id
+                || (int) $existingPayment->payment_destination_id === (int) $transaction->payment_destination_id;
             $isRent = $existingPayment->payment_type === 'rent';
 
-            if (!$sameLease || !$sameAmount || !$isRent) {
+            if (!$sameLease || !$sameAmount || !$sameDestination || !$isRent) {
                 $transaction->update([
                     'status' => 'needs_review',
-                    'reconciliation_note' => 'A payment with this receipt/reference already exists, but its lease, amount or payment type conflicts with the callback. No duplicate payment was created.',
+                    'reconciliation_note' => 'A payment with this receipt/reference already exists, but its lease, amount, destination or payment type conflicts with the callback. No duplicate payment was created.',
                 ]);
 
                 return $transaction->fresh();
