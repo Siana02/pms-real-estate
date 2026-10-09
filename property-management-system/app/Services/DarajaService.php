@@ -79,6 +79,47 @@ class DarajaService
     }
 
     /**
+     * Query Safaricom for the current state of an existing STK checkout.
+     *
+     * A successful query response confirms transaction status but may not include the
+     * M-PESA receipt/amount metadata required for ledger reconciliation. Callers must
+     * never create a paid ledger entry from ResultCode alone.
+     */
+    public function queryStk(PaymentDestination $destination, string $checkoutRequestId): array
+    {
+        $shortcode = $destination->darajaShortcode();
+        $passkey = $destination->daraja_passkey;
+
+        if (!filled($shortcode) || !filled($passkey)) {
+            throw new RuntimeException('The property merchant shortcode or STK passkey is missing.');
+        }
+
+        if (trim($checkoutRequestId) === '') {
+            throw new RuntimeException('A checkout request ID is required to query an STK request.');
+        }
+
+        $timestamp = now()->format('YmdHis');
+        $payload = [
+            'BusinessShortCode' => $shortcode,
+            'Password' => base64_encode($shortcode . $passkey . $timestamp),
+            'Timestamp' => $timestamp,
+            'CheckoutRequestID' => $checkoutRequestId,
+        ];
+
+        $response = Http::withToken($this->accessToken())
+            ->acceptJson()->asJson()->timeout(20)
+            ->post($this->baseUrl() . '/mpesa/stkpushquery/v1/query', $payload);
+        $response->throw();
+        $data = $response->json();
+
+        if (!is_array($data) || (string) ($data['ResponseCode'] ?? '') !== '0') {
+            throw new RuntimeException((string) ($data['ResponseDescription'] ?? 'Safaricom did not accept the STK status query.'));
+        }
+
+        return $data;
+    }
+
+    /**
      * Register the canonical C2B callback pair for one platform-managed shortcode.
      * Callers must use the shared registration record; never register per organization.
      */
