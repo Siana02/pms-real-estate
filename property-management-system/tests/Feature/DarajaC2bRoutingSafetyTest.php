@@ -44,6 +44,20 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertNotCount(1, $result['matches'], 'Identical references under a shared shortcode must never auto-route.');
     }
 
+    public function test_unverified_shortcode_owner_still_counts_as_a_potential_ambiguous_match(): void
+    {
+        $this->createDestinationAndLease('First Properties', 'first-unverified@example.test', '51683/{unit}', 'ready');
+        $this->createDestinationAndLease('Second Properties', 'second-unverified@example.test', '51683/{unit}', 'awaiting_merchant_authorization');
+
+        $result = app(DarajaC2bRoutingService::class)->findMatches(
+            '123456',
+            '51683/18',
+            CarbonImmutable::parse('2026-10-09')
+        );
+
+        $this->assertCount(2, $result['matches'], 'An unverified destination must not be ignored when checking shared-shortcode ambiguity.');
+    }
+
     public function test_missing_reference_never_matches_a_lease_by_phone_or_shortcode_alone(): void
     {
         $this->createDestinationAndLease('First Properties', 'first-missing@example.test', '51683/{unit}');
@@ -59,7 +73,7 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertCount(0, $result['matches']);
     }
 
-    private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat): array
+    private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
     {
         $now = now();
         $organizationId = DB::table('organizations')->insertGetId([
@@ -126,7 +140,7 @@ class DarajaC2bRoutingSafetyTest extends TestCase
             'daraja_authorization_status' => 'awaiting_merchant_authorization',
             'account_reference_format' => $referenceFormat,
             'c2b_registration_status' => 'registered',
-            'c2b_authorization_status' => 'ready',
+            'c2b_authorization_status' => $c2bAuthorizationStatus,
             'c2b_authorization_checked_at' => $now,
             'c2b_registered_at' => $now,
             'created_at' => $now,
