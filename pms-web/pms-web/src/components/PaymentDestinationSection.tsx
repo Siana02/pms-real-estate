@@ -23,7 +23,7 @@ type Destination = {
     c2b_authorization_status?: string;
     c2b_authorization_checked_at?: string | null;
     c2b_registered_at?: string | null;
-    platform_configured?: boolean;
+    organization_credentials_configured?: boolean;
     stk_push_available?: boolean;
   };
 };
@@ -73,6 +73,9 @@ export default function PaymentDestinationSection({ role }: Props) {
   const [accountNumber, setAccountNumber] = useState("");
   const [branch, setBranch] = useState("");
   const [darajaPasskey, setDarajaPasskey] = useState("");
+  const [darajaConsumerKey, setDarajaConsumerKey] = useState("");
+  const [darajaConsumerSecret, setDarajaConsumerSecret] = useState("");
+  const [darajaCredentialsConfigured, setDarajaCredentialsConfigured] = useState(false);
   const [accountReferenceFormat, setAccountReferenceFormat] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -107,7 +110,16 @@ export default function PaymentDestinationSection({ role }: Props) {
     }
   }
 
-  useEffect(() => { void loadProperties(); }, []);
+  async function loadDarajaCredentials() {
+    try {
+      const result = await apiRequest("/organization/daraja-credentials") as { configured?: boolean };
+      setDarajaCredentialsConfigured(Boolean(result.configured));
+    } catch {
+      setDarajaCredentialsConfigured(false);
+    }
+  }
+
+  useEffect(() => { void loadProperties(); void loadDarajaCredentials(); }, []);
   useEffect(() => { void loadDestinations(); }, [propertyId]);
 
   function resetForm() {
@@ -123,6 +135,8 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccountNumber("");
     setBranch("");
     setDarajaPasskey("");
+    setDarajaConsumerKey("");
+    setDarajaConsumerSecret("");
     setAccountReferenceFormat("");
     setError("");
   }
@@ -142,6 +156,8 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccountNumber("");
     setBranch(d.branch ?? "");
     setDarajaPasskey("");
+    setDarajaConsumerKey("");
+    setDarajaConsumerSecret("");
     setAccountReferenceFormat(item.account_reference_format ?? "");
     setError("");
   }
@@ -169,6 +185,26 @@ export default function PaymentDestinationSection({ role }: Props) {
       };
 
       if (method === "mpesa_paybill" || method === "mpesa_till") {
+        const hasConsumerKey = Boolean(darajaConsumerKey.trim());
+        const hasConsumerSecret = Boolean(darajaConsumerSecret.trim());
+        if (hasConsumerKey !== hasConsumerSecret) {
+          setError("Enter both the organization's Daraja consumer key and consumer secret.");
+          return;
+        }
+        if (!darajaCredentialsConfigured && !hasConsumerKey) {
+          setError("Configure this organization's Daraja consumer key and consumer secret before saving an M-PESA PayBill or Till.");
+          return;
+        }
+        if (hasConsumerKey && hasConsumerSecret) {
+          await apiRequest("/organization/daraja-credentials", {
+            method: "PUT",
+            body: JSON.stringify({
+              consumer_key: darajaConsumerKey.trim(),
+              consumer_secret: darajaConsumerSecret.trim(),
+            }),
+          });
+          setDarajaCredentialsConfigured(true);
+        }
         payload.daraja_shortcode_type = method === "mpesa_till" ? "Till" : "PayBill";
         payload.account_reference_format = accountReferenceFormat.trim() || null;
         // Never send an empty passkey while editing: the API omits secrets from responses.
@@ -300,7 +336,18 @@ export default function PaymentDestinationSection({ role }: Props) {
                   <div style={{ marginTop: ".75rem", padding: ".85rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".65rem" }}>
                     <strong style={{ display: "block", marginBottom: ".35rem" }}>Daraja STK Push setup</strong>
                     <p className="mg-hint" style={{ marginTop: 0 }}>
-                      MARSWebz manages the platform app credentials. Enter the merchant passkey for this destination only if Safaricom has provisioned STK Push for this shortcode. The passkey is encrypted on the server and never returned to this page.
+                      Enter this organization’s Daraja app credentials once for its properties. They are encrypted on the server and never returned to this page. The merchant STK passkey below belongs to this specific PayBill/Till.
+                    </p>
+                    <label className="mg-field">
+                      <span className="mg-label">Organization Daraja consumer key</span>
+                      <input className="mg-input" type="password" autoComplete="new-password" value={darajaConsumerKey} onChange={(e) => setDarajaConsumerKey(e.target.value)} placeholder={darajaCredentialsConfigured ? "Leave blank to keep saved organization credentials" : "Enter consumer key"} />
+                    </label>
+                    <label className="mg-field">
+                      <span className="mg-label">Organization Daraja consumer secret</span>
+                      <input className="mg-input" type="password" autoComplete="new-password" value={darajaConsumerSecret} onChange={(e) => setDarajaConsumerSecret(e.target.value)} placeholder={darajaCredentialsConfigured ? "Leave blank to keep saved organization credentials" : "Enter consumer secret"} />
+                    </label>
+                    <p className="mg-hint">
+                      Organization app credentials: {darajaCredentialsConfigured ? "configured" : "not configured"}. Changing these credentials resets prior merchant authorization checks.
                     </p>
                     <label className="mg-field">
                       <span className="mg-label">Merchant shortcode type</span>
