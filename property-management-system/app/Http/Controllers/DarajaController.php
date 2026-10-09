@@ -170,7 +170,7 @@ class DarajaController extends Controller
         abort_if(!$lease, 422, 'You do not have an active lease to pay rent against.');
 
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:1', 'max:250000', 'regex:/^\d+(\.00?)?$/'],
+            'amount' => ['required', 'integer', 'min:1', 'max:250000'],
             'phone' => ['required', 'string', 'max:30'],
             'payment_destination_id' => ['required', 'integer'],
         ]);
