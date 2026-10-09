@@ -379,9 +379,22 @@ public function usernameAvailable(Request $request)
         $mode = $request->query('mode', 'login');
         abort_unless(in_array($mode, ['login', 'register'], true), 422);
 
+        $clientId = (string) config('services.google.client_id');
+        $clientSecret = (string) config('services.google.client_secret');
+        $redirectUri = (string) config('services.google.redirect');
+
+        if ($clientId === '' || $clientSecret === '' || filter_var($redirectUri, FILTER_VALIDATE_URL) === false) {
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('Google sign-in is not configured correctly. Please contact support.'));
+        }
+
         session(['oauth_mode' => $mode, 'oauth_role' => $request->query('role')]);
 
-        return Socialite::driver($provider)->with(['prompt' => 'select_account'])->redirect();
+        try {
+            return Socialite::driver($provider)->with(['prompt' => 'select_account'])->redirect();
+        } catch (\Throwable $e) {
+            Log::warning('Google OAuth redirect failed.', ['provider' => $provider, 'exception' => class_basename($e)]);
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('Google sign-in could not be started. Please try again.'));
+        }
     }
 
     public function handleProviderCallback(Request $request, string $provider)
