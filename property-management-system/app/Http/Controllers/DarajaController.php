@@ -318,6 +318,7 @@ class DarajaController extends Controller
                     'transaction_at' => $transactionAt,
                     'raw_payload' => [
                         'source' => 'stk_callback',
+                        'environment' => config('daraja.environment', 'sandbox'),
                         'checkout_id' => $locked->id,
                         'amount_matches' => $matchesAmount,
                     ],
