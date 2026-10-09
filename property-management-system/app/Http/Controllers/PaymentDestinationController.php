@@ -74,6 +74,7 @@ class PaymentDestinationController extends Controller
             'is_active' => $validated['is_active'] ?? true,
             'daraja_shortcode_type' => $isDarajaMethod ? $shortcodeType : null,
             'daraja_passkey' => $isDarajaMethod ? $passkey : null,
+            'daraja_callback_token' => $hasConfig ? Str::random(48) : null,
             'daraja_authorization_status' => $hasConfig ? 'awaiting_merchant_authorization' : 'not_configured',
             'account_reference_format' => $isDarajaMethod ? $referenceFormat : null,
             'c2b_registration_status' => 'not_registered',
@@ -152,6 +153,9 @@ class PaymentDestinationController extends Controller
             'is_active' => array_key_exists('is_active', $validated) ? $validated['is_active'] : $paymentDestination->is_active,
             'daraja_shortcode_type' => $isDarajaMethod ? $shortcodeType : null,
             'daraja_passkey' => $isDarajaMethod ? $passkey : null,
+            'daraja_callback_token' => $isDarajaMethod && $hasConfig
+                ? ($paymentDestination->daraja_callback_token ?: Str::random(48))
+                : null,
             'daraja_authorization_status' => $hasConfig
                 ? (($merchantChanged || $passkeyWasSubmitted) ? 'awaiting_merchant_authorization' : $paymentDestination->daraja_authorization_status)
                 : 'not_configured',
