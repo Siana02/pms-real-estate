@@ -76,6 +76,7 @@ class PaymentReconciliationController extends Controller
             abort_if($eventId <= 0, 422, 'This C2B transaction has no trusted callback event to verify.');
             $c2bEvent = DarajaC2bEvent::findOrFail($eventId);
             abort_if($c2bEvent->status !== 'needs_review', 422, 'This C2B callback event is no longer awaiting review.');
+            abort_if($c2bEvent->organization_id === null, 403, 'Cross-organization or owner-unknown C2B events require platform review and cannot be resolved from an organization account.');
             abort_if($c2bEvent->receipt !== $paymentTransaction->external_transaction_id
                 || $c2bEvent->shortcode !== $destination->darajaShortcode()
                 || abs((float) $c2bEvent->amount - (float) $paymentTransaction->amount) >= 0.001
