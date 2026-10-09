@@ -33,9 +33,7 @@ class DarajaController extends Controller
             'has_consumer_key' => (bool) $integration?->consumer_key,
             'has_consumer_secret' => (bool) $integration?->consumer_secret,
             'has_passkey' => (bool) $integration?->passkey,
-            'stk_callback_url' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/stk',
-            'c2b_confirmation_url' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/confirm',
-            'c2b_validation_url' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/validate',
+            ...$this->callbackUrls($integration),
         ]);
     }
 
@@ -76,6 +74,7 @@ class DarajaController extends Controller
                 'consumer_key' => $consumerKey,
                 'consumer_secret' => $consumerSecret,
                 'passkey' => $passkey,
+                'webhook_token' => $existing?->webhook_token ?: \Illuminate\Support\Str::random(64),
                 'enabled' => $validated['enabled'],
             ]
         );
@@ -92,7 +91,7 @@ class DarajaController extends Controller
             'has_consumer_key' => (bool) $integration->consumer_key,
             'has_consumer_secret' => (bool) $integration->consumer_secret,
             'has_passkey' => (bool) $integration->passkey,
-        ]);
+        ] + $this->callbackUrls($integration));
     }
 
     public function initiateStk(Request $request, DarajaService $daraja): JsonResponse
@@ -165,6 +164,9 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
+        $integration = DarajaIntegration::where('organization_id', $checkout->organization_id)->first();
+        abort_unless($this->validWebhookToken($request, $integration), 403, 'Invalid callback token.');
+
         $resultCode = (int) ($callback['ResultCode'] ?? -1);
         if ($resultCode !== 0) {
             $checkout->update(['status' => 'failed', 'callback_payload' => $payload]);
@@ -224,6 +226,8 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
+        abort_unless($this->validWebhookToken($request, $integration), 403, 'Invalid callback token.');
+
         $destination = PaymentDestination::where('organization_id', $integration->organization_id)
             ->where('is_active', true)->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
             ->where(function ($query) use ($shortcode) {
@@ -253,9 +257,36 @@ class DarajaController extends Controller
 
     public function c2bValidation(Request $request): JsonResponse
     {
-        // C2B validation is deliberately permissive: valid incoming payments are not rejected
-        // because a tenant reference is absent or a manager has not configured a destination.
+        $shortcode = (string) ($request->input('BusinessShortCode') ?? $request->input('ShortCode') ?? '');
+        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->first();
+        if (!$integration || !$this->validWebhookToken($request, $integration)) {
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid shortcode or callback token']);
+        }
+
+        // Accept authenticated transactions even if the lease reference needs manager review.
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+    }
+
+
+    private function callbackUrls(?DarajaIntegration $integration): array
+    {
+        if (!$integration || !$integration->webhook_token) {
+            return ['stk_callback_url' => null, 'c2b_confirmation_url' => null, 'c2b_validation_url' => null];
+        }
+        $base = rtrim((string) config('app.url'), '/');
+        $query = '?token=' . rawurlencode($integration->webhook_token);
+        return [
+            'stk_callback_url' => $base . '/api/webhooks/daraja/stk' . $query,
+            'c2b_confirmation_url' => $base . '/api/webhooks/daraja/confirm' . $query,
+            'c2b_validation_url' => $base . '/api/webhooks/daraja/validate' . $query,
+        ];
+    }
+
+    private function validWebhookToken(Request $request, ?DarajaIntegration $integration): bool
+    {
+        $provided = (string) $request->query('token', '');
+        $expected = (string) ($integration?->webhook_token ?? '');
+        return $provided !== '' && $expected !== '' && hash_equals($expected, $provided);
     }
 
     private function transactionDate($value): string
