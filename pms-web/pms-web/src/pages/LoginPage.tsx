@@ -948,7 +948,7 @@ function LoginPage() {
         throw new Error("Passkeys are not supported by this browser.");
       }
 
-      const backendOrigin = API_BASE.replace(/\/api$/, "");
+      const backendOrigin = API_BASE.trim().replace(/\\/+$/, "").replace(/\\/api$/i, "");
       const optionsResponse = await fetch(`${backendOrigin}/passkeys/login/options`, {
         method: "POST",
         credentials: "include",
