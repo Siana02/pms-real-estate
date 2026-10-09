@@ -382,6 +382,7 @@ interface PaymentDestination {
 interface PaymentOptions {
   destinations: PaymentDestination[];
   online: { available: boolean; label?: string; description?: string };
+  stk_push?: boolean;
   stk_push?: { available: boolean; label?: string; description?: string };
 }
  
@@ -509,6 +510,7 @@ const FILTERS: { key: "all" | "paid" | "pending"; label: string }[] = [
 const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
   { key: "flutterwave", label: "Pay online", icon: <CreditCard /> },
   { key: "mpesa", label: "M-PESA manually", icon: <Smartphone /> },
+  { key: "mpesa_stk", label: "M-PESA prompt", icon: <Smartphone /> },
   { key: "mpesa_stk", label: "M-PESA STK Push", icon: <Smartphone /> },
   { key: "bank_transfer", label: "Bank transfer", icon: <Wallet /> },
 ];
@@ -539,6 +541,7 @@ function TenantPaymentsPage() {
   const [method, setMethod] = useState<PayMethod>("flutterwave");
   const [destinationId, setDestinationId] = useState("");
   const [reference, setReference] = useState("");
+  const [phone, setPhone] = useState("");
   const [phone, setPhone] = useState("");
   const [gatewayNotice, setGatewayNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -659,22 +662,32 @@ function TenantPaymentsPage() {
         return;
       }
 
-      const response = (await apiRequest("/tenant/payments", {
-        method: "POST",
-        body: JSON.stringify({
-          amount: value,
-          payment_method: method,
-          payment_destination_id: method === "flutterwave" ? undefined : Number(destinationId),
-          reference: method === "flutterwave" ? undefined : reference.trim(),
-        }),
-      })) as { checkout_url?: string };
-
-      if (method === "flutterwave") {
-        if (!response.checkout_url) throw new Error("Secure checkout could not be started.");
-        window.location.assign(response.checkout_url);
-      } else {
+      if (method === "mpesa_stk") {
+        if (!destinationId) throw new Error("Choose the PayBill or Till you want to pay.");
+        if (!phone.trim()) throw new Error("Enter the phone number that should receive the M-PESA prompt.");
+        await apiRequest("/tenant/mpesa/stk-push", {
+          method: "POST",
+          body: JSON.stringify({ amount: value, payment_destination_id: Number(destinationId), phone: phone.trim() }),
+        });
         setSubmitted(true);
-        await load();
+      } else {
+        const response = (await apiRequest("/tenant/payments", {
+          method: "POST",
+          body: JSON.stringify({
+            amount: value,
+            payment_method: method,
+            payment_destination_id: method === "flutterwave" ? undefined : Number(destinationId),
+            reference: method === "flutterwave" ? undefined : reference.trim(),
+          }),
+        })) as { checkout_url?: string };
+
+        if (method === "flutterwave") {
+          if (!response.checkout_url) throw new Error("Secure checkout could not be started.");
+          window.location.assign(response.checkout_url);
+        } else {
+          setSubmitted(true);
+          await load();
+        }
       }
     } catch (caught) {
       setSubmitError(
@@ -1088,8 +1101,8 @@ function TenantPaymentsPage() {
                         <option value="">Choose where to send your payment</option>
                         {paymentOptions.destinations
                           .filter((item) =>
-                            method === "mpesa"
-                              ? item.method.startsWith("mpesa")
+                            method === "mpesa" || method === "mpesa_stk"
+                              ? (method === "mpesa_stk" ? ["mpesa_till", "mpesa_paybill"].includes(item.method) : item.method.startsWith("mpesa"))
                               : item.method === "bank"
                           )
                           .map((item) => (
@@ -1108,19 +1121,26 @@ function TenantPaymentsPage() {
                         </div>
                       ) : null;
                     })()}
-                    <div className="tpay-field">
-                      <label htmlFor="pay-reference">Transaction reference</label>
-                      <input
-                        id="pay-reference"
-                        value={reference}
-                        onChange={(event) => setReference(event.target.value)}
-                        placeholder="e.g. QAB123XYZ"
-                        required
-                      />
-                      <small style={{ color: "var(--tp-muted)" }}>
-                        Enter the transaction code from your M-PESA or bank confirmation. Your payment will remain pending until your property manager verifies it.
-                      </small>
-                    </div>
+                    {method === "mpesa_stk" && (
+                      <div className="tpay-field">
+                        <label htmlFor="pay-phone">M-PESA phone number</label>
+                        <input id="pay-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone}
+                          onChange={(event) => setPhone(event.target.value)} placeholder="0712345678" required />
+                        <small style={{ color: "var(--tp-muted)" }}>
+                          Safaricom will send a PIN prompt to this number. Your payment is recorded only after the callback confirms success.
+                        </small>
+                      </div>
+                    )}
+                    {method !== "mpesa_stk" && (
+                      <div className="tpay-field">
+                        <label htmlFor="pay-reference">Transaction reference</label>
+                        <input id="pay-reference" value={reference} onChange={(event) => setReference(event.target.value)}
+                          placeholder="e.g. QAB123XYZ" required />
+                        <small style={{ color: "var(--tp-muted)" }}>
+                          Enter the transaction code from your M-PESA or bank confirmation. Your payment will remain pending until your property manager verifies it.
+                        </small>
+                      </div>
+                    )}
                   </>
                 )}
 
