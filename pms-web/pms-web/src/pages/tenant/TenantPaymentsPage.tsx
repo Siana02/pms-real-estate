@@ -1134,6 +1134,21 @@ function TenantPaymentsPage() {
                         <div style={{ padding: ".75rem", border: "1px solid var(--tp-line)", borderRadius: "var(--tp-r-sm)", background: "var(--tp-surface-sunken)" }}>
                           <strong>{destinationLabel(selected)}</strong>
                           <small style={{ display: "block", marginTop: ".2rem", color: "var(--tp-muted)" }}>{destinationDetail(selected)}</small>
+                          {method === "mpesa" && selected.method.startsWith("mpesa") && (
+                            <>
+                              <p style={{ margin: ".625rem 0 0", fontSize: ".8125rem", color: "var(--tp-muted)", lineHeight: 1.5 }}>
+                                Open the M-PESA menu to complete the payment. Your phone may show the SIM Toolkit or USSD flow; this does not launch or require a specific M-PESA app.
+                              </p>
+                              <a
+                                href="tel:*334%23"
+                                className="tp-btn tp-btn--quiet"
+                                style={{ display: "inline-flex", marginTop: ".625rem", textDecoration: "none" }}
+                              >
+                                <Smartphone />
+                                Open M-PESA menu (*334#)
+                              </a>
+                            </>
+                          )}
                         </div>
                       ) : null;
                     })()}
