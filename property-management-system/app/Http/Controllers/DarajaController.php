@@ -60,7 +60,7 @@ class DarajaController extends Controller
         $lease = Leases::query()
             ->where('organization_id', $tenant->organization_id)
             ->where('tenant_id', $tenant->id)
-            ->whereNotIn('status', ['ended', 'terminated'])
+            ->whereNotIn('status', ['ended', 'terminated', 'pending'])
             ->whereDate('start_date', '<=', $today->toDateString())
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today->toDateString()))
             ->orderByDesc('start_date')->first();
