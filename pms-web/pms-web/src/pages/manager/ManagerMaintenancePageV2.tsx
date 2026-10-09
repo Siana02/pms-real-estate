@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
-import { AlertCircle, CalendarDays, CheckCircle2, Clock3, RefreshCw, Search, UserRound, Wrench, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, RefreshCw, Search, UserRound, Wrench, X } from "lucide-react";
 import { asNumber, asString, formatDate, formatMoney, readCurrency, rows, titleCase, toRecord } from "../../services/format";
 
 type RequestUpdate={id:number;type:string;status:string|null;message:string;created_at:string|null};type RequestRecord={id:number;title:string;description:string;priority:string;status:string;assigned_to:string|null;scheduled_date:string|null;scheduled_time:string|null;tenant_availability:string|null;availability_start_at:string|null;availability_end_at:string|null;estimated_cost:number;cost_responsibility:string|null;reported_date:string|null;completed_date:string|null;notes:string|null;updates?:RequestUpdate[];property:{id:number;name:string}|null;unit:{id:number;unit_number:string}|null;tenant:{id:number;name:string;phone:string|null}|null};
