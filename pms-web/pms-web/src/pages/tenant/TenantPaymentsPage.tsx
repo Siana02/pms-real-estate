@@ -584,9 +584,6 @@ function TenantPaymentsPage() {
   useEffect(() => {
     if (!payOpen) return;
     setAmount(String(Math.round(toNumber(summary?.balance ?? summary?.amount_due))) || "");
-    setDestinationId("");
-    setReference("");
-    setPhone("");
   }, [payOpen, summary, paymentOptions]);
  
   const outstanding = toNumber(
@@ -612,7 +609,10 @@ function TenantPaymentsPage() {
     });
   }, [payments, filter, query]);
  
-  function openPay(nextMethod?: PayMethod) {
+  function openPay(nextMethod?: PayMethod, nextDestinationId = "") {
+    setDestinationId(nextDestinationId);
+    setReference("");
+    setPhone("");
     const fallback: PayMethod = paymentOptions.online.available
       ? "flutterwave"
       : paymentOptions.stk_push?.available
@@ -811,8 +811,7 @@ function TenantPaymentsPage() {
             )}
             {paymentOptions.destinations.map((destination) => (
               <button key={destination.id} type="button" className="tpay-method" onClick={() => {
-                setDestinationId(String(destination.id));
-                openPay(destination.method === "bank" ? "bank_transfer" : "mpesa");
+                openPay(destination.method === "bank" ? "bank_transfer" : "mpesa", String(destination.id));
               }}>
                 {destination.method === "bank" ? <Building2 /> : <Smartphone />}
                 <span><strong style={{ display: "block" }}>{destinationLabel(destination)}</strong><small style={{ color: "var(--tp-muted)" }}>{destinationDetail(destination)}</small></span>
