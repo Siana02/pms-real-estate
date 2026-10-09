@@ -9,6 +9,7 @@ use App\Models\PaymentTransaction;
 use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class ReviewDarajaC2bEvents extends Command
 {
@@ -172,6 +173,15 @@ class ReviewDarajaC2bEvents extends Command
             'review_reason' => null,
         ]);
 
+        Log::notice('Platform operator manually resolved a global Daraja C2B event.', [
+            'event_id' => $event->id,
+            'receipt' => $event->receipt,
+            'environment' => $event->environment,
+            'shortcode' => $event->shortcode,
+            'organization_id' => $destination->organization_id,
+            'destination_id' => $destination->id,
+            'lease_id' => $lease->id,
+        ]);
         $this->info("C2B event {$event->id} routed to destination {$destination->id}, lease {$lease->id}.");
         $this->warn('Confirm the rent ledger entry and audit record against the source M-PESA statement.');
         return self::SUCCESS;
