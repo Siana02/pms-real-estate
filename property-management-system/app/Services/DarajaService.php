@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DarajaIntegration;
+use App\Models\PaymentDestination;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -10,14 +11,21 @@ use RuntimeException;
 
 class DarajaService
 {
-    public function accessToken(DarajaIntegration $integration): string
+    public function accessToken(?DarajaIntegration $legacyIntegration = null): string
     {
-        $cacheKey = 'daraja:token:' . $integration->organization_id . ':' . $integration->environment;
-        return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($integration) {
-            $base = $this->baseUrl($integration);
-            $response = Http::withBasicAuth($integration->consumer_key, $integration->consumer_secret)
+        $environment = (string) config('daraja.environment', 'sandbox');
+        $consumerKey = config('daraja.consumer_key');
+        $consumerSecret = config('daraja.consumer_secret');
+
+        if (!config('daraja.platform_enabled') || !filled($consumerKey) || !filled($consumerSecret)) {
+            throw new RuntimeException('The MARSWebz Daraja platform integration is not configured.');
+        }
+
+        $cacheKey = 'daraja:platform-token:' . $environment;
+        return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($consumerKey, $consumerSecret, $environment) {
+            $response = Http::withBasicAuth((string) $consumerKey, (string) $consumerSecret)
                 ->acceptJson()->timeout(15)
-                ->get($base . '/oauth/v1/generate', ['grant_type' => 'client_credentials']);
+                ->get($this->baseUrl() . '/oauth/v1/generate', ['grant_type' => 'client_credentials']);
             $response->throw();
             $token = $response->json('access_token');
             if (!is_string($token) || $token === '') {
@@ -27,31 +35,39 @@ class DarajaService
         });
     }
 
-    public function initiateStk(DarajaIntegration $integration, string $phone, int $amount, string $reference): array
+    public function initiateStk(PaymentDestination $destination, string $phone, int $amount, string $reference): array
     {
-        if (!$integration->enabled || !$integration->passkey) {
-            throw new RuntimeException('M-Pesa STK Push is not enabled for this organization.');
+        if (!$destination->stkPushReady()) {
+            throw new RuntimeException('M-PESA STK Push is not ready for this property payment destination.');
+        }
+
+        $shortcode = $destination->darajaShortcode();
+        $passkey = $destination->daraja_passkey;
+        $callbackToken = $destination->daraja_callback_token;
+
+        if (!filled($shortcode) || !filled($passkey) || !filled($callbackToken)) {
+            throw new RuntimeException('The property merchant configuration is incomplete.');
         }
 
         $timestamp = now()->format('YmdHis');
-        $password = base64_encode($integration->shortcode . $integration->passkey . $timestamp);
+        $password = base64_encode($shortcode . $passkey . $timestamp);
         $payload = [
-            'BusinessShortCode' => $integration->shortcode,
+            'BusinessShortCode' => $shortcode,
             'Password' => $password,
             'Timestamp' => $timestamp,
-            'TransactionType' => $integration->shortcode_type === 'Till' ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline',
+            'TransactionType' => $destination->daraja_shortcode_type === 'Till' ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline',
             'Amount' => $amount,
             'PartyA' => $phone,
-            'PartyB' => $integration->shortcode,
+            'PartyB' => $shortcode,
             'PhoneNumber' => $phone,
-            'CallBackURL' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/' . rawurlencode((string) $integration->callback_token) . '/stk',
+            'CallBackURL' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/' . rawurlencode($callbackToken) . '/stk',
             'AccountReference' => Str::limit(preg_replace('/[^A-Za-z0-9]/', '', $reference) ?: 'RENT', 12, ''),
             'TransactionDesc' => 'Rent payment',
         ];
 
-        $response = Http::withToken($this->accessToken($integration))
+        $response = Http::withToken($this->accessToken())
             ->acceptJson()->asJson()->timeout(20)
-            ->post($this->baseUrl($integration) . '/mpesa/stkpush/v1/processrequest', $payload);
+            ->post($this->baseUrl() . '/mpesa/stkpush/v1/processrequest', $payload);
         $response->throw();
         $data = $response->json();
 
@@ -62,12 +78,16 @@ class DarajaService
         return $data;
     }
 
-
+    /**
+     * C2B registration is retained for the legacy registration workflow while
+     * C2B is migrated to shared shortcode registrations. Platform credentials
+     * are still used; the organization model supplies only the merchant shortcode.
+     */
     public function registerC2BUrls(DarajaIntegration $integration, string $confirmationUrl, string $validationUrl): array
     {
-        $response = Http::withToken($this->accessToken($integration))
+        $response = Http::withToken($this->accessToken())
             ->acceptJson()->asJson()->timeout(20)
-            ->post($this->baseUrl($integration) . '/mpesa/c2b/v1/registerurl', [
+            ->post($this->baseUrl() . '/mpesa/c2b/v1/registerurl', [
                 'ShortCode' => $integration->shortcode,
                 'ResponseType' => 'Completed',
                 'ConfirmationURL' => $confirmationUrl,
@@ -83,9 +103,9 @@ class DarajaService
         return $data;
     }
 
-    public function baseUrl(DarajaIntegration $integration): string
+    public function baseUrl(?DarajaIntegration $legacyIntegration = null): string
     {
-        return $integration->environment === 'production'
+        return config('daraja.environment', 'sandbox') === 'production'
             ? 'https://api.safaricom.co.ke'
             : 'https://sandbox.safaricom.co.ke';
     }
