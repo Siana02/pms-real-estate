@@ -24,7 +24,7 @@ class ReviewDarajaC2bEvents extends Command
     {
         $eventId = $this->argument('event_id');
         if (!$eventId) {
-            $events = DarajaC2bEvent::where('status', 'needs_review')->orderBy('created_at')->get();
+            $events = DarajaC2bEvent::whereNull('organization_id')->where('status', 'needs_review')->orderBy('created_at')->get();
             if ($events->isEmpty()) {
                 $this->info('No C2B events are awaiting review.');
                 return self::SUCCESS;
@@ -56,6 +56,10 @@ class ReviewDarajaC2bEvents extends Command
         }
         if ($event->status === 'routed') {
             $this->error('This C2B event has already been routed.');
+            return self::FAILURE;
+        }
+        if ($event->organization_id !== null) {
+            $this->error('This event belongs to one organization. Resolve it through that organization’s Payment Reconciliation page.');
             return self::FAILURE;
         }
         $reason = (string) $event->review_reason;
