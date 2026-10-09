@@ -23,6 +23,8 @@ class PaymentDestination extends Model
         'daraja_authorization_checked_at',
         'account_reference_format',
         'c2b_registration_status',
+        'c2b_authorization_status',
+        'c2b_authorization_checked_at',
         'c2b_registered_at',
     ];
 
@@ -34,6 +36,7 @@ class PaymentDestination extends Model
         'daraja_passkey' => 'encrypted',
         'daraja_callback_token' => 'encrypted',
         'daraja_authorization_checked_at' => 'datetime',
+        'c2b_authorization_checked_at' => 'datetime',
         'c2b_registered_at' => 'datetime',
     ];
 
