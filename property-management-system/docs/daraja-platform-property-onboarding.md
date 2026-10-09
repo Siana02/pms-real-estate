@@ -26,6 +26,23 @@ Do not use `--confirmed` just because a manager entered a passkey. The command r
 
 The destination returns to awaiting verification when the shortcode/type/passkey changes. STK Push is available only when the destination is active, complete, marked ready, and platform credentials are enabled.
 
+## Recovering an STK checkout with a missing callback
+
+If a checkout remains `pending` because its STK callback was not received, an authorized backend operator can query Safaricom directly using the stored checkout request ID:
+
+```sh
+php artisan daraja:query-stk CHECKOUT_ID
+```
+
+The command uses the checkout's own payment destination shortcode/passkey and the platform credentials for the currently configured environment. It does not accept a shortcode, checkout request ID, or credentials supplied by a tenant.
+
+- A definitive non-zero Safaricom `ResultCode` changes the pending checkout to `failed`.
+- A successful result without receipt/amount metadata changes the checkout to `needs_review`; it does **not** create a paid payment or rent-ledger entry.
+- If Safaricom's callback completes the checkout while the query is in flight, the command preserves the callback's resolved status.
+- Network/API errors or non-definitive responses leave the checkout unchanged.
+
+STK Query may confirm the transaction result without returning the M-PESA receipt and amount needed for safe ledger reconciliation. In that case, use the Safaricom receipt/statement and wait for the callback or follow the established manual review process. Never treat the query's success code alone as proof sufficient to create a payment record.
+
 ## Reference templates
 
 The optional account-reference template supports `{unit}` and `{lease}`, for example `51683/{unit}`. The template must match the merchant's actual account-reference rules. The C2B routing service normalizes and evaluates this template per destination and active lease; payer phone is supporting evidence only and is never sufficient for automatic allocation.
