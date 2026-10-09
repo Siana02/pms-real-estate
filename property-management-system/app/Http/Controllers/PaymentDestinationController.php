@@ -8,6 +8,7 @@ use App\Models\Property;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class PaymentDestinationController extends Controller
 {
