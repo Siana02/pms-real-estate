@@ -16,11 +16,23 @@ class PaymentDestination extends Model
         'label',
         'details',
         'is_active',
+        'daraja_shortcode_type',
+        'daraja_passkey',
+        'daraja_authorization_status',
+        'daraja_authorization_checked_at',
+        'account_reference_format',
+        'c2b_registration_status',
+        'c2b_registered_at',
     ];
+
+    protected $hidden = ['daraja_passkey'];
 
     protected $casts = [
         'details' => 'array',
         'is_active' => 'boolean',
+        'daraja_passkey' => 'encrypted',
+        'daraja_authorization_checked_at' => 'datetime',
+        'c2b_registered_at' => 'datetime',
     ];
 
     public function organization()
@@ -36,5 +48,42 @@ class PaymentDestination extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function darajaShortcode(): ?string
+    {
+        return match ($this->method) {
+            'mpesa_paybill' => (string) ($this->details['paybill'] ?? ''),
+            'mpesa_till' => (string) ($this->details['till'] ?? ''),
+            default => null,
+        };
+    }
+
+    public function darajaMethod(): ?string
+    {
+        return match ($this->method) {
+            'mpesa_paybill' => 'PayBill',
+            'mpesa_till' => 'Till',
+            default => null,
+        };
+    }
+
+    public function hasMerchantStkConfiguration(): bool
+    {
+        return in_array($this->method, ['mpesa_paybill', 'mpesa_till'], true)
+            && filled($this->darajaShortcode())
+            && $this->daraja_shortcode_type === $this->darajaMethod()
+            && filled($this->daraja_passkey);
+    }
+
+    public function stkPushReady(): bool
+    {
+        return (bool) config('daraja.platform_enabled')
+            && filled(config('daraja.consumer_key'))
+            && filled(config('daraja.consumer_secret'))
+            && in_array(config('daraja.environment'), ['sandbox', 'production'], true)
+            && $this->is_active
+            && $this->hasMerchantStkConfiguration()
+            && $this->daraja_authorization_status === 'ready';
     }
 }
