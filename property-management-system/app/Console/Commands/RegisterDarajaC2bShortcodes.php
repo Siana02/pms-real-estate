@@ -33,7 +33,7 @@ class RegisterDarajaC2bShortcodes extends Command
         $destinations = PaymentDestination::query()
             ->where('is_active', true)
             ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
-            ->where('daraja_authorization_status', 'ready')
+            ->where('c2b_authorization_status', 'ready')
             ->get()
             ->filter(fn (PaymentDestination $destination) => filled($destination->darajaShortcode()));
 
@@ -90,6 +90,7 @@ class RegisterDarajaC2bShortcodes extends Command
 
                 $this->info("Registered C2B callbacks for shortcode {$shortcode}.");
                 $this->line((string) ($result['ResponseDescription'] ?? 'Safaricom accepted the registration.'));
+                $this->line('The shared callback endpoint is registered once for this shortcode and environment.');
             } catch (Throwable $exception) {
                 $failed++;
                 $registration->update([
