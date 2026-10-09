@@ -18,6 +18,7 @@ class PaymentDestination extends Model
         'is_active',
         'daraja_shortcode_type',
         'daraja_passkey',
+        'daraja_callback_token',
         'daraja_authorization_status',
         'daraja_authorization_checked_at',
         'account_reference_format',
@@ -25,12 +26,13 @@ class PaymentDestination extends Model
         'c2b_registered_at',
     ];
 
-    protected $hidden = ['daraja_passkey'];
+    protected $hidden = ['daraja_passkey', 'daraja_callback_token'];
 
     protected $casts = [
         'details' => 'array',
         'is_active' => 'boolean',
         'daraja_passkey' => 'encrypted',
+        'daraja_callback_token' => 'encrypted',
         'daraja_authorization_checked_at' => 'datetime',
         'c2b_registered_at' => 'datetime',
     ];
