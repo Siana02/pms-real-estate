@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, ExternalLink, LoaderCircle, Mail, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
+import { Check, Copy, LoaderCircle, Mail, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
 import { managerStyles } from "../../styles/managerUI";
@@ -119,7 +119,7 @@ export default function ManagerGuestPaymentLinksPage() {
         items.length === 0 ? <div className="gpl-card">No current tenancies are available for guest payment links.</div> :
         <div className="gpl-list">{items.map(item => <article className="gpl-row" key={item.lease_id}>
           <div><h2 className="gpl-row__title">{item.tenant_name}</h2>
-            <div className="gpl-row__meta"><span>{item.property_name || "Property"}</span><span>Unit {item.unit_number || "—"}</span><span>Rent {formatMoney(item.monthly_rent)}</span><span>Lease #{item.lease_id}</span></div>
+            <div className="gpl-row__meta"><span>{item.property_name || "Property"}</span><span>Unit {item.unit_number || "—"}</span><span>Rent {formatMoney(item.monthly_rent, "KES")}</span><span>Lease #{item.lease_id}</span></div>
             <input className="gpl-email" type="email" aria-label={`Email for ${item.tenant_name}`} placeholder="Tenant email address" value={emails[item.lease_id] ?? ""} onChange={e => setEmails(prev => ({ ...prev, [item.lease_id]: e.target.value }))} />
             {item.link_created && <div className="gpl-row__status"><Check /> Link already active for this tenancy</div>}
             {item.email_sent_to && <div className="gpl-row__meta">Last emailed to {item.email_sent_to}{item.last_emailed_at ? ` · ${new Date(item.last_emailed_at).toLocaleString()}` : ""}</div>}
