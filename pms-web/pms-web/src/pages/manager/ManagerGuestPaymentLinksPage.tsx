@@ -47,7 +47,7 @@ const styles = `
 .gpl-email { width:100%; max-width:21rem; margin-top:.7rem; padding:.6rem .7rem; border:1px solid #d8e0e7; border-radius:.55rem; color:inherit; background:#fff; font:inherit; font-size:.85rem; }
 .gpl-error { padding:.75rem .9rem; border:1px solid #f1c8c8; border-radius:.7rem; background:#fff5f5; color:#9a3333; font-size:.85rem; }
 .gpl-success { padding:.75rem .9rem; border:1px solid #9ed9b1; border-radius:.7rem; background:#effaf2; color:#205c35; font-size:.85rem; line-height:1.5; }
-.gpl-row__feedback { grid-column:1 / -1; display:flex; align-items:flex-start; gap:.55rem; margin-top:.15rem; padding:.75rem .85rem; border:1px solid #9ed9b1; border-radius:.7rem; background:#effaf2; color:#205c35; font-size:.82rem; line-height:1.5; }
+.gpl-row__feedback { flex:1 0 100%; display:flex; align-items:flex-start; gap:.55rem; margin-top:.15rem; padding:.75rem .85rem; border:1px solid #9ed9b1; border-radius:.7rem; background:#effaf2; color:#205c35; font-size:.82rem; line-height:1.5; }
 .gpl-row__feedback svg { width:1rem; height:1rem; flex:none; margin-top:.1rem; }
 @media(max-width:700px) { .gpl-row { grid-template-columns:1fr; } .gpl-row__actions { justify-content:flex-start; } }
 `;
