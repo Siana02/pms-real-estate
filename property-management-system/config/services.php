@@ -4,12 +4,12 @@ return [
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', rtrim(env('APP_URL', 'http://localhost'), '/') . '/auth/google/callback'),
     ],
     'apple' => [
         'client_id' => env('APPLE_CLIENT_ID'),
         'client_secret' => env('APPLE_CLIENT_SECRET'),
-        'redirect' => env('APPLE_REDIRECT_URI', '/auth/apple/callback'),
+        'redirect' => env('APPLE_REDIRECT_URI', rtrim(env('APP_URL', 'http://localhost'), '/') . '/auth/apple/callback'),
     ],
     'frontend' => [
         'url' => env('FRONTEND_URL', 'http://localhost:5173'),
