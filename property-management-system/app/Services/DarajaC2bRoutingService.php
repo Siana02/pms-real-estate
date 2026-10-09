@@ -149,7 +149,7 @@ class DarajaC2bRoutingService
         $destinations = PaymentDestination::query()
             ->where('is_active', true)
             ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
-            ->where('daraja_authorization_status', 'ready')
+            ->where('c2b_authorization_status', 'ready')
             ->get()
             ->filter(fn (PaymentDestination $destination) => $destination->darajaShortcode() === $shortcode)
             ->values();
