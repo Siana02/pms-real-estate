@@ -84,8 +84,10 @@ class DarajaC2bRoutingService
                     && (int) $existingReceipt->payment_destination_id === (int) $matchedDestination->id;
                 $sameLease = !$existingReceipt->matched_lease_id
                     || (int) $existingReceipt->matched_lease_id === (int) $matchedLease->id;
+                $existingEnvironment = data_get($existingReceipt->raw_payload, 'environment');
+                $sameEnvironment = $existingEnvironment !== null && $existingEnvironment === $registration->environment;
 
-                if (!$sameDestination || !$sameLease) {
+                if (!$sameDestination || !$sameLease || !$sameEnvironment) {
                     $event->organization_id = null;
                     $event->payment_destination_id = null;
                     $event->payment_transaction_id = null;
@@ -128,6 +130,7 @@ class DarajaC2bRoutingService
                     'transaction_at' => $transactionAt,
                     'raw_payload' => [
                         'source' => 'c2b_confirmation',
+                        'environment' => $registration->environment,
                         'business_short_code' => $shortcode,
                         'bill_reference' => $reference,
                         'c2b_event_id' => $event->id,
@@ -178,6 +181,7 @@ class DarajaC2bRoutingService
                         'reconciliation_note' => $reason,
                         'raw_payload' => [
                             'source' => 'c2b_confirmation',
+                            'environment' => $registration->environment,
                             'business_short_code' => $shortcode,
                             'bill_reference' => $reference,
                             'c2b_event_id' => $event->id,
