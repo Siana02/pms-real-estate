@@ -49,9 +49,9 @@ class DarajaC2bRoutingService
                 $event->update([
                     'organization_id' => null,
                     'payment_destination_id' => null,
-                    'payment_transaction_id' => null,
                     'status' => 'needs_review',
                     'review_reason' => 'The same M-PESA receipt was received with a different shortcode. Automatic allocation is blocked pending platform review.',
+                    'raw_payload' => array_merge($event->raw_payload ?? [], ['conflicting_callback' => $payload]),
                 ]);
                 Log::critical('Daraja receipt was received under conflicting shortcodes.', [
                     'event_id' => $event->id,
@@ -60,6 +60,27 @@ class DarajaC2bRoutingService
                     'receipt' => $receipt,
                 ]);
                 return $event->fresh();
+            }
+
+            if (!$event->wasRecentlyCreated) {
+                $sameAmount = abs((float) $event->amount - $amount) < 0.001;
+                $sameReference = $this->normalizeReference($event->payment_reference) === $reference;
+                $sameTransactionTime = $event->transaction_at?->toDateTimeString() === $transactionAt;
+                if (!$sameAmount || !$sameReference || !$sameTransactionTime) {
+                    $event->update([
+                        'organization_id' => null,
+                        'payment_destination_id' => null,
+                        'status' => 'needs_review',
+                        'review_reason' => 'A repeated callback for this M-PESA receipt contained conflicting amount, reference or timestamp data. Do not allocate until the source statement is checked.',
+                        'raw_payload' => array_merge($event->raw_payload ?? [], ['conflicting_callback' => $payload]),
+                    ]);
+                    Log::critical('Daraja receipt callback payload changed for an existing receipt.', [
+                        'event_id' => $event->id,
+                        'receipt' => $receipt,
+                        'shortcode' => $shortcode,
+                    ]);
+                    return $event->fresh();
+                }
             }
 
             if (!$event->wasRecentlyCreated && in_array($event->status, ['routed', 'needs_review'], true)) {
