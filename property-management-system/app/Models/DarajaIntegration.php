@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class DarajaIntegration extends Model
 {
     protected $fillable = [
-        'organization_id', 'environment', 'shortcode', 'shortcode_type',
+        'organization_id', 'environment', 'shortcode', 'shortcode_type', 'callback_token',
         'consumer_key', 'consumer_secret', 'passkey', 'webhook_token', 'enabled',
     ];
 
