@@ -584,7 +584,6 @@ function TenantPaymentsPage() {
   useEffect(() => {
     if (!payOpen) return;
     setAmount(String(Math.round(toNumber(summary?.balance ?? summary?.amount_due))) || "");
-    setMethod(paymentOptions.online.available ? "flutterwave" : paymentOptions.destinations.some((item) => item.method.startsWith("mpesa")) ? "mpesa" : "bank_transfer");
     setDestinationId("");
     setReference("");
     setPhone("");
@@ -613,6 +612,18 @@ function TenantPaymentsPage() {
     });
   }, [payments, filter, query]);
  
+  function openPay(nextMethod?: PayMethod) {
+    const fallback: PayMethod = paymentOptions.online.available
+      ? "flutterwave"
+      : paymentOptions.stk_push?.available
+        ? "mpesa_stk"
+        : paymentOptions.destinations.some((item) => item.method.startsWith("mpesa"))
+          ? "mpesa"
+          : "bank_transfer";
+    setMethod(nextMethod ?? fallback);
+    setPayOpen(true);
+  }
+
   function closePay() {
     setPayOpen(false);
     setSubmitError("");
@@ -685,7 +696,7 @@ function TenantPaymentsPage() {
         <button
           type="button"
           className="tp-btn tp-btn--primary"
-          onClick={() => setPayOpen(true)}
+          onClick={() => openPay()}
         >
           <CreditCard />
           Pay rent
@@ -787,28 +798,27 @@ function TenantPaymentsPage() {
 
           <div className="tpay-methods" style={{ marginTop: "1rem" }}>
             {paymentOptions.online.available && (
-              <button type="button" className="tpay-method" onClick={() => { setMethod("flutterwave"); setPayOpen(true); }}>
+              <button type="button" className="tpay-method" onClick={() => openPay("flutterwave")}>
                 <CreditCard />
                 <span><strong style={{ display: "block" }}>Pay online</strong><small style={{ color: "var(--tp-muted)" }}>Secure checkout by M-PESA, card or bank transfer.</small></span>
               </button>
             )}
             {paymentOptions.stk_push?.available && (
-              <button type="button" className="tpay-method" onClick={() => { setMethod("mpesa_stk"); setPayOpen(true); }}>
+              <button type="button" className="tpay-method" onClick={() => openPay("mpesa_stk")}>
                 <Smartphone />
                 <span><strong style={{ display: "block" }}>Pay with M-PESA prompt</strong><small style={{ color: "var(--tp-muted)" }}>Get a secure STK Push prompt on your phone.</small></span>
               </button>
             )}
             {paymentOptions.destinations.map((destination) => (
               <button key={destination.id} type="button" className="tpay-method" onClick={() => {
-                setMethod(destination.method === "bank" ? "bank_transfer" : "mpesa");
                 setDestinationId(String(destination.id));
-                setPayOpen(true);
+                openPay(destination.method === "bank" ? "bank_transfer" : "mpesa");
               }}>
                 {destination.method === "bank" ? <Building2 /> : <Smartphone />}
                 <span><strong style={{ display: "block" }}>{destinationLabel(destination)}</strong><small style={{ color: "var(--tp-muted)" }}>{destinationDetail(destination)}</small></span>
               </button>
             ))}
-            {!paymentOptions.online.available && paymentOptions.destinations.length === 0 && (
+            {!paymentOptions.online.available && !paymentOptions.stk_push?.available && paymentOptions.destinations.length === 0 && (
               <div className="tp-card tp-empty"><Wallet /><p className="tp-empty__text">No payment destinations have been configured yet.</p></div>
             )}
           </div>
