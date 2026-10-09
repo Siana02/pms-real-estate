@@ -26,6 +26,10 @@ Do not use `--confirmed` just because a manager entered a passkey. The command r
 
 The destination returns to awaiting verification when the shortcode/type/passkey changes. STK Push is available only when the destination is active, complete, marked ready, and platform credentials are enabled.
 
+## Sandbox STK configuration
+
+Safaricom's documented Lipa Na M-Pesa Online sandbox shortcode is `174379`. Sandbox tests must use that shortcode, the sandbox passkey supplied for the Daraja app, and sandbox OAuth credentials. Do not use a real property PayBill/Till shortcode with sandbox app credentials and assume it represents a real receiving account. The service now rejects non-sandbox merchant shortcodes in sandbox mode before making an STK request or status query. Use a separately verified production configuration for a real merchant destination.
+
 ## Recovering an STK checkout with a missing callback
 
 If a checkout remains `pending` because its STK callback was not received, an authorized backend operator can query Safaricom directly using the stored checkout request ID:
