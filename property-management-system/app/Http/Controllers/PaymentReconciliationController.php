@@ -10,6 +10,7 @@ use App\Services\AuditLogService;
 use App\Services\PaymentReconciliationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Services\PermissionService;
 
 class PaymentReconciliationController extends Controller
@@ -81,10 +82,6 @@ class PaymentReconciliationController extends Controller
                 abort(422, 'This payment is already associated with a different destination.');
             }
 
-            if (!$paymentTransaction->payment_destination_id) {
-                $paymentTransaction->update(['payment_destination_id' => $destination->id]);
-                $paymentTransaction->refresh();
-            }
         }
 
         if ($destination) {
@@ -94,17 +91,25 @@ class PaymentReconciliationController extends Controller
         }
 
         $before = $paymentTransaction->status;
-        $transaction = $service->resolve($paymentTransaction, $lease);
+        $transaction = DB::transaction(function () use ($isC2b, $paymentTransaction, $destination, $lease, $service, $payload) {
+            if ($isC2b && !$paymentTransaction->payment_destination_id) {
+                $paymentTransaction->update(['payment_destination_id' => $destination->id]);
+            }
 
-        if ($isC2b && !empty($payload['c2b_event_id'])) {
-            DarajaC2bEvent::whereKey((int) $payload['c2b_event_id'])->update([
-                'organization_id' => $transaction->organization_id,
-                'payment_destination_id' => $destination?->id,
-                'payment_transaction_id' => $transaction->id,
-                'status' => 'routed',
-                'review_reason' => null,
-            ]);
-        }
+            $resolved = $service->resolve($paymentTransaction->fresh(), $lease);
+
+            if ($isC2b && !empty($payload['c2b_event_id'])) {
+                DarajaC2bEvent::whereKey((int) $payload['c2b_event_id'])->update([
+                    'organization_id' => $resolved->organization_id,
+                    'payment_destination_id' => $destination?->id,
+                    'payment_transaction_id' => $resolved->id,
+                    'status' => 'routed',
+                    'review_reason' => null,
+                ]);
+            }
+
+            return $resolved;
+        });
 
         app(AuditLogService::class)->record(
             'PAYMENT_TRANSACTION_RECONCILED',
