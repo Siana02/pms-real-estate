@@ -12,9 +12,9 @@ use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -26,8 +26,6 @@ class DarajaController extends Controller
     {
         $this->authorizeManager($request);
         $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->first();
-        $base = rtrim((string) config('app.url'), '/');
-        $callbacks = $this->callbackUrls($integration);
 
         return response()->json([
             'configured' => (bool) $integration,
@@ -38,20 +36,14 @@ class DarajaController extends Controller
             'has_consumer_key' => (bool) $integration?->consumer_key,
             'has_consumer_secret' => (bool) $integration?->consumer_secret,
             'has_passkey' => (bool) $integration?->passkey,
-            'c2b_registered_at' => $integration?->c2b_registered_at,
             'c2b_registered_at' => $integration?->c2b_registered_at?->toIso8601String(),
-            'stk_callback_url' => $callbacks['stk'],
-            'c2b_confirmation_url' => $callbacks['confirmation'],
-            'c2b_validation_url' => $callbacks['validation'],
+            ...$this->callbackUrls($integration),
         ]);
     }
 
     public function save(Request $request): JsonResponse
     {
         $this->authorizeManager($request);
-        $organizationId = $request->user()->organization_id;
-        $existing = DarajaIntegration::where('organization_id', $organizationId)->first();
-
         $validated = $request->validate([
             'environment' => ['required', Rule::in(['sandbox', 'production'])],
             'shortcode' => ['required', 'string', 'regex:/^\d{5,7}$/'],
@@ -68,6 +60,8 @@ class DarajaController extends Controller
             ], 422);
         }
 
+        $organizationId = $request->user()->organization_id;
+        $existing = DarajaIntegration::where('organization_id', $organizationId)->first();
         $consumerKey = filled($validated['consumer_key'] ?? null) ? trim($validated['consumer_key']) : $existing?->consumer_key;
         $consumerSecret = filled($validated['consumer_secret'] ?? null) ? trim($validated['consumer_secret']) : $existing?->consumer_secret;
         $passkey = filled($validated['passkey'] ?? null) ? trim($validated['passkey']) : $existing?->passkey;
@@ -89,7 +83,7 @@ class DarajaController extends Controller
             ]
         );
 
-        \Illuminate\Support\Facades\Cache::forget('daraja:token:' . $organizationId . ':' . $integration->environment);
+        Cache::forget('daraja:token:' . $organizationId . ':' . $integration->environment);
 
         return response()->json([
             'message' => 'Daraja settings saved. Credentials are encrypted at rest and never returned by the API.',
@@ -101,66 +95,23 @@ class DarajaController extends Controller
             'has_consumer_key' => (bool) $integration->consumer_key,
             'has_consumer_secret' => (bool) $integration->consumer_secret,
             'has_passkey' => (bool) $integration->passkey,
+            'c2b_registered_at' => $integration->c2b_registered_at?->toIso8601String(),
+            ...$this->callbackUrls($integration),
         ]);
     }
-
-    public function registerC2B(Request $request, DarajaService $daraja): JsonResponse
-    {
-        $this->authorizeManager($request);
-        $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)
-            ->where('enabled', true)->firstOrFail();
-
-        $base = rtrim((string) config('app.url'), '/');
-        $callbacks = $this->callbackUrls($integration);
-        abort_if($integration->environment === 'production' && !str_starts_with($base, 'https://'), 422,
-            'Production C2B registration requires an HTTPS APP_URL.');
-
-        try {
-            $response = \Illuminate\Support\Facades\Http::withToken($daraja->accessToken($integration))
-                ->acceptJson()->asJson()->timeout(20)
-                ->post($daraja->baseUrl($integration) . '/mpesa/c2b/v1/registerurl', [
-                    'ShortCode' => $integration->shortcode,
-                    'ResponseType' => 'Completed',
-                    'ConfirmationURL' => $callbacks['confirmation'],
-                    'ValidationURL' => $callbacks['validation'],
-                ]);
-        } catch (Throwable $exception) {
-            Log::warning('Daraja C2B URL registration request failed.', [
-                'organization_id' => $integration->organization_id,
-                'exception' => $exception::class,
-            ]);
-            return response()->json(['message' => 'Safaricom could not be reached to register C2B callbacks.'], 502);
-        }
-
-        if (!$response->successful() || (string) $response->json('ResponseCode') !== '0') {
-            Log::warning('Daraja C2B URL registration was rejected.', [
-                'organization_id' => $integration->organization_id,
-                'http_status' => $response->status(),
-                'response_code' => $response->json('ResponseCode'),
-            ]);
-            return response()->json([
-                'message' => 'Safaricom did not accept the callback URLs. Check your Daraja environment, shortcode, and callback HTTPS availability.',
-            ], 502);
-        }
-
-        $integration->update(['c2b_registered_at' => now()]);
-        return response()->json([
-            'message' => 'C2B confirmation and validation URLs registered with Safaricom.',
-            'c2b_registered_at' => $integration->fresh()->c2b_registered_at?->toIso8601String(),
-        ]);
-    }
-
 
     public function registerC2B(Request $request, DarajaService $daraja): JsonResponse
     {
         $this->authorizeManager($request);
         $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->firstOrFail();
         abort_if(!$integration->enabled, 422, 'Enable Daraja before registering C2B callbacks.');
-        abort_if($integration->shortcode_type !== 'PayBill', 422, 'Daraja C2B URL registration is supported for PayBill shortcodes. Till direct-payment callbacks depend on Safaricom provisioning; STK Push remains available.');
+        abort_if($integration->shortcode_type !== 'PayBill', 422, 'C2B URL registration is supported for PayBill shortcodes. Direct Till-payment callbacks depend on Safaricom provisioning; STK Push remains available.');
+
+        if (!str_starts_with((string) config('app.url'), 'https://')) {
+            return response()->json(['message' => 'C2B callback registration requires APP_URL to use HTTPS.'], 422);
+        }
 
         $urls = $this->callbackUrls($integration);
-        abort_if(!str_starts_with((string) config('app.url'), 'https://'), 422, 'C2B callback registration requires APP_URL to use HTTPS.');
-
         try {
             $result = $daraja->registerC2BUrls($integration, $urls['c2b_confirmation_url'], $urls['c2b_validation_url']);
         } catch (Throwable $exception) {
@@ -168,16 +119,19 @@ class DarajaController extends Controller
                 'organization_id' => $integration->organization_id,
                 'exception' => $exception::class,
             ]);
-            return response()->json(['message' => 'Safaricom could not register the C2B URLs. Check the shortcode, Daraja app permissions, environment and callback URL, then try again.'], 422);
+            return response()->json([
+                'message' => 'Safaricom could not register the C2B URLs. Check the shortcode, Daraja app permissions, environment and callback URL, then try again.',
+            ], 502);
         }
 
         $integration->update(['c2b_registered_at' => now()]);
 
         return response()->json([
             'message' => 'C2B confirmation and validation URLs registered with Safaricom.',
-            'c2b_registered_at' => $integration->fresh()->c2b_registered_at,
+            'c2b_registered_at' => $integration->fresh()->c2b_registered_at?->toIso8601String(),
             'response_description' => $result['ResponseDescription'] ?? 'Success',
-        ] + $urls);
+            ...$urls,
+        ]);
     }
 
     public function initiateStk(Request $request, DarajaService $daraja): JsonResponse
@@ -185,14 +139,12 @@ class DarajaController extends Controller
         $user = $request->user();
         abort_unless($user && $user->role === 'tenant', 403, 'Only tenant accounts can initiate rent payments.');
 
-        $tenant = null;
-        if (Schema::hasColumn('users', 'tenant_id') && $user->tenant_id) {
-            $tenant = Tenant::where('id', $user->tenant_id)->where('organization_id', $user->organization_id)->first();
-        }
+        $tenant = $user->tenant;
         if (!$tenant && $user->email) {
-            $tenant = Tenant::where('organization_id', $user->organization_id)->where('email', $user->email)->first();
+            $tenant = Tenant::where('organization_id', $user->organization_id)
+                ->where('email', $user->email)->first();
         }
-        abort_if(!$tenant, 404, 'No tenant record is linked to your account.');
+        abort_if(!$tenant || (int) $tenant->organization_id !== (int) $user->organization_id, 404, 'No tenant record is linked to your account.');
 
         $today = CarbonImmutable::today();
         $lease = Leases::query()
@@ -207,24 +159,21 @@ class DarajaController extends Controller
         $validated = $request->validate([
             'amount' => ['required', 'integer', 'min:1', 'max:250000'],
             'phone' => ['required', 'string', 'max:30'],
-            'payment_destination_id' => ['required', 'integer'],
         ]);
-
-        $destination = PaymentDestination::where('id', $validated['payment_destination_id'])
-            ->where('organization_id', $lease->organization_id)
-            ->where('property_id', $lease->property_id)
-            ->where('is_active', true)
-            ->whereIn('method', ['mpesa_till', 'mpesa_paybill'])->firstOrFail();
 
         $integration = DarajaIntegration::where('organization_id', $lease->organization_id)
             ->where('enabled', true)->first();
-        abort_if(!$integration, 422, 'M-PESA STK Push has not been connected by your property manager.');
+        abort_if(!$integration || !$integration->passkey, 422, 'M-PESA STK Push has not been connected by your property manager.');
 
-        $destinationShortcode = $destination->method === 'mpesa_till'
-            ? ($destination->details['till'] ?? null)
-            : ($destination->details['paybill'] ?? null);
-        abort_unless((string) $destinationShortcode === (string) $integration->shortcode, 422,
-            'This payment destination does not match the organization’s connected Daraja shortcode.');
+        $destinationQuery = PaymentDestination::where('organization_id', $lease->organization_id)
+            ->where('property_id', $lease->property_id)
+            ->where('is_active', true)
+            ->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
+            ->where(function ($query) use ($integration) {
+                $query->whereJsonContains('details->paybill', $integration->shortcode)
+                    ->orWhereJsonContains('details->till', $integration->shortcode);
+            });
+        $destination = $destinationQuery->first();
 
         try {
             $phone = $daraja->normalizePhone($validated['phone']);
@@ -239,7 +188,7 @@ class DarajaController extends Controller
         $checkout = DarajaStkCheckout::create([
             'organization_id' => $lease->organization_id,
             'lease_id' => $lease->id,
-            'payment_destination_id' => null,
+            'payment_destination_id' => $destination?->id,
             'account_reference' => substr($shortReference, 0, 12),
             'tenant_payment_reference' => $fullReference,
             'phone' => $phone,
@@ -256,7 +205,10 @@ class DarajaController extends Controller
                 'result_description' => $response['CustomerMessage'] ?? 'STK Push sent to phone.',
             ]);
         } catch (Throwable $exception) {
-            $checkout->update(['status' => 'failed', 'result_description' => 'Daraja could not start the STK Push request.']);
+            $checkout->update([
+                'status' => 'failed',
+                'result_description' => 'Daraja could not start the STK Push request.',
+            ]);
             Log::warning('Daraja STK initiation failed.', [
                 'organization_id' => $lease->organization_id,
                 'exception' => $exception::class,
@@ -272,7 +224,7 @@ class DarajaController extends Controller
 
     public function stkCallback(Request $request, PaymentReconciliationService $reconciliation): JsonResponse
     {
-        $payload = $request->except(['token']);
+        $payload = $request->except(['callbackToken', 'token']);
         $callback = data_get($payload, 'Body.stkCallback');
         if (!is_array($callback) || empty($callback['CheckoutRequestID'])) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback payload'], 400);
@@ -284,10 +236,14 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
-        if ((string) ($callback['ResultCode'] ?? '') !== '0') {
+        $integration = DarajaIntegration::where('organization_id', $checkout->organization_id)->first();
+        abort_unless($this->validCallbackToken($request, $integration), 403, 'Invalid callback token.');
+
+        $resultCode = (string) ($callback['ResultCode'] ?? '');
+        if ($resultCode !== '0') {
             $checkout->update([
                 'status' => 'failed',
-                'result_code' => (string) ($callback['ResultCode'] ?? ''),
+                'result_code' => $resultCode,
                 'result_description' => mb_substr((string) ($callback['ResultDesc'] ?? 'Payment not completed.'), 0, 1000),
                 'callback_payload' => $payload,
             ]);
@@ -307,9 +263,11 @@ class DarajaController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($checkout, $payload, $receipt, $amount, $phone, $items, $reconciliation) {
+            DB::transaction(function () use ($checkout, $payload, $receipt, $amount, $phone, $transactionAt, $reconciliation) {
                 $locked = DarajaStkCheckout::whereKey($checkout->id)->lockForUpdate()->firstOrFail();
-                if ($locked->status === 'completed' && $locked->mpesa_receipt === $receipt) return;
+                if ($locked->status === 'completed' && $locked->mpesa_receipt === $receipt) {
+                    return;
+                }
 
                 $matchesAmount = abs($amount - (float) $locked->amount) < 0.001;
                 $locked->update([
@@ -323,22 +281,6 @@ class DarajaController extends Controller
                     'callback_payload' => $payload,
                 ]);
 
-                if (!$matchesAmount) {
-                    $reconciliation->ingest([
-                        'organization_id' => $locked->organization_id,
-                        'payment_destination_id' => $locked->payment_destination_id,
-                        'provider' => 'mpesa_daraja',
-                        'external_transaction_id' => $receipt,
-                        'amount' => $amount,
-                        'currency' => 'KES',
-                        'payer_phone' => null,
-                        'payment_reference' => 'DAR-REVIEW-' . $locked->id,
-                        'transaction_at' => $transactionAt,
-                        'raw_payload' => ['source' => 'stk_callback', 'amount_mismatch' => true],
-                    ]);
-                    return;
-                }
-
                 $reconciliation->ingest([
                     'organization_id' => $locked->organization_id,
                     'payment_destination_id' => $locked->payment_destination_id,
@@ -346,10 +288,14 @@ class DarajaController extends Controller
                     'external_transaction_id' => $receipt,
                     'amount' => $amount,
                     'currency' => 'KES',
-                    'payer_phone' => $phone,
-                    'payment_reference' => $locked->tenant_payment_reference,
-                    'transaction_at' => $this->transactionDate($items->get('TransactionDate')),
-                    'raw_payload' => ['source' => 'stk_callback', 'checkout_id' => $locked->id],
+                    'payer_phone' => $matchesAmount ? $phone : null,
+                    'payment_reference' => $matchesAmount ? $locked->tenant_payment_reference : ('DAR-REVIEW-' . $locked->id),
+                    'transaction_at' => $transactionAt,
+                    'raw_payload' => [
+                        'source' => 'stk_callback',
+                        'checkout_id' => $locked->id,
+                        'amount_matches' => $matchesAmount,
+                    ],
                 ]);
             }, 3);
         } catch (Throwable $exception) {
@@ -365,26 +311,27 @@ class DarajaController extends Controller
 
     public function c2bConfirmation(Request $request, PaymentReconciliationService $reconciliation): JsonResponse
     {
-        $payload = $request->all();
+        $payload = $request->except(['callbackToken', 'token']);
         $shortcode = (string) ($payload['BusinessShortCode'] ?? '');
         $receipt = trim((string) ($payload['TransID'] ?? ''));
         $amount = (float) ($payload['TransAmount'] ?? 0);
+
         if ($shortcode === '' || $receipt === '' || $amount <= 0) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Required transaction fields are missing'], 400);
         }
 
-        $callbackToken = (string) $request->route('callbackToken', '');
-        $integrationQuery = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true);
-        $integration = $callbackToken !== ''
-            ? DarajaIntegration::where('callback_token', $callbackToken)->where('shortcode', $shortcode)->where('enabled', true)->first()
-            : (clone $integrationQuery)->first();
-        if (!$integration || ($callbackToken === '' && (clone $integrationQuery)->count() !== 1)) {
-            Log::warning('Daraja C2B callback received for an unconfigured shortcode.');
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Shortcode is not configured.']);
+        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->first();
+        if (!$integration || !$this->validCallbackToken($request, $integration)) {
+            Log::warning('Daraja C2B callback received for an invalid shortcode or token.');
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration'], 403);
         }
 
-        // C2B shortcode is organization-wide and may receive payments for any of its properties.
-        // Leave the destination unset so reconciliation can match the full tenant reference across properties.
+        $destination = PaymentDestination::where('organization_id', $integration->organization_id)
+            ->where('is_active', true)->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
+            ->where(function ($query) use ($shortcode) {
+                $query->whereJsonContains('details->paybill', $shortcode)
+                    ->orWhereJsonContains('details->till', $shortcode);
+            })->first();
 
         try {
             $reconciliation->ingest([
@@ -417,13 +364,41 @@ class DarajaController extends Controller
 
     public function c2bValidation(Request $request): JsonResponse
     {
-        // A tokenized callback maps validation to the correct organization; permissive response
-        // prevents a missing tenant reference from rejecting a genuine incoming payment.
-        $callbackToken = (string) $request->route('callbackToken', '');
-        if ($callbackToken !== '' && !DarajaIntegration::where('callback_token', $callbackToken)->where('enabled', true)->exists()) {
-            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Unknown callback registration.']);
+        $shortcode = (string) ($request->input('BusinessShortCode') ?? $request->input('ShortCode') ?? '');
+        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->first();
+
+        if (!$integration || !$this->validCallbackToken($request, $integration)) {
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration']);
         }
+
+        // Accept an authenticated payment even if its tenant reference needs manager review.
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+    }
+
+    private function callbackUrls(?DarajaIntegration $integration): array
+    {
+        $base = rtrim((string) config('app.url'), '/');
+        if (!$integration || !$integration->callback_token) {
+            return [
+                'stk_callback_url' => null,
+                'c2b_confirmation_url' => null,
+                'c2b_validation_url' => null,
+            ];
+        }
+
+        $tokenPath = rawurlencode($integration->callback_token);
+        return [
+            'stk_callback_url' => $base . '/api/webhooks/daraja/' . $tokenPath . '/stk',
+            'c2b_confirmation_url' => $base . '/api/webhooks/daraja/' . $tokenPath . '/confirm',
+            'c2b_validation_url' => $base . '/api/webhooks/daraja/' . $tokenPath . '/validate',
+        ];
+    }
+
+    private function validCallbackToken(Request $request, ?DarajaIntegration $integration): bool
+    {
+        $provided = (string) $request->route('callbackToken', '');
+        $expected = (string) ($integration?->callback_token ?? '');
+        return $provided !== '' && $expected !== '' && hash_equals($expected, $provided);
     }
 
     private function transactionDate(mixed $value): string
@@ -436,22 +411,12 @@ class DarajaController extends Controller
                 return now()->toDateTimeString();
             }
         }
+
         try {
             return $value ? CarbonImmutable::parse($value)->toDateTimeString() : now()->toDateTimeString();
         } catch (Throwable) {
             return now()->toDateTimeString();
         }
-    }
-
-    private function callbackUrls(?DarajaIntegration $integration): array
-    {
-        $base = rtrim((string) config('app.url'), '/');
-        $tokenPath = $integration?->callback_token ? '/' . $integration->callback_token : '';
-        return [
-            'stk' => $base . '/api/webhooks/daraja/stk',
-            'confirmation' => $base . '/api/webhooks/daraja' . $tokenPath . '/confirm',
-            'validation' => $base . '/api/webhooks/daraja' . $tokenPath . '/validate',
-        ];
     }
 
     private function authorizeManager(Request $request): void
