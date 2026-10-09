@@ -33,7 +33,7 @@ export default function GuestPaymentPage() {
     let cancelled = false;
     fetch(`${API_BASE}/guest-payments/${encodeURIComponent(token)}`, { headers: { Accept: "application/json" } })
       .then(async response => { const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || "This payment link is no longer active."); return body; })
-      .then(body => { if (!cancelled) { setData(body.data); if (body.data?.payment_destinations?.length) setDestinationId(String(body.data.payment_destinations[0].id)); setAmount(String(Math.round(Number(body.data?.monthly_rent || 0))); } })
+      .then(body => { if (!cancelled) { setData(body.data); if (body.data?.payment_destinations?.length) setDestinationId(String(body.data.payment_destinations[0].id)); setAmount(String(Math.round(Number(body.data?.monthly_rent || 0)))); } })
       .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : "Could not open this payment link."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -89,7 +89,7 @@ export default function GuestPaymentPage() {
                 <label style={{ display:"grid", gap:".4rem", fontSize:".85rem", fontWeight:600 }}>M-PESA phone number
                   <input required autoComplete="tel" inputMode="tel" placeholder="07XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} style={{ padding:".75rem", border:"1px solid #d3dfe7", borderRadius:".6rem", font: "inherit" }} />
                 </label>
-                <button type="submit" disabled={submitting} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:".5rem", padding:".85rem 1rem", border:0, borderRadius:".7rem", background:"#16834a", color:"#fff", font:"inherit", fontWeight:700, cursor:submitting?"wait":"pointer", opacity:submitting?.7:1 }}>
+                <button type="submit" disabled={submitting} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:".5rem", padding:".85rem 1rem", border:0, borderRadius:".7rem", background:"#16834a", color:"#fff", font:"inherit", fontWeight:700, cursor:submitting?"wait":"pointer", opacity: submitting ? 0.7 : 1 }}>
                   {submitting ? <LoaderCircle size={18}/> : <Smartphone size={18}/>} {submitting ? "Sending prompt…" : "Send M-PESA prompt"}
                 </button>
               </form>}
