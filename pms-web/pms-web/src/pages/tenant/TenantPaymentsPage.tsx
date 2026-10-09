@@ -349,7 +349,7 @@ const styles = `
 /*  TYPES                                                              */
 /* ------------------------------------------------------------------ */
  
-type PaymentStatus = "paid" | "pending" | "overdue" | "partial" | "failed";
+type PaymentStatus = "paid" | "pending" | "received" | "rejected" | "overdue" | "partial" | "failed";
 type PayMethod = "flutterwave" | "mpesa" | "mpesa_stk" | "bank_transfer";
  
 interface TenantPayment {
@@ -470,16 +470,18 @@ function destinationDetail(destination: PaymentDestination): string {
  
 const STATUS_LABEL: Record<PaymentStatus, string> = {
   paid: "Paid",
-  pending: "Pending",
+  pending: "Pending confirmation",
+  received: "Pending confirmation",
+  rejected: "Payment rejected",
   overdue: "Overdue",
   partial: "Part paid",
-  failed: "Failed",
+  failed: "Payment failed",
 };
  
 function statusTone(status: PaymentStatus | null): string {
   if (status === "paid") return "tp-pill--good";
-  if (status === "pending" || status === "partial") return "tp-pill--wait";
-  if (status === "overdue" || status === "failed") return "tp-pill--bad";
+  if (status === "pending" || status === "received" || status === "partial") return "tp-pill--wait";
+  if (status === "overdue" || status === "failed" || status === "rejected") return "tp-pill--bad";
   return "tp-pill--mute";
 }
  
