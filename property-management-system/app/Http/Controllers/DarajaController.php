@@ -113,37 +113,13 @@ class DarajaController extends Controller
         ]);
     }
 
-    public function registerC2B(Request $request, DarajaService $daraja): JsonResponse
+    public function registerC2B(Request $request): JsonResponse
     {
         $this->authorizeManager($request);
-        $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->firstOrFail();
-        abort_if(!$integration->enabled, 422, 'Enable Daraja before registering C2B callbacks.');
-
-        if (!str_starts_with((string) config('app.url'), 'https://')) {
-            return response()->json(['message' => 'C2B callback registration requires APP_URL to use HTTPS.'], 422);
-        }
-
-        $urls = $this->callbackUrls($integration);
-        try {
-            $result = $daraja->registerC2BUrls($integration, $urls['c2b_confirmation_url'], $urls['c2b_validation_url']);
-        } catch (Throwable $exception) {
-            Log::warning('Daraja C2B URL registration failed.', [
-                'organization_id' => $integration->organization_id,
-                'exception' => $exception::class,
-            ]);
-            return response()->json([
-                'message' => 'Safaricom could not register the C2B URLs. Check the shortcode, Daraja app permissions, environment and callback URL, then try again.',
-            ], 502);
-        }
-
-        $integration->update(['c2b_registered_at' => now()]);
 
         return response()->json([
-            'message' => 'C2B confirmation and validation URLs registered with Safaricom.',
-            'c2b_registered_at' => $integration->fresh()->c2b_registered_at?->toIso8601String(),
-            'response_description' => $result['ResponseDescription'] ?? 'Success',
-            ...$urls,
-        ]);
+            'message' => 'C2B registration is platform-managed. Use the verified destination workflow and the daraja:register-c2b backend command; organization-level callback registration is disabled.',
+        ], 410);
     }
 
     public function initiateStk(Request $request, DarajaService $daraja): JsonResponse
