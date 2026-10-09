@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::table('payment_destinations', function (Blueprint $table) {
             $table->string('daraja_shortcode_type', 20)->nullable()->after('details');
             $table->text('daraja_passkey')->nullable()->after('daraja_shortcode_type');
+            $table->text('daraja_callback_token')->nullable()->after('daraja_passkey');
             $table->string('daraja_authorization_status', 40)->default('not_configured')->after('daraja_passkey');
             $table->timestamp('daraja_authorization_checked_at')->nullable()->after('daraja_authorization_status');
             $table->string('account_reference_format', 120)->nullable()->after('daraja_authorization_checked_at');
@@ -27,6 +28,7 @@ return new class extends Migration
             $table->dropColumn([
                 'daraja_shortcode_type',
                 'daraja_passkey',
+                'daraja_callback_token',
                 'daraja_authorization_status',
                 'daraja_authorization_checked_at',
                 'account_reference_format',
