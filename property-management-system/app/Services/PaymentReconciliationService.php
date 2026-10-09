@@ -344,7 +344,7 @@ class PaymentReconciliationService
     private function normalizeReference(?string $value): ?string
     {
         $value = trim((string) $value);
-        return $value === '' ? null : Str::upper(preg_replace('/\\s+/', '', $value));
+        return $value === '' ? null : Str::upper(preg_replace('/\s+/', '', $value));
     }
 
     private function normalizePhone(?string $value): ?string
