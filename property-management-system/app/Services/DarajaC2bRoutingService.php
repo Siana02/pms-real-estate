@@ -112,7 +112,7 @@ class DarajaC2bRoutingService
                 return $event->fresh();
             }
 
-            if ($matches->count() === 1) {
+            if ($matches->count() === 1 && $matches->first()['destination']->c2b_authorization_status === 'ready') {
                 $match = $matches->first();
                 $destination = $match['destination'];
                 $lease = $match['lease'];
@@ -149,6 +149,7 @@ class DarajaC2bRoutingService
             $reason = match (true) {
                 !$reference => 'The M-PESA transaction has no account reference; automatic allocation is disabled.',
                 $matches->count() > 1 => 'The account reference matches more than one active lease or property destination.',
+                $matches->count() === 1 && $matches->first()['destination']->c2b_authorization_status !== 'ready' => 'The matching merchant destination has not completed C2B authorization verification.',
                 $destinations->isEmpty() => 'No active property destination is configured for this shortcode.',
                 $destinations->every(fn (PaymentDestination $destination) => $destination->c2b_authorization_status !== 'ready') => 'No destination for this shortcode has verified C2B merchant authorization.',
                 default => 'The account reference did not match a verified property lease.',
@@ -213,7 +214,7 @@ class DarajaC2bRoutingService
 
         $matches = collect();
         if ($reference !== null) {
-            foreach ($destinations->where('c2b_authorization_status', 'ready') as $destination) {
+            foreach ($destinations as $destination) {
                 $leases = Leases::query()
                     ->where('organization_id', $destination->organization_id)
                     ->where('property_id', $destination->property_id)
