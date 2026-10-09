@@ -6,10 +6,7 @@ import {
   BellRing,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
-  CircleAlert,
   CreditCard,
-  Info,
   Megaphone,
   Wrench,
 } from "lucide-react";
@@ -113,8 +110,8 @@ function NotificationsPage() {
 
   async function loadNotifications(initial = false) {
     try {
-      const payload = await apiRequest("/tenant/notifications");
-      const rows = Array.isArray(payload?.data) ? payload.data : [];
+      const payload = await apiRequest<{ data?: NotificationItem[] }>("/tenant/notifications");
+      const rows = Array.isArray(payload.data) ? payload.data : [];
       setItems(rows);
       if (initial) setLoading(false);
       return rows as NotificationItem[];
