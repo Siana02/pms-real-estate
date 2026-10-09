@@ -26,6 +26,7 @@ class DarajaController extends Controller
         $this->authorizeManager($request);
         $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->first();
         $base = rtrim((string) config('app.url'), '/');
+        $callbacks = $this->callbackUrls($integration);
 
         return response()->json([
             'configured' => (bool) $integration,
@@ -37,9 +38,9 @@ class DarajaController extends Controller
             'has_consumer_secret' => (bool) $integration?->consumer_secret,
             'has_passkey' => (bool) $integration?->passkey,
             'c2b_registered_at' => $integration?->c2b_registered_at?->toIso8601String(),
-            'stk_callback_url' => $base . '/api/webhooks/daraja/stk',
-            'c2b_confirmation_url' => $base . '/api/webhooks/daraja/confirm',
-            'c2b_validation_url' => $base . '/api/webhooks/daraja/validate',
+            'stk_callback_url' => $callbacks['stk'],
+            'c2b_confirmation_url' => $callbacks['confirmation'],
+            'c2b_validation_url' => $callbacks['validation'],
         ]);
     }
 
@@ -78,6 +79,7 @@ class DarajaController extends Controller
                 'environment' => $validated['environment'],
                 'shortcode' => $validated['shortcode'],
                 'shortcode_type' => $validated['shortcode_type'],
+                'callback_token' => $existing?->callback_token ?: Str::random(48),
                 'consumer_key' => $consumerKey,
                 'consumer_secret' => $consumerSecret,
                 'passkey' => $passkey,
@@ -107,6 +109,7 @@ class DarajaController extends Controller
             ->where('enabled', true)->firstOrFail();
 
         $base = rtrim((string) config('app.url'), '/');
+        $callbacks = $this->callbackUrls($integration);
         abort_if($integration->environment === 'production' && !str_starts_with($base, 'https://'), 422,
             'Production C2B registration requires an HTTPS APP_URL.');
 
@@ -116,8 +119,8 @@ class DarajaController extends Controller
                 ->post($daraja->baseUrl($integration) . '/mpesa/c2b/v1/registerurl', [
                     'ShortCode' => $integration->shortcode,
                     'ResponseType' => 'Completed',
-                    'ConfirmationURL' => $base . '/api/webhooks/daraja/confirm',
-                    'ValidationURL' => $base . '/api/webhooks/daraja/validate',
+                    'ConfirmationURL' => $callbacks['confirmation'],
+                    'ValidationURL' => $callbacks['validation'],
                 ]);
         } catch (Throwable $exception) {
             Log::warning('Daraja C2B URL registration request failed.', [
@@ -337,8 +340,12 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Required transaction fields are missing'], 400);
         }
 
-        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->first();
-        if (!$integration) {
+        $callbackToken = (string) $request->route('callbackToken', '');
+        $integrationQuery = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true);
+        $integration = $callbackToken !== ''
+            ? DarajaIntegration::where('callback_token', $callbackToken)->where('shortcode', $shortcode)->where('enabled', true)->first()
+            : (clone $integrationQuery)->first();
+        if (!$integration || ($callbackToken === '' && (clone $integrationQuery)->count() !== 1)) {
             Log::warning('Daraja C2B callback received for an unconfigured shortcode.');
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Shortcode is not configured.']);
         }
@@ -381,8 +388,12 @@ class DarajaController extends Controller
 
     public function c2bValidation(Request $request): JsonResponse
     {
-        // Keep validation permissive so a missing tenant reference cannot cause a genuine
-        // incoming payment to be rejected before the confirmation callback reaches us.
+        // A tokenized callback maps validation to the correct organization; permissive response
+        // prevents a missing tenant reference from rejecting a genuine incoming payment.
+        $callbackToken = (string) $request->route('callbackToken', '');
+        if ($callbackToken !== '' && !DarajaIntegration::where('callback_token', $callbackToken)->where('enabled', true)->exists()) {
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Unknown callback registration.']);
+        }
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
@@ -401,6 +412,17 @@ class DarajaController extends Controller
         } catch (Throwable) {
             return now()->toDateTimeString();
         }
+    }
+
+    private function callbackUrls(?DarajaIntegration $integration): array
+    {
+        $base = rtrim((string) config('app.url'), '/');
+        $tokenPath = $integration?->callback_token ? '/' . $integration->callback_token : '';
+        return [
+            'stk' => $base . '/api/webhooks/daraja/stk',
+            'confirmation' => $base . '/api/webhooks/daraja' . $tokenPath . '/confirm',
+            'validation' => $base . '/api/webhooks/daraja' . $tokenPath . '/validate',
+        ];
     }
 
     private function authorizeManager(Request $request): void
