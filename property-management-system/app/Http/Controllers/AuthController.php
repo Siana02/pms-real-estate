@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Socialite;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -380,7 +381,7 @@ public function usernameAvailable(Request $request)
 
         session(['oauth_mode' => $mode, 'oauth_role' => $request->query('role')]);
 
-        return Socialite::driver($provider)->redirect();
+        return Socialite::driver($provider)->with(['prompt' => 'select_account'])->redirect();
     }
 
     public function handleProviderCallback(Request $request, string $provider)
@@ -390,7 +391,8 @@ public function usernameAvailable(Request $request)
         try {
             $oauthUser = Socialite::driver($provider)->user();
         } catch (\Throwable $e) {
-            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('We could not complete that sign-in. Please try again.'));
+            Log::warning('Google OAuth callback failed.', ['provider' => $provider, 'exception' => class_basename($e)]);
+            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('Google sign-in could not be completed. Check your Google OAuth configuration and try again.'));
         }
 
         $providerId = (string) $oauthUser->getId();
