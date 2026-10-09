@@ -60,6 +60,7 @@ class ReviewDarajaC2bEvents extends Command
         }
         $reason = (string) $event->review_reason;
         if (str_contains($reason, 'different shortcode')
+            || str_contains($reason, 'conflicting amount, reference or timestamp data')
             || str_contains($reason, 'already recorded against a different organization')
             || str_contains($reason, 'already exists in the rent ledger')) {
             $this->error('This event is a receipt/shortcode conflict. Do not allocate it through the normal review command; investigate the source M-PESA statement and existing ledger entry first.');
