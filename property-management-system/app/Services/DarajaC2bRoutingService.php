@@ -274,12 +274,27 @@ class DarajaC2bRoutingService
 
     private function transactionDate(mixed $value): string
     {
-        $digits = preg_replace('/\D+/', '', (string) $value);
+        $digits = preg_replace('/\\D+/', '', (string) $value);
         if (strlen($digits) === 14) {
-            try { return CarbonImmutable::createFromFormat('YmdHis', $digits)?->toDateTimeString() ?? now()->toDateTimeString(); }
-            catch (\Throwable) { return now()->toDateTimeString(); }
+            try {
+                $date = CarbonImmutable::createFromFormat('YmdHis', $digits);
+                if (!$date) {
+                    throw new RuntimeException('Invalid C2B transaction timestamp.');
+                }
+                return $date->toDateTimeString();
+            } catch (\\Throwable $exception) {
+                throw new RuntimeException('C2B transaction timestamp is invalid; automatic allocation is blocked.', 0, $exception);
+            }
         }
-        try { return $value ? CarbonImmutable::parse($value)->toDateTimeString() : now()->toDateTimeString(); }
-        catch (\Throwable) { return now()->toDateTimeString(); }
+
+        if (filled($value)) {
+            try {
+                return CarbonImmutable::parse($value)->toDateTimeString();
+            } catch (\\Throwable $exception) {
+                throw new RuntimeException('C2B transaction timestamp is invalid; automatic allocation is blocked.', 0, $exception);
+            }
+        }
+
+        throw new RuntimeException('C2B transaction timestamp is missing; automatic allocation is blocked.');
     }
 }
