@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import PaymentDestinationSection from "../../components/PaymentDestinationSection";
-import DarajaSettingsSection from "../../components/DarajaSettingsSection";
 import { apiRequest } from "../../services/api";
 import { managerStyles } from "../../styles/managerUI";
 import {
@@ -994,7 +993,6 @@ function ManagerSettingsPage() {
           )}
 
           <PaymentDestinationSection role={profile.role} />
-          <DarajaSettingsSection role={profile.role} />
 
           <section className="mg-panel">
             <div className="mg-panel__head">
