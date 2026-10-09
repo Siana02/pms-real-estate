@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DarajaC2bRegistration;
 use App\Models\PaymentDestination;
+use App\Models\OrganizationDarajaCredential;
 use App\Services\DarajaService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -15,15 +16,10 @@ class RegisterDarajaC2bShortcodes extends Command
         {--shortcode= : Register one shortcode only}
         {--force : Re-register callbacks even if already registered}';
 
-    protected $description = 'Register shared C2B callbacks once per shortcode using MARSWebz platform credentials';
+    protected $description = 'Register shared C2B callbacks once per shortcode using the owning organization Daraja credentials';
 
     public function handle(DarajaService $daraja): int
     {
-        if (!config('daraja.platform_enabled') || !filled(config('daraja.consumer_key')) || !filled(config('daraja.consumer_secret'))) {
-            $this->error('The MARSWebz platform Daraja credentials are not configured.');
-            return self::FAILURE;
-        }
-
         $base = rtrim((string) config('app.url'), '/');
         if (!str_starts_with($base, 'https://')) {
             $this->error('C2B registration requires a public HTTPS APP_URL.');
@@ -49,6 +45,42 @@ class RegisterDarajaC2bShortcodes extends Command
 
         $failed = 0;
         foreach ($shortcodes as $shortcode) {
+            $destinationForShortcode = $destinations->first(
+                fn (PaymentDestination $destination) => $destination->darajaShortcode() === (string) $shortcode
+            );
+            if (!$destinationForShortcode) {
+                $this->error('No eligible destination found for the selected shortcode.');
+                $failed++;
+                continue;
+            }
+
+            $sameShortcodeDestinations = PaymentDestination::query()
+                ->where('is_active', true)
+                ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
+                ->get()
+                ->filter(fn (PaymentDestination $destination) => $destination->darajaShortcode() === (string) $shortcode);
+
+            $credentialFingerprints = $sameShortcodeDestinations
+                ->pluck('organization_id')
+                ->unique()
+                ->map(function ($organizationId): ?string {
+                    $credential = OrganizationDarajaCredential::where('organization_id', $organizationId)->first();
+                    if (!$credential || !$credential->isConfigured()) {
+                        return null;
+                    }
+
+                    return hash('sha256', $credential->consumer_key . "\0" . $credential->consumer_secret);
+                })
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($credentialFingerprints->count() > 1) {
+                $this->error('This shortcode is configured under multiple organizations with different Daraja apps. Registration was skipped; resolve merchant ownership and app authorization first.');
+                $failed++;
+                continue;
+            }
+
             $registration = DarajaC2bRegistration::firstOrNew([
                 'environment' => config('daraja.environment', 'sandbox'),
                 'shortcode' => $shortcode,
@@ -72,7 +104,7 @@ class RegisterDarajaC2bShortcodes extends Command
             $validationUrl = $base . '/api/webhooks/daraja/' . $tokenPath . '/validate';
 
             try {
-                $result = $daraja->registerC2BUrls((string) $shortcode, $confirmationUrl, $validationUrl);
+                $result = $daraja->registerC2BUrls($destinationForShortcode, $confirmationUrl, $validationUrl);
                 $registration->update([
                     'status' => 'registered',
                     'registered_at' => now(),
