@@ -623,6 +623,8 @@ const styles = `
   width: 0.875rem;
   height: 0.875rem;
 }
+.lg-legal { display:flex; justify-content:center; gap:1rem; margin:1rem 0 0; font-size:.75rem; color:var(--lg-muted); }
+.lg-legal a:hover { color:#fff; text-decoration:underline; }
 
 /* ---------- keyboard focus visibility ---------- */
 .lg-root a:focus-visible,
@@ -1425,6 +1427,11 @@ function LoginPage() {
               <ShieldCheck />
               Secured with 256-bit encryption
             </p>
+            <nav className="lg-legal" aria-label="Legal information">
+              <a href="/terms">Terms of Service</a>
+              <a href="/privacy">Privacy Policy</a>
+              <a href="/help">Help Centre</a>
+            </nav>
           </div>
         </section>
       </div>
