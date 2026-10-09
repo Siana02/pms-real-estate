@@ -23,7 +23,7 @@ class DarajaController extends Controller
     {
         $this->authorizeManager($request);
         return response()->json([
-            'message' => 'Daraja application credentials and C2B registration are managed by the MARSWebz platform, not organization settings.',
+            'message' => 'Use the organization Daraja credentials endpoint and verified payment-destination workflow.',
         ], 410);
     }
 
@@ -31,7 +31,7 @@ class DarajaController extends Controller
     {
         $this->authorizeManager($request);
         return response()->json([
-            'message' => 'Organization-level Daraja credentials are disabled. Configure platform credentials in the backend environment and merchant destinations in property settings.',
+            'message' => 'Use the dedicated organization Daraja credentials settings endpoint; merchant shortcode and passkey remain destination-specific.',
         ], 410);
     }
 
@@ -40,7 +40,7 @@ class DarajaController extends Controller
         $this->authorizeManager($request);
 
         return response()->json([
-            'message' => 'C2B registration is platform-managed. Use the verified destination workflow and the daraja:register-c2b backend command; organization-level callback registration is disabled.',
+            'message' => 'C2B URL registration is performed by the backend command after merchant authorization is independently verified.',
         ], 410);
     }
 
