@@ -994,7 +994,7 @@ function ManagerSettingsPage() {
           )}
 
           <PaymentDestinationSection role={profile.role} />
-          <DarajaSettingsSection />
+          <DarajaSettingsSection role={profile.role} />
 
           <section className="mg-panel">
             <div className="mg-panel__head">
