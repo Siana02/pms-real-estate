@@ -3,24 +3,26 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DarajaIntegration extends Model
 {
     protected $fillable = [
-        'organization_id', 'environment', 'shortcode', 'shortcode_type',
-        'consumer_key', 'consumer_secret', 'passkey', 'enabled',
+        'organization_id', 'business_short_code', 'environment', 'account_type',
+        'consumer_key', 'consumer_secret', 'passkey', 'is_active', 'c2b_registered_at',
     ];
 
     protected $casts = [
         'consumer_key' => 'encrypted',
         'consumer_secret' => 'encrypted',
         'passkey' => 'encrypted',
-        'enabled' => 'boolean',
+        'is_active' => 'boolean',
+        'c2b_registered_at' => 'datetime',
     ];
 
     protected $hidden = ['consumer_key', 'consumer_secret', 'passkey'];
 
-    public function organization()
+    public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
     }
