@@ -47,6 +47,9 @@ class DarajaC2bRoutingService
 
             if (!$event->wasRecentlyCreated && $event->shortcode !== $shortcode) {
                 $event->update([
+                    'organization_id' => null,
+                    'payment_destination_id' => null,
+                    'payment_transaction_id' => null,
                     'status' => 'needs_review',
                     'review_reason' => 'The same M-PESA receipt was received with a different shortcode. Automatic allocation is blocked pending platform review.',
                 ]);
