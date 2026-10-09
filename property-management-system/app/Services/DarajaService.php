@@ -22,7 +22,7 @@ class DarajaService
 
         $consumerKey = (string) $credential->consumer_key;
         $consumerSecret = (string) $credential->consumer_secret;
-        $cacheKey = 'daraja:organization-token:' . $environment . ':' . $destination->organization_id . ':' . hash('sha256', $consumerKey);
+        $cacheKey = 'daraja:organization-token:' . $environment . ':' . $destination->organization_id . ':' . hash('sha256', $consumerKey . "\0" . $consumerSecret);
 
         return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($consumerKey, $consumerSecret) {
             $response = Http::withBasicAuth($consumerKey, $consumerSecret)
