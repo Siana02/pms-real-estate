@@ -94,7 +94,7 @@ class ReviewDarajaC2bEvents extends Command
         }
 
         $at = CarbonImmutable::parse($event->transaction_at);
-        if (in_array($lease->status, ['ended', 'terminated'], true)
+        if (in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
             || CarbonImmutable::parse($lease->start_date)->greaterThan($at)
             || ($lease->end_date && CarbonImmutable::parse($lease->end_date)->lessThan($at))) {
             $this->error('Lease was not active on the payment date.');
