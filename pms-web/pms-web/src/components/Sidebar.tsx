@@ -15,6 +15,7 @@ import {
   Settings,
   Users,
   Wrench,
+  LifeBuoy,
 } from "lucide-react";
  
 /* ------------------------------------------------------------------ */
@@ -416,6 +417,18 @@ function Sidebar() {
       </nav>
  
       <div className="sb-foot">
+        <NavLink to="/manager/help" className={linkClass}>
+          <LifeBuoy />
+          Help centre
+        </NavLink>
+        <NavLink to="/terms" className={linkClass}>
+          <FileText />
+          Terms of service
+        </NavLink>
+        <NavLink to="/privacy" className={linkClass}>
+          <ShieldCheck />
+          Privacy policy
+        </NavLink>
         <NavLink to="/settings" className={linkClass}>
           <Settings />
           Settings
