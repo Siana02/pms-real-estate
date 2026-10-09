@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { AlertCircle, Building2, CheckCircle2, LoaderCircle, ShieldCheck, Smartphone } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { API_BASE } from "../services/api";
@@ -39,7 +40,7 @@ export default function GuestPaymentPage() {
     return () => { cancelled = true; };
   }, [token]);
 
-  async function pay(event: React.FormEvent) {
+  async function pay(event: FormEvent) {
     event.preventDefault(); setError(""); setStatus("");
     const parsedAmount = Number(amount);
     if (!Number.isInteger(parsedAmount) || parsedAmount < 1 || parsedAmount > 250000) { setError("Enter a whole-number amount between KES 1 and KES 250,000."); return; }
