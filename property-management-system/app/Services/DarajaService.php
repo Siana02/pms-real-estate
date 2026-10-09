@@ -110,7 +110,7 @@ class DarajaService
             'CheckoutRequestID' => $checkoutRequestId,
         ];
 
-        $response = Http::withToken($this->accessToken())
+        $response = Http::withToken($this->accessToken($destination))
             ->acceptJson()->asJson()->timeout(20)
             ->post($this->baseUrl() . '/mpesa/stkpushquery/v1/query', $payload);
         $response->throw();
