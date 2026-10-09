@@ -44,7 +44,7 @@ class DarajaService
             'PartyA' => $phone,
             'PartyB' => $integration->shortcode,
             'PhoneNumber' => $phone,
-            'CallBackURL' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/stk?token=' . rawurlencode((string) $integration->webhook_token),
+            'CallBackURL' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/' . rawurlencode((string) $integration->callback_token) . '/stk',
             'AccountReference' => Str::limit(preg_replace('/[^A-Za-z0-9]/', '', $reference) ?: 'RENT', 12, ''),
             'TransactionDesc' => 'Rent payment',
         ];
