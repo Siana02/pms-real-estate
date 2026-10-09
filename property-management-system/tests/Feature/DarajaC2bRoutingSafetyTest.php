@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\DarajaC2bRegistration;
+use App\Models\DarajaC2bEvent;
+use App\Models\PaymentTransaction;
 use App\Services\DarajaC2bRoutingService;
+use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +75,39 @@ class DarajaC2bRoutingSafetyTest extends TestCase
 
         $this->assertCount(2, $result['destinations']);
         $this->assertCount(0, $result['matches']);
+    }
+
+    public function test_missing_reference_is_persisted_for_review_and_duplicate_callbacks_are_idempotent(): void
+    {
+        $this->createDestinationAndLease('Review Properties', 'review@example.test', '51683/{unit}');
+        $registration = DarajaC2bRegistration::create([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'callback_token_hash' => hash('sha256', 'test-callback-token'),
+            'callback_token' => 'test-callback-token',
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        $payload = [
+            'BusinessShortCode' => '123456',
+            'TransID' => 'QAB12345678',
+            'TransAmount' => '25000.00',
+            'MSISDN' => '254712345678',
+            'BillRefNumber' => '',
+            'TransTime' => '20261009120000',
+        ];
+
+        $routing = app(DarajaC2bRoutingService::class);
+        $first = $routing->receive($registration, $payload, app(PaymentReconciliationService::class));
+        $second = $routing->receive($registration, $payload, app(PaymentReconciliationService::class));
+
+        $this->assertSame('needs_review', $first->status);
+        $this->assertSame('needs_review', $second->status);
+        $this->assertSame('The M-PESA transaction has no account reference; automatic allocation is disabled.', $first->review_reason);
+        $this->assertSame(1, DarajaC2bEvent::count());
+        $this->assertSame(1, PaymentTransaction::count());
+        $this->assertNull(PaymentTransaction::first()->matched_lease_id);
     }
 
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
