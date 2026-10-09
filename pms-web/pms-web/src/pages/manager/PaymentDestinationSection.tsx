@@ -226,11 +226,11 @@ export default function PaymentDestinationSection() {
           {darajaMessage && <p className="mg-hint" role="status" style={{ marginTop: ".75rem" }}>{darajaMessage}</p>}
           {daraja.configured && (
             <div style={{ marginTop: "1rem" }}>
-              <p className="mg-hint"><strong>Register these callback URLs in Daraja:</strong></p>
+              <p className="mg-hint"><strong>Daraja callback URLs</strong></p>
               <p className="mg-hint">STK callback: <code>{daraja.stk_callback_url}</code></p>
               <p className="mg-hint">C2B confirmation: <code>{daraja.c2b_confirmation_url}</code></p>
               <p className="mg-hint">C2B validation: <code>{daraja.c2b_validation_url}</code></p>
-              <p className="mg-hint">Safaricom must be able to reach these HTTPS URLs in production. The STK callback is sent automatically with each prompt.</p>
+              <p className="mg-hint">Safaricom must be able to reach these URLs over HTTPS in production. STK uses its callback automatically; use the registration action below to configure PayBill C2B callbacks.</p>
               {shortcodeType === "PayBill" ? (
                 <>
                   <p className="mg-hint">C2B registration status: {daraja.c2b_registered_at ? `Registered ${new Date(daraja.c2b_registered_at).toLocaleString()}` : "Not registered yet"}</p>
