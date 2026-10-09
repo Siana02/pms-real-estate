@@ -380,7 +380,6 @@ class DarajaController extends Controller
         $registration = $this->c2bRegistrationForCallback($request);
         $shortcode = (string) ($request->input('BusinessShortCode')
             ?? $request->input('ShortCode')
-            ?? $request->input('BillRefNumber')
             ?? '');
 
         if (!$registration || $shortcode === '' || $shortcode !== $registration->shortcode) {
