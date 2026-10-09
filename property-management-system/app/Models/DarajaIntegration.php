@@ -21,7 +21,7 @@ class DarajaIntegration extends Model
         'enabled' => 'boolean',
     ];
 
-    protected $hidden = ['consumer_key', 'consumer_secret', 'passkey', 'webhook_token'];
+    protected $hidden = ['consumer_key', 'consumer_secret', 'passkey', 'callback_token', 'webhook_token'];
 
     public function organization()
     {
