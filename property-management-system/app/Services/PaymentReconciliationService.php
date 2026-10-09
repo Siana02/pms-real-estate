@@ -150,7 +150,7 @@ class PaymentReconciliationService
 
         abort_unless($transaction->organization_id === $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
         $at = CarbonImmutable::parse($transaction->transaction_at);
-        abort_if(in_array($lease->status, ['ended', 'terminated'], true)
+        abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
             || CarbonImmutable::parse($lease->start_date)->greaterThan($at)
             || ($lease->end_date && CarbonImmutable::parse($lease->end_date)->lessThan($at)),
             422, 'The selected lease was not active on the payment date.');
