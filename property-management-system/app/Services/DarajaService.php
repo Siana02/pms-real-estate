@@ -79,16 +79,15 @@ class DarajaService
     }
 
     /**
-     * C2B registration is retained for the legacy registration workflow while
-     * C2B is migrated to shared shortcode registrations. Platform credentials
-     * are still used; the organization model supplies only the merchant shortcode.
+     * Register the canonical C2B callback pair for one platform-managed shortcode.
+     * Callers must use the shared registration record; never register per organization.
      */
-    public function registerC2BUrls(DarajaIntegration $integration, string $confirmationUrl, string $validationUrl): array
+    public function registerC2BUrls(string $shortcode, string $confirmationUrl, string $validationUrl): array
     {
         $response = Http::withToken($this->accessToken())
             ->acceptJson()->asJson()->timeout(20)
             ->post($this->baseUrl() . '/mpesa/c2b/v1/registerurl', [
-                'ShortCode' => $integration->shortcode,
+                'ShortCode' => $shortcode,
                 'ResponseType' => 'Completed',
                 'ConfirmationURL' => $confirmationUrl,
                 'ValidationURL' => $validationUrl,
