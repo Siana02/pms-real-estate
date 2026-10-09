@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DarajaC2bRegistration;
 use App\Models\PaymentDestination;
+use App\Models\OrganizationDarajaCredential;
 use App\Services\DarajaService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -49,6 +50,33 @@ class RegisterDarajaC2bShortcodes extends Command
             );
             if (!$destinationForShortcode) {
                 $this->error('No eligible destination found for the selected shortcode.');
+                $failed++;
+                continue;
+            }
+
+            $sameShortcodeDestinations = PaymentDestination::query()
+                ->where('is_active', true)
+                ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
+                ->get()
+                ->filter(fn (PaymentDestination $destination) => $destination->darajaShortcode() === (string) $shortcode);
+
+            $credentialFingerprints = $sameShortcodeDestinations
+                ->pluck('organization_id')
+                ->unique()
+                ->map(function ($organizationId): ?string {
+                    $credential = OrganizationDarajaCredential::where('organization_id', $organizationId)->first();
+                    if (!$credential || !$credential->isConfigured()) {
+                        return null;
+                    }
+
+                    return hash('sha256', $credential->consumer_key . "\\0" . $credential->consumer_secret);
+                })
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($credentialFingerprints->count() > 1) {
+                $this->error('This shortcode is configured under multiple organizations with different Daraja apps. Registration was skipped; resolve merchant ownership and app authorization first.');
                 $failed++;
                 continue;
             }
