@@ -88,7 +88,7 @@ class PaymentReconciliationService
 
             $query = Leases::query()
                 ->where('organization_id', $transaction->organization_id)
-                ->whereNotIn('status', ['ended', 'terminated'])
+                ->whereNotIn('status', ['ended', 'terminated', 'pending'])
                 ->whereDate('start_date', '<=', $at->toDateString())
                 ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $at->toDateString()));
 
@@ -167,7 +167,7 @@ class PaymentReconciliationService
     {
         abort_unless((int) $transaction->organization_id === (int) $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
         $at = CarbonImmutable::parse($transaction->transaction_at);
-        abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
+        abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated', 'pending'], true)
             || CarbonImmutable::parse($lease->start_date)->greaterThan($at)
             || ($lease->end_date && CarbonImmutable::parse($lease->end_date)->lessThan($at)),
             422, 'The selected lease was not active on the payment date.');
