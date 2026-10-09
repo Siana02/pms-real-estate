@@ -48,13 +48,21 @@ function RequirePortal({ portal, children }: { portal: Portal; children: ReactNo
 function HomeRedirect() { return <Navigate to={homePath()} replace />; }
 function FirstLoginGuide({ portal, children }: { portal: Portal; children: ReactNode }) {
  const [visible, setVisible] = useState(false);
+ const [usernameNotice, setUsernameNotice] = useState(false);
  const [user, setUser] = useState<Record<string, unknown>>({});
  useEffect(() => {
   try {
    const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user");
    const current = raw ? JSON.parse(raw) as Record<string, unknown> : {};
    setUser(current);
-   const key = "pms:first-login-guide:" + String(current.id ?? current.email ?? portal);
+   const identity = String(current.id ?? current.email ?? portal);
+   const usernameKey = "pms:username-notice:" + identity;
+   if (typeof current.username === "string" && current.username && localStorage.getItem(usernameKey) !== "done") {
+    setUsernameNotice(true);
+    localStorage.setItem(usernameKey, "done");
+    window.setTimeout(() => setUsernameNotice(false), 7500);
+   }
+   const key = "pms:first-login-guide:" + identity;
    if (localStorage.getItem(key) !== "done") {
     setVisible(true);
    }
@@ -64,7 +72,6 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   try {
    const key = "pms:first-login-guide:" + String(user.id ?? user.email ?? portal);
    localStorage.setItem(key, "done");
-   sessionStorage.setItem("pms:username-notice", "shown");
   } catch {}
   setVisible(false);
  }
@@ -72,7 +79,6 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   <section style={{width:"min(100%,540px)",background:"var(--pms-card,#fff)",color:"var(--pms-text,#172033)",borderRadius:20,padding:"clamp(1.25rem,4vw,2rem)",boxShadow:"0 24px 80px #0005"}}>
    <p style={{margin:"0 0 .4rem",fontSize:".75rem",fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",opacity:.65}}>{portal==="manager"?"Quick manager tour":"Account information"}</p>
    <h2 id="pms-first-guide-title" style={{margin:"0 0 .75rem",fontSize:"1.6rem"}}>{portal==="manager"?"Welcome to your property workspace":"Welcome to your tenant portal"}</h2>
-   {typeof user.username==="string" && user.username && <p style={{padding:"1rem",borderRadius:12,background:"var(--pms-surface-sunken,#f1f4f9)",lineHeight:1.6}}>Your username is <strong>{user.username}</strong>. You can find it again in your profile at any time.</p>}
    {portal==="manager" ? <><p style={{lineHeight:1.7}}>Here is a quick guide to the main areas. You can reopen the full searchable manual from Help at any time.</p><ul style={{lineHeight:1.9,paddingLeft:"1.25rem"}}><li><strong>Properties & Units:</strong> maintain your portfolio and occupancy records.</li><li><strong>Tenants & Leases:</strong> manage tenant details, tenancy terms and dates.</li><li><strong>Payments & Reconciliation:</strong> record receipts and verify provider transactions.</li><li><strong>Expenses & Maintenance:</strong> track costs, repair requests and follow-ups.</li><li><strong>Settings & Team:</strong> configure your organisation and review staff permissions.</li></ul><p style={{lineHeight:1.6,fontSize:".9rem",opacity:.8}}>Always verify payment destinations and transaction status with the provider. The Platform does not hold rent or pay taxes on your behalf.</p></> : <p style={{lineHeight:1.7}}>Use your dashboard to review your tenancy information, Payments for your ledger, Maintenance to report repairs, Lease for agreement details, Notifications for updates and Profile for your account details.</p>}
    <button type="button" onClick={dismiss} style={{marginTop:".75rem",width:"100%",padding:".9rem 1rem",border:0,borderRadius:12,background:"#2458d3",color:"white",fontWeight:700,cursor:"pointer"}}>Got it, let me continue</button>
   </section>
