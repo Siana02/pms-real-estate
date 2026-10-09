@@ -79,9 +79,8 @@ class DarajaService
     }
 
     /**
-     * C2B registration is retained for the legacy registration workflow while
-     * C2B is migrated to shared shortcode registrations. Platform credentials
-     * are still used; the organization model supplies only the merchant shortcode.
+     * Register the canonical C2B callback pair for one platform-managed shortcode.
+     * Callers must use the shared registration record; never register per organization.
      */
     public function registerC2BUrls(string $shortcode, string $confirmationUrl, string $validationUrl): array
     {
