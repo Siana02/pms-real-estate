@@ -28,11 +28,11 @@ The destination returns to awaiting verification when the shortcode/type/passkey
 
 ## Reference templates
 
-The optional account-reference template supports `{unit}` and `{lease}`, for example `51683/{unit}`. The template must match the merchant's actual account-reference rules. The follow-up C2B reconciliation implementation must normalize and match it without relying on payer phone as the sole identifier.
+The optional account-reference template supports `{unit}` and `{lease}`, for example `51683/{unit}`. The template must match the merchant's actual account-reference rules. The C2B routing service normalizes and evaluates this template per destination and active lease; payer phone is supporting evidence only and is never sufficient for automatic allocation.
 
 ## Scope note
 
-This stage moves STK initiation to platform-level app credentials and property-level merchant configuration. C2B callback registration and multi-organization routing for a shortcode shared by multiple merchants require a separate safe implementation; they must not be inferred from this STK configuration.
+The STK configuration and shared C2B registration/routing are separate readiness paths. C2B callbacks can be registered once per shortcode, while C2B merchant authorization and destination-level reconciliation remain independently verified.
 
 ## C2B registration and reconciliation
 
