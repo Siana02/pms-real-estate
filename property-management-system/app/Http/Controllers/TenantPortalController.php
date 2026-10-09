@@ -1373,6 +1373,7 @@ class TenantPortalController extends Controller
                 'destinations' => [],
                 'online' => ['available' => false],
                 'stk_push' => ['available' => false],
+                'tenant_payment_reference' => null,
             ];
         }
 
@@ -1396,6 +1397,7 @@ class TenantPortalController extends Controller
                 ->exists();
 
         return [
+            'tenant_payment_reference' => $lease->tenant_payment_reference,
             'destinations' => $destinations->map(function (PaymentDestination $destination) {
                 return [
                     'id' => $destination->id,
