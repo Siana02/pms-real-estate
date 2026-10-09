@@ -62,12 +62,23 @@ class DarajaController extends Controller
 
         $organizationId = $request->user()->organization_id;
         $existing = DarajaIntegration::where('organization_id', $organizationId)->first();
-        $consumerKey = filled($validated['consumer_key'] ?? null) ? trim($validated['consumer_key']) : $existing?->consumer_key;
-        $consumerSecret = filled($validated['consumer_secret'] ?? null) ? trim($validated['consumer_secret']) : $existing?->consumer_secret;
-        $passkey = filled($validated['passkey'] ?? null) ? trim($validated['passkey']) : $existing?->passkey;
+        $environmentChanged = $existing && $existing->environment !== $validated['environment'];
+        $shortcodeChanged = $existing && $existing->shortcode !== $validated['shortcode'];
+        $configurationChanged = $environmentChanged || $shortcodeChanged;
+        $consumerKey = filled($validated['consumer_key'] ?? null)
+            ? trim($validated['consumer_key'])
+            : ($environmentChanged ? null : $existing?->consumer_key);
+        $consumerSecret = filled($validated['consumer_secret'] ?? null)
+            ? trim($validated['consumer_secret'])
+            : ($environmentChanged ? null : $existing?->consumer_secret);
+        $passkey = filled($validated['passkey'] ?? null)
+            ? trim($validated['passkey'])
+            : ($configurationChanged ? null : $existing?->passkey);
 
-        abort_if(!filled($consumerKey) || !filled($consumerSecret), 422, 'Consumer key and consumer secret are required the first time you connect Daraja.');
-        abort_if($validated['enabled'] && !filled($passkey), 422, 'A passkey is required to enable STK Push.');
+        abort_if(!filled($consumerKey) || !filled($consumerSecret), 422,
+            'Consumer key and consumer secret are required for this Daraja environment.');
+        abort_if($validated['enabled'] && !filled($passkey), 422,
+            'Enter the passkey for the selected shortcode to enable STK Push.');
 
         $integration = DarajaIntegration::updateOrCreate(
             ['organization_id' => $organizationId],
@@ -80,6 +91,7 @@ class DarajaController extends Controller
                 'consumer_secret' => $consumerSecret,
                 'passkey' => $passkey,
                 'enabled' => $validated['enabled'],
+                'c2b_registered_at' => $configurationChanged ? null : $existing?->c2b_registered_at,
             ]
         );
 
