@@ -95,10 +95,7 @@ class GuestTenantPaymentLinkController extends Controller
         $sent = false;
         $emailError = null;
 
-        if ($request->boolean('send_email', true)) {
-            abort_if($recipient === '' || !filter_var($recipient, FILTER_VALIDATE_EMAIL), 422,
-                'Add a valid tenant email address before sending the link.');
-
+        if ($request->boolean('send_email', true) && $recipient !== '' && filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             $tenantName = trim(($lease->tenant?->first_name ?? '') . ' ' . ($lease->tenant?->last_name ?? '')) ?: 'Tenant';
             $organizationName = $lease->organization?->name ?? 'Property management';
             try {
@@ -114,6 +111,8 @@ class GuestTenantPaymentLinkController extends Controller
                 report($exception);
                 $emailError = 'The link was created, but email delivery failed. Copy the link and share it securely, or check the mail configuration.';
             }
+        } elseif ($request->boolean('send_email', true)) {
+            $emailError = 'No valid tenant email is saved. The link is ready to copy; add an email address to send it from this page.';
         }
 
         return response()->json([
