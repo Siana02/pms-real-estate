@@ -98,6 +98,40 @@ class DarajaC2bRoutingService
                 ->where('external_transaction_id', $receipt)
                 ->first();
 
+            // An authenticated STK callback may already have reconciled this exact receipt
+            // against its checkout's lease. The later C2B callback can corroborate that
+            // transaction even when Safaricom's BillRefNumber is the shortened STK reference,
+            // but only if shortcode, environment, destination, amount and lease all agree.
+            if ($existingReceipt
+                && in_array($existingReceipt->status, ['reconciled', 'reconciled_with_credit'], true)) {
+                $existingDestination = $existingReceipt->paymentDestination;
+                $existingLease = $existingReceipt->matchedLease;
+                $existingEnvironment = data_get($existingReceipt->raw_payload, 'environment');
+                $sameTrustedCheckout = $existingDestination
+                    && $existingLease
+                    && $existingEnvironment === $registration->environment
+                    && $existingDestination->darajaShortcode() === $shortcode
+                    && (int) $existingReceipt->organization_id === (int) $existingDestination->organization_id
+                    && (int) $existingLease->organization_id === (int) $existingDestination->organization_id
+                    && (int) $existingLease->property_id === (int) $existingDestination->property_id
+                    && abs((float) $existingReceipt->amount - $amount) < 0.001;
+                $allMatchesAgreeWithCheckout = $matches->every(fn (array $match) =>
+                    (int) $match['destination']->id === (int) $existingDestination?->id
+                    && (int) $match['lease']->id === (int) $existingLease?->id
+                );
+
+                if ($sameTrustedCheckout && $allMatchesAgreeWithCheckout) {
+                    $event->organization_id = $existingDestination->organization_id;
+                    $event->payment_destination_id = $existingDestination->id;
+                    $event->payment_transaction_id = $existingReceipt->id;
+                    $event->status = 'routed';
+                    $event->review_reason = null;
+                    $event->save();
+
+                    return $event->fresh();
+                }
+            }
+
             if ($existingReceipt && $matches->count() === 1) {
                 $matchedLease = $matches->first()['lease'];
                 $matchedDestination = $matches->first()['destination'];
