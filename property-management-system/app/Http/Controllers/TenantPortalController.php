@@ -1415,4 +1415,5 @@ class TenantPortalController extends Controller
                 'description' => 'Receive a secure M-PESA prompt on your phone.',
             ],
         ];
-    }}
+    }
+}
