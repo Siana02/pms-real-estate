@@ -108,6 +108,13 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertSame(1, DarajaC2bEvent::count());
         $this->assertSame(1, PaymentTransaction::count());
         $this->assertNull(PaymentTransaction::first()->matched_lease_id);
+
+        $conflictingPayload = array_merge($payload, ['TransAmount' => '30000.00']);
+        $conflict = $routing->receive($registration, $conflictingPayload, app(PaymentReconciliationService::class));
+        $this->assertSame('needs_review', $conflict->status);
+        $this->assertStringContainsString('conflicting amount, reference or timestamp data', $conflict->review_reason);
+        $this->assertSame(1, DarajaC2bEvent::count());
+        $this->assertSame(1, PaymentTransaction::count());
     }
 
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
