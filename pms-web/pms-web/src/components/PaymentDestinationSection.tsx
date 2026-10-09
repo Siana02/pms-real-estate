@@ -309,7 +309,7 @@ export default function PaymentDestinationSection({ role }: Props) {
                     <label className="mg-field">
                       <span className="mg-label">Account reference format (for automatic reconciliation)</span>
                       <input className="mg-input" value={accountReferenceFormat} onChange={(e) => setAccountReferenceFormat(e.target.value)} placeholder="51683/{unit}" />
-                      <span className="mg-hint">Use {"{unit}"} or {"{lease}"} as a placeholder, e.g. 51683/{"{unit}"}. This must match the reference format configured for the merchant PayBill.</span>
+                      <span className="mg-hint">Use {"{unit}"} or {"{lease}"} as a placeholder, e.g. 51683/{"{unit}"}. The C2B reconciliation step will use this template; it must match the reference format configured for the merchant PayBill.</span>
                     </label>
                     {editingId && destinations.find((item) => item.id === editingId)?.daraja && (
                       <p className="mg-hint">
