@@ -12,7 +12,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('organization_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('environment', 20)->default('sandbox');
-            $table->string('shortcode', 20)->unique();
+            $table->string('shortcode', 20)->index();
+            $table->string('callback_token', 64)->unique();
             $table->string('shortcode_type', 20)->default('PayBill');
             $table->text('consumer_key');
             $table->text('consumer_secret');
