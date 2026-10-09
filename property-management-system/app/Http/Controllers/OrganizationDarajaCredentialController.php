@@ -1,11 +1,12 @@
 <?php
 
-namespace App\\Http\\Controllers;
+namespace App\Http\Controllers;
 
-use App\\Models\\OrganizationDarajaCredential;
-use App\\Services\\AuditLogService;
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
+use App\Models\OrganizationDarajaCredential;
+use App\Models\PaymentDestination;
+use App\Services\AuditLogService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class OrganizationDarajaCredentialController extends Controller
 {
@@ -39,6 +40,20 @@ class OrganizationDarajaCredentialController extends Controller
                 'enabled' => true,
             ]
         );
+
+        PaymentDestination::query()
+            ->where('organization_id', $request->user()->organization_id)
+            ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
+            ->each(function (PaymentDestination $destination): void {
+                $destination->update([
+                    'daraja_authorization_status' => filled($destination->daraja_passkey)
+                        ? 'awaiting_merchant_authorization'
+                        : 'not_configured',
+                    'daraja_authorization_checked_at' => null,
+                    'c2b_authorization_status' => 'awaiting_merchant_authorization',
+                    'c2b_authorization_checked_at' => null,
+                ]);
+            });
 
         app(AuditLogService::class)->record(
             'DARAJA_ORGANIZATION_CREDENTIALS_UPDATED',
