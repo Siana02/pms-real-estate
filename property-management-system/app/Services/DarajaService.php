@@ -44,6 +44,7 @@ class DarajaService
         $shortcode = $destination->darajaShortcode();
         $passkey = $destination->daraja_passkey;
         $callbackToken = $destination->daraja_callback_token;
+        $this->assertEnvironmentShortcode($destination, $shortcode);
 
         if (!filled($shortcode) || !filled($passkey) || !filled($callbackToken)) {
             throw new RuntimeException('The property merchant configuration is incomplete.');
@@ -89,6 +90,7 @@ class DarajaService
     {
         $shortcode = $destination->darajaShortcode();
         $passkey = $destination->daraja_passkey;
+        $this->assertEnvironmentShortcode($destination, $shortcode);
 
         if (!filled($shortcode) || !filled($passkey)) {
             throw new RuntimeException('The property merchant shortcode or STK passkey is missing.');
@@ -141,6 +143,24 @@ class DarajaService
         }
 
         return $data;
+    }
+
+    /**
+     * Safaricom's STK sandbox uses its published Lipa Na M-Pesa Online test
+     * shortcode. A real merchant shortcode cannot be made test-ready merely by
+     * pairing it with the platform sandbox OAuth app and a merchant passkey.
+     */
+    private function assertEnvironmentShortcode(PaymentDestination $destination, ?string $shortcode): void
+    {
+        if (config('daraja.environment', 'sandbox') !== 'sandbox') {
+            return;
+        }
+
+        if ($destination->daraja_shortcode_type !== 'PayBill' || $shortcode !== '174379') {
+            throw new RuntimeException(
+                'Daraja sandbox STK testing requires the Safaricom sandbox PayBill shortcode 174379 and its sandbox passkey. A real PayBill/Till must use verified production credentials and authorization.'
+            );
+        }
     }
 
     public function baseUrl(?DarajaIntegration $legacyIntegration = null): string
