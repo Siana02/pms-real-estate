@@ -50,6 +50,12 @@ class DarajaController extends Controller
             'enabled' => ['required', 'boolean'],
         ]);
 
+        abort_if(
+            $validated['environment'] === 'production' && !str_starts_with((string) config('app.url'), 'https://'),
+            422,
+            'Production Daraja callbacks require APP_URL to use HTTPS.'
+        );
+
         $organizationId = $request->user()->organization_id;
         $existing = DarajaIntegration::where('organization_id', $organizationId)->first();
         $consumerKey = $validated['consumer_key'] ?? null;
