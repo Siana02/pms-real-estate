@@ -286,12 +286,70 @@ class PaymentReconciliationService
             throw new \RuntimeException('Payment allocation total does not equal a positive transaction amount.');
         }
 
-        $payment = Payment::firstOrCreate(
-            [
+        // Tenants can report a payment in the portal before the matching M-PESA
+        // callback arrives. Reuse that claim when it is a clear match; never create a
+        // second paid payment for the same receipt. Conflicts are held for manager review.
+        $existingPayment = Payment::query()
+            ->where('organization_id', $transaction->organization_id)
+            ->where(function ($query) use ($transaction) {
+                $query->where('reference', $transaction->external_transaction_id)
+                    ->orWhere('provider_transaction_id', $transaction->external_transaction_id);
+            })
+            ->whereIn('status', ['pending', 'paid'])
+            ->lockForUpdate()
+            ->first();
+
+        if ($existingPayment) {
+            $sameLease = (int) $existingPayment->lease_id === (int) $lease->id;
+            $sameAmount = abs(round((float) $existingPayment->amount, 2) - $totalAmount) < 0.001;
+            $isRent = $existingPayment->payment_type === 'rent';
+
+            if (!$sameLease || !$sameAmount || !$isRent) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'reconciliation_note' => 'A payment with this receipt/reference already exists, but its lease, amount or payment type conflicts with the callback. No duplicate payment was created.',
+                ]);
+
+                return $transaction->fresh();
+            }
+
+            // A previously paid claim is already represented in the rent ledger.
+            // Link the bank callback to it without allocating the receipt a second time.
+            if ($existingPayment->status === 'paid') {
+                $transaction->update([
+                    'status' => 'reconciled',
+                    'matched_lease_id' => $lease->id,
+                    'matched_rent_obligation_id' => $existingPayment->rent_obligation_id,
+                    'payment_id' => $existingPayment->id,
+                    'reconciliation_note' => 'M-PESA callback matched an already-paid tenant payment by receipt, lease and amount. Existing ledger entry reused; no duplicate allocation created.',
+                ]);
+
+                return $transaction->fresh([
+                    'matchedLease.tenant',
+                    'matchedLease.property',
+                    'matchedLease.unit',
+                    'matchedRentObligation',
+                    'payment.allocations.rentObligation',
+                ]);
+            }
+
+            $existingPayment->update([
                 'provider' => $transaction->provider,
                 'provider_transaction_id' => $transaction->external_transaction_id,
-                'organization_id' => $transaction->organization_id,
-            ],
+                'payment_destination_id' => $transaction->payment_destination_id,
+                'payment_date' => $at->toDateString(),
+                'status' => 'paid',
+                'tx_ref' => $existingPayment->tx_ref ?: 'RECON-PT-' . $transaction->id,
+                'notes' => trim((string) $existingPayment->notes . "\nM-PESA callback confirmed this tenant-submitted payment."),
+            ]);
+            $payment = $existingPayment;
+        } else {
+            $payment = Payment::firstOrCreate(
+                [
+                    'provider' => $transaction->provider,
+                    'provider_transaction_id' => $transaction->external_transaction_id,
+                    'organization_id' => $transaction->organization_id,
+                ],
             [
                 'organization_id' => $transaction->organization_id,
                 'lease_id' => $lease->id,
@@ -306,7 +364,8 @@ class PaymentReconciliationService
                 'payment_type' => 'rent',
                 'notes' => 'External payment transaction reconciled into the rent ledger.',
             ]
-        );
+            );
+        }
 
         foreach ($allocations as $allocation) {
             PaymentAllocation::firstOrCreate(
