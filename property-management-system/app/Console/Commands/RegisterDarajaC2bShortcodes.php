@@ -44,6 +44,15 @@ class RegisterDarajaC2bShortcodes extends Command
 
         $failed = 0;
         foreach ($shortcodes as $shortcode) {
+            $destinationForShortcode = $destinations->first(
+                fn (PaymentDestination $destination) => $destination->darajaShortcode() === (string) $shortcode
+            );
+            if (!$destinationForShortcode) {
+                $this->error('No eligible destination found for the selected shortcode.');
+                $failed++;
+                continue;
+            }
+
             $registration = DarajaC2bRegistration::firstOrNew([
                 'environment' => config('daraja.environment', 'sandbox'),
                 'shortcode' => $shortcode,
@@ -67,7 +76,7 @@ class RegisterDarajaC2bShortcodes extends Command
             $validationUrl = $base . '/api/webhooks/daraja/' . $tokenPath . '/validate';
 
             try {
-                $result = $daraja->registerC2BUrls((string) $shortcode, $confirmationUrl, $validationUrl);
+                $result = $daraja->registerC2BUrls($destinationForShortcode, $confirmationUrl, $validationUrl);
                 $registration->update([
                     'status' => 'registered',
                     'registered_at' => now(),
