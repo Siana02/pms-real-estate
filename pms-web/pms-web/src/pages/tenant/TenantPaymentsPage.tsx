@@ -382,7 +382,7 @@ interface PaymentDestination {
 interface PaymentOptions {
   destinations: PaymentDestination[];
   online: { available: boolean; label?: string; description?: string };
-  stk_push?: { available: boolean; label?: string; description?: string };
+  stk_push?: { available: boolean; label?: string; description?: string; reason?: string | null; payment_destination_id?: number | null };
   tenant_payment_reference?: string | null;
 }
  
@@ -509,7 +509,7 @@ const FILTERS: { key: "all" | "paid" | "pending"; label: string }[] = [
  
 const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
   { key: "flutterwave", label: "Pay online", icon: <CreditCard /> },
-  { key: "mpesa", label: "M-PESA manually", icon: <Smartphone /> },
+  { key: "mpesa", label: "M-PESA manual payment", icon: <Smartphone /> },
   { key: "mpesa_stk", label: "M-PESA STK Push", icon: <Smartphone /> },
   { key: "bank_transfer", label: "Bank transfer", icon: <Wallet /> },
 ];
@@ -1068,7 +1068,7 @@ function TenantPaymentsPage() {
                       option.key === "flutterwave"
                         ? paymentOptions.online.available
                         : option.key === "mpesa_stk"
-                          ? Boolean(paymentOptions.stk_push?.available)
+                          ? Boolean(paymentOptions.stk_push?.available) || paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill"].includes(item.method))
                           : option.key === "mpesa"
                             ? paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill", "mpesa_number"].includes(item.method))
                           : paymentOptions.destinations.some((item) => item.method === "bank")
@@ -1078,17 +1078,30 @@ function TenantPaymentsPage() {
                         type="button"
                         className="tpay-method"
                         aria-pressed={method === option.key}
+                        disabled={option.key === "mpesa_stk" && !paymentOptions.stk_push?.available}
+                        title={option.key === "mpesa_stk" && !paymentOptions.stk_push?.available
+                          ? paymentOptions.stk_push?.reason ?? "STK Push is not enabled for this property yet."
+                          : undefined}
                         onClick={() => {
+                          if (option.key === "mpesa_stk" && !paymentOptions.stk_push?.available) return;
                           setMethod(option.key);
                           setDestinationId("");
                           setReference("");
                         }}
                       >
                         {option.icon}
-                        {option.label}
+                        {option.key === "mpesa_stk" && !paymentOptions.stk_push?.available
+                          ? "M-PESA STK Push (not ready)"
+                          : option.label}
                       </button>
                     ))}
                   </div>
+                  {!paymentOptions.stk_push?.available && paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill"].includes(item.method)) && (
+                    <small role="status" style={{ color: "var(--tp-muted)", lineHeight: 1.5 }}>
+                      STK Push isn't available yet: {paymentOptions.stk_push?.reason ?? "the property payment destination needs to be verified by the property manager."}
+                      {" "}You can still pay manually using the PayBill or Till details. Manual payment does not open the M-PESA app.
+                    </small>
+                  )}
                 </div>
 
                 {method !== "flutterwave" && method !== "mpesa_stk" && (
@@ -1126,11 +1139,13 @@ function TenantPaymentsPage() {
                     })()}
                     {method !== "mpesa_stk" && (
                       <div className="tpay-field">
-                        <label htmlFor="pay-reference">Transaction reference</label>
+                        <label htmlFor="pay-reference">{method === "mpesa" ? "M-PESA receipt code" : "Bank transaction reference"}</label>
                         <input id="pay-reference" value={reference} onChange={(event) => setReference(event.target.value)}
-                          placeholder="e.g. QAB123XYZ" required />
-                        <small style={{ color: "var(--tp-muted)" }}>
-                          Enter the transaction code from your M-PESA or bank confirmation. Your payment will remain pending until your property manager verifies it.
+                          placeholder={method === "mpesa" ? "e.g. QAB123XYZ" : "Enter your bank reference"} required />
+                        <small style={{ color: "var(--tp-muted)", lineHeight: 1.5 }}>
+                          {method === "mpesa"
+                            ? "Pay using the PayBill, Till or number shown above first. Then enter the receipt code from the completed M-PESA confirmation—not the PayBill number or account number. Your payment stays pending until verified."
+                            : "Enter the reference from your completed bank transfer. Your payment stays pending until your property manager verifies it."}
                         </small>
                       </div>
                     )}
