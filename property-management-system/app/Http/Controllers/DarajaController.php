@@ -105,7 +105,6 @@ class DarajaController extends Controller
         $this->authorizeManager($request);
         $integration = DarajaIntegration::where('organization_id', $request->user()->organization_id)->firstOrFail();
         abort_if(!$integration->enabled, 422, 'Enable Daraja before registering C2B callbacks.');
-        abort_if($integration->shortcode_type !== 'PayBill', 422, 'C2B URL registration is supported for PayBill shortcodes. Direct Till-payment callbacks depend on Safaricom provisioning; STK Push remains available.');
 
         if (!str_starts_with((string) config('app.url'), 'https://')) {
             return response()->json(['message' => 'C2B callback registration requires APP_URL to use HTTPS.'], 422);
@@ -168,7 +167,7 @@ class DarajaController extends Controller
         $destinationQuery = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)
             ->where('is_active', true)
-            ->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
+            ->where('method', $integration->shortcode_type === 'Till' ? 'mpesa_till' : 'mpesa_paybill')
             ->where(function ($query) use ($integration) {
                 $query->whereJsonContains('details->paybill', $integration->shortcode)
                     ->orWhereJsonContains('details->till', $integration->shortcode);
@@ -320,23 +319,19 @@ class DarajaController extends Controller
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Required transaction fields are missing'], 400);
         }
 
-        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->first();
-        if (!$integration || !$this->validCallbackToken($request, $integration)) {
+        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->get()
+            ->first(fn (DarajaIntegration $candidate) => $this->validCallbackToken($request, $candidate));
+        if (!$integration) {
             Log::warning('Daraja C2B callback received for an invalid shortcode or token.');
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration'], 403);
         }
 
-        $destination = PaymentDestination::where('organization_id', $integration->organization_id)
-            ->where('is_active', true)->whereIn('method', ['mpesa_till', 'mpesa_paybill'])
-            ->where(function ($query) use ($shortcode) {
-                $query->whereJsonContains('details->paybill', $shortcode)
-                    ->orWhereJsonContains('details->till', $shortcode);
-            })->first();
+        // Do not bind an organization-wide PayBill receipt to one arbitrary property destination.
 
         try {
             $reconciliation->ingest([
                 'organization_id' => $integration->organization_id,
-                'payment_destination_id' => $destination?->id,
+                'payment_destination_id' => null,
                 'provider' => 'mpesa_daraja',
                 'external_transaction_id' => $receipt,
                 'amount' => $amount,
@@ -365,9 +360,10 @@ class DarajaController extends Controller
     public function c2bValidation(Request $request): JsonResponse
     {
         $shortcode = (string) ($request->input('BusinessShortCode') ?? $request->input('ShortCode') ?? '');
-        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->first();
+        $integration = DarajaIntegration::where('shortcode', $shortcode)->where('enabled', true)->get()
+            ->first(fn (DarajaIntegration $candidate) => $this->validCallbackToken($request, $candidate));
 
-        if (!$integration || !$this->validCallbackToken($request, $integration)) {
+        if (!$integration) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback registration']);
         }
 
