@@ -585,7 +585,16 @@ function TenantPaymentsPage() {
   useEffect(() => {
     if (!payOpen) return;
     setAmount(String(Math.round(toNumber(summary?.balance ?? summary?.amount_due))) || "");
-  }, [payOpen, summary, paymentOptions]);
+    if (method === "flutterwave" && !paymentOptions.online.available) {
+      setMethod(
+        paymentOptions.stk_push?.available
+          ? "mpesa_stk"
+          : paymentOptions.destinations.some((item) => item.method.startsWith("mpesa"))
+            ? "mpesa"
+            : "bank_transfer"
+      );
+    }
+  }, [payOpen, summary, paymentOptions, method]);
  
   const outstanding = toNumber(
     summary?.balance ?? summary?.amount_due ?? undefined
