@@ -31,10 +31,10 @@ class DarajaC2bRoutingService
             $event = DarajaC2bEvent::firstOrCreate(
                 [
                     'environment' => $registration->environment,
-                    'shortcode' => $shortcode,
                     'receipt' => $receipt,
                 ],
                 [
+                    'shortcode' => $shortcode,
                     'amount' => $amount,
                     'currency' => 'KES',
                     'payer_phone' => $this->normalizePhone($payload['MSISDN'] ?? null),
@@ -44,6 +44,20 @@ class DarajaC2bRoutingService
                     'raw_payload' => $payload,
                 ]
             );
+
+            if (!$event->wasRecentlyCreated && $event->shortcode !== $shortcode) {
+                $event->update([
+                    'status' => 'needs_review',
+                    'review_reason' => 'The same M-PESA receipt was received with a different shortcode. Automatic allocation is blocked pending platform review.',
+                ]);
+                Log::critical('Daraja receipt was received under conflicting shortcodes.', [
+                    'event_id' => $event->id,
+                    'stored_shortcode' => $event->shortcode,
+                    'incoming_shortcode' => $shortcode,
+                    'receipt' => $receipt,
+                ]);
+                return $event->fresh();
+            }
 
             if (!$event->wasRecentlyCreated && in_array($event->status, ['routed', 'needs_review'], true)) {
                 return $event->fresh();
@@ -149,10 +163,11 @@ class DarajaC2bRoutingService
     {
         $destinations = PaymentDestination::query()
             ->where('is_active', true)
-            ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
-            ->get()
-            ->filter(fn (PaymentDestination $destination) => $destination->darajaShortcode() === $shortcode)
-            ->values();
+            ->where(function ($query) use ($shortcode) {
+                $query->where(fn ($q) => $q->where('method', 'mpesa_paybill')->where('details->paybill', $shortcode))
+                    ->orWhere(fn ($q) => $q->where('method', 'mpesa_till')->where('details->till', $shortcode));
+            })
+            ->get();
 
         $matches = collect();
         if ($reference !== null) {
