@@ -46,6 +46,7 @@ class DarajaService
         $shortcode = $destination->darajaShortcode();
         $passkey = $destination->daraja_passkey;
         $callbackToken = $destination->daraja_callback_token;
+        $this->assertEnvironmentShortcode($destination, $shortcode);
 
         if (!filled($shortcode) || !filled($passkey) || !filled($callbackToken)) {
             throw new RuntimeException('The property merchant configuration is incomplete.');
@@ -91,6 +92,7 @@ class DarajaService
     {
         $shortcode = $destination->darajaShortcode();
         $passkey = $destination->daraja_passkey;
+        $this->assertEnvironmentShortcode($destination, $shortcode);
 
         if (!filled($shortcode) || !filled($passkey)) {
             throw new RuntimeException('The property merchant shortcode or STK passkey is missing.');
