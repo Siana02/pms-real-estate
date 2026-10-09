@@ -350,7 +350,7 @@ const styles = `
 /* ------------------------------------------------------------------ */
  
 type PaymentStatus = "paid" | "pending" | "overdue" | "partial" | "failed";
-type PayMethod = "flutterwave" | "mpesa" | "bank_transfer";
+type PayMethod = "flutterwave" | "mpesa" | "mpesa_stk" | "bank_transfer";
  
 interface TenantPayment {
   id: number | string;
@@ -508,6 +508,7 @@ const FILTERS: { key: "all" | "paid" | "pending"; label: string }[] = [
 const METHODS: { key: PayMethod; label: string; icon: ReactNode }[] = [
   { key: "flutterwave", label: "Pay online", icon: <CreditCard /> },
   { key: "mpesa", label: "M-PESA manually", icon: <Smartphone /> },
+  { key: "mpesa_stk", label: "M-PESA STK Push", icon: <Smartphone /> },
   { key: "bank_transfer", label: "Bank transfer", icon: <Wallet /> },
 ];
  
@@ -536,6 +537,7 @@ function TenantPaymentsPage() {
   const [method, setMethod] = useState<PayMethod>("flutterwave");
   const [destinationId, setDestinationId] = useState("");
   const [reference, setReference] = useState("");
+  const [phone, setPhone] = useState("");
   const [gatewayNotice, setGatewayNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -583,6 +585,7 @@ function TenantPaymentsPage() {
     setMethod(paymentOptions.online.available ? "flutterwave" : paymentOptions.destinations.some((item) => item.method.startsWith("mpesa")) ? "mpesa" : "bank_transfer");
     setDestinationId("");
     setReference("");
+    setPhone("");
   }, [payOpen, summary, paymentOptions]);
  
   const outstanding = toNumber(
@@ -634,6 +637,15 @@ function TenantPaymentsPage() {
     setSubmitError("");
 
     try {
+      if (method === "mpesa_stk") {
+        await apiRequest("/tenant/mpesa/stk-push", {
+          method: "POST",
+          body: JSON.stringify({ amount: value, phone: phone.trim() }),
+        });
+        setSubmitted(true);
+        return;
+      }
+
       const response = (await apiRequest("/tenant/payments", {
         method: "POST",
         body: JSON.stringify({
@@ -976,7 +988,9 @@ function TenantPaymentsPage() {
                 <p>
                   {method === "flutterwave"
                     ? "Your online payment is being processed securely. Your balance will update after the transaction is verified."
-                    : "Your payment reference has been submitted and is awaiting verification by your property manager."}
+                    : method === "mpesa_stk"
+                      ? "An M-Pesa payment prompt has been sent to your phone. Enter your M-Pesa PIN to complete it. Your rent balance updates only after Safaricom confirms the payment."
+                      : "Your payment reference has been submitted and is awaiting verification by your property manager."}
                 </p>
                 <button
                   type="button"
@@ -1020,8 +1034,8 @@ function TenantPaymentsPage() {
                     {METHODS.filter((option) =>
                       option.key === "flutterwave"
                         ? paymentOptions.online.available
-                        : option.key === "mpesa"
-                          ? paymentOptions.destinations.some((item) => item.method.startsWith("mpesa"))
+                        : option.key === "mpesa" || option.key === "mpesa_stk"
+                          ? paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill", "mpesa_number"].includes(item.method))
                           : paymentOptions.destinations.some((item) => item.method === "bank")
                     ).map((option) => (
                       <button
@@ -1042,7 +1056,7 @@ function TenantPaymentsPage() {
                   </div>
                 </div>
 
-                {method !== "flutterwave" && (
+                {method !== "flutterwave" && method !== "mpesa_stk" && (
                   <>
                     <div className="tpay-field">
                       <label htmlFor="pay-destination">Payment destination</label>
@@ -1091,6 +1105,14 @@ function TenantPaymentsPage() {
                   </>
                 )}
 
+                {method === "mpesa_stk" && (
+                  <div className="tpay-field">
+                    <label htmlFor="pay-phone">M-Pesa phone number</label>
+                    <input id="pay-phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="07xx xxx xxx or 2547xx xxx xxx" required />
+                    <small style={{ color: "var(--tp-muted)" }}>We’ll send a secure payment prompt to this number. Your payment is not recorded as paid until Safaricom confirms the receipt.</small>
+                  </div>
+                )}
+
                 {method === "flutterwave" && (
                   <div style={{ padding: ".75rem", border: "1px solid var(--tp-line)", borderRadius: "var(--tp-r-sm)", background: "var(--tp-surface-sunken)" }}>
                     <strong>Secure online checkout</strong>
@@ -1121,7 +1143,7 @@ function TenantPaymentsPage() {
                     ) : (
                       <>
                         <CreditCard />
-                        {method === "flutterwave" ? "Continue to checkout" : "I've paid"}
+                        {method === "flutterwave" ? "Continue to checkout" : method === "mpesa_stk" ? "Send M-Pesa prompt" : "I've paid"}
                       </>
                     )}
                   </button>
