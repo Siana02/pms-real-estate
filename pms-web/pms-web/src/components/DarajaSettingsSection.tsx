@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
 import { ApiError, apiRequest } from "../services/api";
 
+type Props = { role: string };
+
 type DarajaStatus = {
   configured: boolean; enabled: boolean; environment: "sandbox" | "production";
   shortcode: string | null; shortcode_type: "PayBill" | "Till";
@@ -17,7 +19,8 @@ const emptyStatus: DarajaStatus = {
   c2b_confirmation_url: "", c2b_validation_url: "",
 };
 
-export default function DarajaSettingsSection() {
+export default function DarajaSettingsSection({ role }: Props) {
+  const owner = ["admin", "owner"].includes(String(role ?? "").toLowerCase());
   const [status, setStatus] = useState<DarajaStatus>(emptyStatus);
   const [environment, setEnvironment] = useState<"sandbox" | "production">("sandbox");
   const [shortcode, setShortcode] = useState("");
@@ -73,6 +76,8 @@ export default function DarajaSettingsSection() {
       setError(caught instanceof ApiError ? caught.message : caught instanceof Error ? caught.message : "Could not register C2B callbacks.");
     } finally { setRegistering(false); }
   }
+
+  if (!owner) return null;
 
   return (
     <section className="mg-panel">
