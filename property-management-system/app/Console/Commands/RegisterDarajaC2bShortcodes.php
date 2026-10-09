@@ -69,7 +69,7 @@ class RegisterDarajaC2bShortcodes extends Command
                         return null;
                     }
 
-                    return hash('sha256', $credential->consumer_key . "\\0" . $credential->consumer_secret);
+                    return hash('sha256', $credential->consumer_key . "\0" . $credential->consumer_secret);
                 })
                 ->filter()
                 ->unique()
