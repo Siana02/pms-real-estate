@@ -14,13 +14,14 @@ class DarajaIntegration extends Model
 
     protected $casts = [
         'consumer_key' => 'encrypted',
+        'webhook_token' => 'encrypted',
         'consumer_secret' => 'encrypted',
         'passkey' => 'encrypted',
         'is_active' => 'boolean',
         'c2b_registered_at' => 'datetime',
     ];
 
-    protected $hidden = ['consumer_key', 'consumer_secret', 'passkey'];
+    protected $hidden = ['consumer_key', 'consumer_secret', 'passkey', 'webhook_token'];
 
     public function organization(): BelongsTo
     {
