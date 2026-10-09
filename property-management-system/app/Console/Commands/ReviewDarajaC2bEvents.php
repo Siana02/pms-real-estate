@@ -68,7 +68,7 @@ class ReviewDarajaC2bEvents extends Command
         }
 
         if (!$destination->is_active
-            || $destination->daraja_authorization_status !== 'ready'
+            || $destination->c2b_authorization_status !== 'ready'
             || $destination->darajaShortcode() !== $event->shortcode) {
             $this->error('Destination must be active, verified, and use the exact callback shortcode.');
             return self::FAILURE;
@@ -103,9 +103,17 @@ class ReviewDarajaC2bEvents extends Command
             'manually_verified' => true,
         ];
 
+        $existingReceipt = PaymentTransaction::where('provider', 'mpesa_daraja')
+            ->where('external_transaction_id', $event->receipt)
+            ->first();
+        if ($existingReceipt && (int) $existingReceipt->organization_id !== (int) $destination->organization_id) {
+            $this->error('This M-PESA receipt is already recorded under another organization; refusing cross-organization duplication.');
+            return self::FAILURE;
+        }
+
         $transaction = $event->payment_transaction_id
             ? PaymentTransaction::find($event->payment_transaction_id)
-            : null;
+            : $existingReceipt;
 
         if (!$transaction) {
             $transaction = PaymentTransaction::firstOrCreate(
