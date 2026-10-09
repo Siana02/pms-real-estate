@@ -83,7 +83,8 @@ class DarajaController extends Controller
             ]
         );
 
-        Cache::forget('daraja:token:' . $organizationId . ':' . $integration->environment);
+        Cache::forget('daraja:token:' . $organizationId . ':sandbox');
+        Cache::forget('daraja:token:' . $organizationId . ':production');
 
         return response()->json([
             'message' => 'Daraja settings saved. Credentials are encrypted at rest and never returned by the API.',
@@ -264,7 +265,7 @@ class DarajaController extends Controller
         try {
             DB::transaction(function () use ($checkout, $payload, $receipt, $amount, $phone, $transactionAt, $reconciliation) {
                 $locked = DarajaStkCheckout::whereKey($checkout->id)->lockForUpdate()->firstOrFail();
-                if ($locked->status === 'completed' && $locked->mpesa_receipt === $receipt) {
+                if ($locked->status === 'completed') {
                     return;
                 }
 
