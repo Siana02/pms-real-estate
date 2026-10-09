@@ -18,14 +18,6 @@ class QueryDarajaStkCheckout extends Command
 
     public function handle(DarajaService $daraja): int
     {
-        if (!config('daraja.platform_enabled')
-            || !filled(config('daraja.consumer_key'))
-            || !filled(config('daraja.consumer_secret'))) {
-            $this->error('The MARSWebz platform Daraja credentials are not configured.');
-
-            return self::FAILURE;
-        }
-
         $checkout = DarajaStkCheckout::with('paymentDestination')
             ->find($this->argument('checkout_id'));
 
