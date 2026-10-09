@@ -20,6 +20,7 @@ type DarajaSettings = {
   has_consumer_key?: boolean;
   has_consumer_secret?: boolean;
   has_passkey?: boolean;
+  c2b_registered_at?: string | null;
   stk_callback_url?: string;
   c2b_confirmation_url?: string;
   c2b_validation_url?: string;
@@ -47,6 +48,7 @@ export default function PaymentDestinationSection() {
   const [passkey, setPasskey] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [darajaSaving, setDarajaSaving] = useState(false);
+  const [registeringC2b, setRegisteringC2b] = useState(false);
   const [darajaMessage, setDarajaMessage] = useState("");
 
   useEffect(() => {
@@ -102,6 +104,20 @@ export default function PaymentDestinationSection() {
       setMessage(error instanceof Error ? error.message : "Could not save payment destination.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function registerC2b() {
+    setRegisteringC2b(true);
+    setDarajaMessage("");
+    try {
+      const response = (await apiRequest("/organization/daraja/register-c2b", { method: "POST" })) as DarajaSettings & { message?: string };
+      setDaraja((current) => ({ ...current, ...response }));
+      setDarajaMessage(response.message ?? "C2B callback URLs registered with Safaricom.");
+    } catch (error) {
+      setDarajaMessage(error instanceof Error ? error.message : "Could not register C2B callback URLs.");
+    } finally {
+      setRegisteringC2b(false);
     }
   }
 
@@ -214,7 +230,15 @@ export default function PaymentDestinationSection() {
               <p className="mg-hint">STK callback: <code>{daraja.stk_callback_url}</code></p>
               <p className="mg-hint">C2B confirmation: <code>{daraja.c2b_confirmation_url}</code></p>
               <p className="mg-hint">C2B validation: <code>{daraja.c2b_validation_url}</code></p>
-              <p className="mg-hint">Safaricom must be able to reach these HTTPS URLs in production. Register the confirmation URL for your shortcode in the Daraja portal.</p>
+              <p className="mg-hint">Safaricom must be able to reach these HTTPS URLs in production. The STK callback is sent automatically with each prompt.</p>
+              {shortcodeType === "PayBill" ? (
+                <>
+                  <p className="mg-hint">C2B registration status: {daraja.c2b_registered_at ? `Registered ${new Date(daraja.c2b_registered_at).toLocaleString()}` : "Not registered yet"}</p>
+                  <button className="mg-btn mg-btn--primary" disabled={registeringC2b || !daraja.enabled} onClick={() => void registerC2b()}>{registeringC2b ? "Registering…" : "Register C2B callbacks with Safaricom"}</button>
+                </>
+              ) : (
+                <p className="mg-hint">Direct Till-payment callback registration depends on Safaricom’s shortcode provisioning. STK Push is supported; confirm C2B callback availability with Safaricom for this Till.</p>
+              )}
             </div>
           )}
         </div>
