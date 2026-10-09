@@ -59,6 +59,27 @@ class PaymentReconciliationService
                 ->lockForUpdate()
                 ->findOrFail($transaction->id);
 
+            // Re-check after acquiring the row lock. Duplicate webhooks and concurrent
+            // manager actions can otherwise allocate the same receipt more than once.
+            if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+                return $transaction->fresh([
+                    'matchedLease.tenant',
+                    'matchedLease.property',
+                    'matchedLease.unit',
+                    'matchedRentObligation',
+                    'payment.allocations.rentObligation',
+                ]);
+            }
+
+            if (round((float) $transaction->amount, 2) <= 0) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'reconciliation_note' => 'Payment amount must be greater than zero.',
+                ]);
+
+                return $transaction->fresh();
+            }
+
             $at = CarbonImmutable::parse($transaction->transaction_at);
             app(RentLedgerService::class)->ensureForPeriod($at);
 
@@ -167,6 +188,22 @@ class PaymentReconciliationService
 
         return DB::transaction(function () use ($transaction, $lease) {
             $transaction = PaymentTransaction::query()->lockForUpdate()->findOrFail($transaction->id);
+
+            // A second resolver may have waited for the first one to commit. Re-check
+            // status under the lock to keep payment, allocations and credits idempotent.
+            if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+                abort_unless((int) $transaction->matched_lease_id === (int) $lease->id, 422,
+                    'This payment is already reconciled to a different lease and cannot be reassigned.');
+
+                return $transaction->fresh([
+                    'matchedLease.tenant',
+                    'matchedLease.property',
+                    'matchedLease.unit',
+                    'matchedRentObligation',
+                    'payment.allocations.rentObligation',
+                ]);
+            }
+
             $at = CarbonImmutable::parse($transaction->transaction_at);
 
             app(RentLedgerService::class)->ensureForPeriod($at);
@@ -240,8 +277,13 @@ class PaymentReconciliationService
         $totalAllocated = round(array_sum(array_column($allocations, 'amount')), 2);
         $totalAmount = round((float) $transaction->amount, 2);
 
-        if ($totalAllocated + round($creditAmount, 2) !== $totalAmount) {
-            throw new \RuntimeException('Payment allocation total does not equal the transaction amount.');
+        // Compare integer cents rather than binary floating-point values.
+        $allocatedCents = (int) round($totalAllocated * 100);
+        $creditCents = (int) round(round($creditAmount, 2) * 100);
+        $totalCents = (int) round($totalAmount * 100);
+
+        if ($allocatedCents + $creditCents !== $totalCents || $totalCents <= 0) {
+            throw new \RuntimeException('Payment allocation total does not equal a positive transaction amount.');
         }
 
         $payment = Payment::firstOrCreate(
