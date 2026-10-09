@@ -113,7 +113,7 @@ class DarajaService
         $data = $response->json();
 
         if (!is_array($data) || (string) ($data['ResponseCode'] ?? '') !== '0') {
-            throw new RuntimeException((string) ($data['ResponseDescription'] ?? 'Safaricom did not accept the STK status query.'));
+            throw new RuntimeException('Safaricom rejected the STK status query (ResponseCode ' . (string) ($data['ResponseCode'] ?? 'missing') . '): ' . (string) ($data['ResponseDescription'] ?? 'No response description was supplied.'));
         }
 
         return $data;
