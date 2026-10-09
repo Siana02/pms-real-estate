@@ -126,9 +126,16 @@ class DarajaController extends Controller
                 'status' => 'failed',
                 'result_description' => 'Daraja could not start the STK Push request.',
             ]);
+            // Keep the checkout ID and a bounded upstream reason in logs so an
+            // operator can diagnose rejected prompts without logging credentials,
+            // passkeys, access tokens, or the outbound STK payload.
             Log::warning('Daraja STK initiation failed.', [
+                'checkout_id' => $checkout->id,
                 'organization_id' => $lease->organization_id,
+                'payment_destination_id' => $destination->id,
+                'environment' => config('daraja.environment', 'sandbox'),
                 'exception' => $exception::class,
+                'reason' => mb_substr($exception->getMessage(), 0, 500),
             ]);
             return response()->json(['message' => 'Safaricom could not start the M-PESA prompt. Check the number and try again.'], 502);
         }
