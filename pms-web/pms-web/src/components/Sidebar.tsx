@@ -292,7 +292,7 @@ const NAV_ITEMS = [
   { label: "Leases", to: "/manager/leases", icon: FileText },
   { label: "Payments", to: "/manager/payments", icon: Banknote },
   { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
-  { label: "Guest payment links", to: "/manager/guest-payment-links", icon: Link2 },
+  { label: "Tenant payment links", to: "/manager/guest-payment-links", icon: Link2 },
   { label: "Expenses", to: "/manager/expenses", icon: Receipt },
   { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
   { label: "Requests", to: "/manager/requests", icon: ClipboardList },
