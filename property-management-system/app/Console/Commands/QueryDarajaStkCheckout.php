@@ -57,11 +57,16 @@ class QueryDarajaStkCheckout extends Command
         try {
             $result = $daraja->queryStk($destination, (string) $checkout->checkout_request_id);
         } catch (Throwable $exception) {
+            // The exception message from DarajaService contains only the upstream
+            // status/reason, not request credentials or the STK password.
+            $safeMessage = mb_substr($exception->getMessage(), 0, 500);
             Log::warning('Daraja STK status query failed.', [
                 'checkout_id' => $checkout->id,
                 'exception' => $exception::class,
+                'reason' => $safeMessage,
             ]);
-            $this->error('Safaricom status query failed. The checkout was left unchanged; check credentials, environment and merchant authorization.');
+            $this->error('STK status query failed: ' . $safeMessage);
+            $this->line('Checkout was left unchanged.');
 
             return self::FAILURE;
         }
