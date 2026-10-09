@@ -22,6 +22,7 @@ use App\Http\Controllers\FlutterwaveController;
 use App\Http\Controllers\PaymentDestinationController;
 use App\Http\Controllers\PaymentReconciliationController;
 use App\Http\Controllers\DarajaController;
+use App\Http\Controllers\OrganizationDarajaCredentialController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -48,8 +49,9 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
-    // Daraja developer configuration is intentionally not exposed to organization users.
-    // STK/C2B callbacks remain public webhook endpoints below; credentials must be provisioned server-side.
+    // Organization owners/admins manage their own encrypted Daraja app credentials.
+    Route::get('organization/daraja-credentials', [OrganizationDarajaCredentialController::class, 'show']);
+    Route::put('organization/daraja-credentials', [OrganizationDarajaCredentialController::class, 'update']);
     Route::get('organization/payment-destinations', [PaymentDestinationController::class, 'index']);
     Route::post('organization/payment-destinations', [PaymentDestinationController::class, 'store']);
     Route::patch('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'update']);
