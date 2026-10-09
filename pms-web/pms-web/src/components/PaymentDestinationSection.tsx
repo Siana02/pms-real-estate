@@ -20,6 +20,8 @@ type Destination = {
     authorization_status?: string;
     authorization_checked_at?: string | null;
     c2b_registration_status?: string;
+    c2b_authorization_status?: string;
+    c2b_authorization_checked_at?: string | null;
     c2b_registered_at?: string | null;
     platform_configured?: boolean;
     stk_push_available?: boolean;
@@ -241,6 +243,8 @@ export default function PaymentDestinationSection({ role }: Props) {
                         <span className="mg-hint" style={{ display: "block", marginTop: ".3rem" }}>
                           Daraja: {item.daraja?.authorization_status === "ready" ? "Ready for STK Push" : item.daraja?.authorization_status === "awaiting_merchant_authorization" ? "Awaiting merchant authorization" : "Not configured"}
                           {item.daraja?.stk_push_available ? " · STK Push available" : " · STK Push disabled"}
+                          {" · C2B: "}{item.daraja?.c2b_authorization_status === "ready" ? "authorized" : item.daraja?.c2b_authorization_status === "awaiting_merchant_authorization" ? "awaiting verification" : "not configured"}
+                          {item.daraja?.c2b_registration_status === "registered" ? " · C2B callback registered" : " · C2B callback not registered"}
                         </span>
                       )}
                     </div>

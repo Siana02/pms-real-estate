@@ -63,7 +63,7 @@ class PaymentReconciliationService
             app(RentLedgerService::class)->ensureForPeriod($at);
 
             $reference = $this->normalizeReference($transaction->payment_reference);
-            $phone = $this->normalizePhone($transaction->payer_phone);
+            $destination = $transaction->paymentDestination()->first();
 
             $query = Leases::query()
                 ->where('organization_id', $transaction->organization_id)
@@ -71,33 +71,32 @@ class PaymentReconciliationService
                 ->whereDate('start_date', '<=', $at->toDateString())
                 ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $at->toDateString()));
 
-            if ($transaction->payment_destination_id) {
-                $destination = $transaction->paymentDestination()->first();
-                if ($destination?->property_id) {
-                    $query->where('property_id', $destination->property_id);
+            if ($destination) {
+                $query->where('property_id', $destination->property_id);
+            }
+
+            $candidates = collect();
+            if ($reference) {
+                $leases = $query->with(['tenant', 'unit'])->get();
+                if ($destination) {
+                    $router = app(DarajaC2bRoutingService::class);
+                    $candidates = $leases->filter(function (Leases $lease) use ($reference, $destination, $router) {
+                        $tenantReference = $this->normalizeReference($lease->tenant_payment_reference);
+                        $configuredReference = $router->renderAccountReference($destination, $lease);
+                        return $reference === $tenantReference
+                            || ($configuredReference !== null && $reference === $configuredReference);
+                    })->values();
+                } else {
+                    $candidates = $leases->filter(
+                        fn (Leases $lease) => $reference === $this->normalizeReference($lease->tenant_payment_reference)
+                    )->values();
                 }
             }
-
-            $candidates = $reference
-                ? $query->with('tenant')->whereRaw('UPPER(tenant_payment_reference) = ?', [$reference])->get()
-                : collect();
-
-            if ($candidates->isEmpty() && $phone) {
-                $candidates = $query->with('tenant')->whereHas('tenant', function ($q) use ($phone) {
-                    $q->where(function ($phoneQuery) use ($phone) {
-                        $local = Str::startsWith($phone, '254') ? '0' . substr($phone, 3) : $phone;
-                        $phoneQuery
-                            ->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', '') = ?", [$phone])
-                            ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', '') = ?", [$local]);
-                    });
-                })->get();
-            }
-
             if ($candidates->count() !== 1) {
                 $transaction->update([
                     'status' => $candidates->isEmpty() ? 'unmatched' : 'needs_review',
                     'reconciliation_note' => $candidates->isEmpty()
-                        ? 'No active lease matched the payment reference or payer phone.'
+                        ? 'No active lease matched the payment reference. Payer phone is supporting information only and is never sufficient for automatic allocation.'
                         : 'More than one active lease matched; manager review is required.',
                 ]);
 
@@ -145,11 +144,26 @@ class PaymentReconciliationService
 
     public function resolve(PaymentTransaction $transaction, Leases $lease): PaymentTransaction
     {
-        if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
-            return $transaction->fresh(['matchedLease.tenant', 'matchedLease.property', 'matchedLease.unit', 'matchedRentObligation', 'payment.allocations.rentObligation']);
+        abort_unless((int) $transaction->organization_id === (int) $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
+        $at = CarbonImmutable::parse($transaction->transaction_at);
+        abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
+            || CarbonImmutable::parse($lease->start_date)->greaterThan($at)
+            || ($lease->end_date && CarbonImmutable::parse($lease->end_date)->lessThan($at)),
+            422, 'The selected lease was not active on the payment date.');
+
+        if ($transaction->payment_destination_id) {
+            $destination = $transaction->paymentDestination()->first();
+            abort_if(!$destination
+                || (int) $destination->organization_id !== (int) $lease->organization_id
+                || (int) $destination->property_id !== (int) $lease->property_id,
+                422, 'The selected lease does not belong to the payment destination property.');
         }
 
-        abort_unless($transaction->organization_id === $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
+        if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+            abort_unless((int) $transaction->matched_lease_id === (int) $lease->id, 422,
+                'This payment is already reconciled to a different lease and cannot be reassigned.');
+            return $transaction->fresh(['matchedLease.tenant', 'matchedLease.property', 'matchedLease.unit', 'matchedRentObligation', 'payment.allocations.rentObligation']);
+        }
 
         return DB::transaction(function () use ($transaction, $lease) {
             $transaction = PaymentTransaction::query()->lockForUpdate()->findOrFail($transaction->id);
@@ -332,7 +346,7 @@ class PaymentReconciliationService
     private function normalizeReference(?string $value): ?string
     {
         $value = trim((string) $value);
-        return $value === '' ? null : Str::upper($value);
+        return $value === '' ? null : Str::upper(preg_replace('/\s+/', '', $value));
     }
 
     private function normalizePhone(?string $value): ?string

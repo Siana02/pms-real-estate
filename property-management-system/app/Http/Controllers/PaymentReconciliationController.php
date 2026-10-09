@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Leases;
 use App\Models\PaymentDestination;
 use App\Models\PaymentTransaction;
+use App\Models\DarajaC2bEvent;
 use App\Services\AuditLogService;
 use App\Services\PaymentReconciliationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Services\PermissionService;
 
 class PaymentReconciliationController extends Controller
@@ -43,11 +45,98 @@ class PaymentReconciliationController extends Controller
     public function resolve(Request $request, PaymentTransaction $paymentTransaction, PaymentReconciliationService $service): JsonResponse
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403, 'Payment reconciliation requires payment editing permission.');
-        abort_if($paymentTransaction->organization_id!==$request->user()->organization_id,403);
-        $validated=$request->validate(['lease_id'=>['required','integer','exists:leases,id']]);
-        $lease=Leases::where('organization_id',$request->user()->organization_id)->findOrFail($validated['lease_id']);
-        $before=$paymentTransaction->status; $transaction=$service->resolve($paymentTransaction,$lease);
-        app(AuditLogService::class)->record('PAYMENT_TRANSACTION_RECONCILED','Manually matched an external payment transaction to a tenant rent obligation.',$transaction,['status'=>$before],['status'=>'reconciled','lease_id'=>$lease->id],$request);
-        return response()->json(['message'=>'Payment transaction reconciled.','data'=>$transaction]);
+        abort_if((int) $paymentTransaction->organization_id !== (int) $request->user()->organization_id, 403);
+
+        $validated = $request->validate([
+            'lease_id' => ['required', 'integer', 'exists:leases,id'],
+            'payment_destination_id' => ['nullable', 'integer', 'exists:payment_destinations,id'],
+        ]);
+        $lease = Leases::where('organization_id', $request->user()->organization_id)
+            ->findOrFail($validated['lease_id']);
+
+        $payload = $paymentTransaction->raw_payload ?? [];
+        $isC2b = ($payload['source'] ?? null) === 'c2b_confirmation';
+        $c2bEvent = null;
+        $destination = null;
+
+        if (!empty($validated['payment_destination_id'])) {
+            $destination = PaymentDestination::where('organization_id', $request->user()->organization_id)
+                ->findOrFail($validated['payment_destination_id']);
+        } elseif ($paymentTransaction->payment_destination_id) {
+            $destination = $paymentTransaction->paymentDestination;
+        }
+
+        if ($isC2b) {
+            abort_if(!$destination, 422, 'Select the correct property payment destination before resolving this C2B payment.');
+            abort_if(!$destination->is_active || $destination->c2b_authorization_status !== 'ready', 422, 'The selected destination is not active and verified for C2B.');
+            abort_if((string) $destination->darajaShortcode() !== (string) ($payload['business_short_code'] ?? ''),
+                422, 'The selected destination shortcode does not match the received M-PESA payment.');
+
+            $eventId = (int) ($payload['c2b_event_id'] ?? 0);
+            abort_if($eventId <= 0, 422, 'This C2B transaction has no trusted callback event to verify.');
+            $c2bEvent = DarajaC2bEvent::findOrFail($eventId);
+            abort_if($c2bEvent->status !== 'needs_review', 422, 'This C2B callback event is no longer awaiting review.');
+            abort_if($c2bEvent->organization_id === null, 403, 'Cross-organization or owner-unknown C2B events require platform review and cannot be resolved from an organization account.');
+            abort_if($c2bEvent->receipt !== $paymentTransaction->external_transaction_id
+                || $c2bEvent->shortcode !== $destination->darajaShortcode()
+                || abs((float) $c2bEvent->amount - (float) $paymentTransaction->amount) >= 0.001
+                || $c2bEvent->environment !== (string) ($payload['environment'] ?? ''),
+                422, 'The callback event does not match this transaction, amount, shortcode or environment.');
+            abort_if($c2bEvent->organization_id !== null
+                && (int) $c2bEvent->organization_id !== (int) $paymentTransaction->organization_id,
+                403, 'This callback event is associated with another organization.');
+            abort_if($c2bEvent->payment_transaction_id !== null
+                && (int) $c2bEvent->payment_transaction_id !== (int) $paymentTransaction->id,
+                422, 'This callback event is already linked to a different transaction.');
+
+            $eventCandidateIds = $c2bEvent->candidate_destination_ids ?? [];
+            if ($eventCandidateIds !== []) {
+                abort_unless(in_array((int) $destination->id, array_map('intval', $eventCandidateIds), true),
+                    422, 'The selected destination was not among the destinations identified for this callback event.');
+            }
+
+            if ($paymentTransaction->payment_destination_id
+                && (int) $paymentTransaction->payment_destination_id !== (int) $destination->id) {
+                abort(422, 'This payment is already associated with a different destination.');
+            }
+        }
+
+        if ($destination) {
+            abort_if((int) $destination->organization_id !== (int) $lease->organization_id
+                || (int) $destination->property_id !== (int) $lease->property_id,
+                422, 'The selected lease does not belong to the selected payment destination.');
+        }
+
+        $before = $paymentTransaction->status;
+        $transaction = DB::transaction(function () use ($isC2b, $paymentTransaction, $destination, $lease, $service, $payload, $c2bEvent) {
+            if ($isC2b && !$paymentTransaction->payment_destination_id) {
+                $paymentTransaction->update(['payment_destination_id' => $destination->id]);
+            }
+
+            $resolved = $service->resolve($paymentTransaction->fresh(), $lease);
+
+            if ($isC2b && $c2bEvent) {
+                $c2bEvent->update([
+                    'organization_id' => $resolved->organization_id,
+                    'payment_destination_id' => $destination?->id,
+                    'payment_transaction_id' => $resolved->id,
+                    'status' => 'routed',
+                    'review_reason' => null,
+                ]);
+            }
+
+            return $resolved;
+        });
+
+        app(AuditLogService::class)->record(
+            'PAYMENT_TRANSACTION_RECONCILED',
+            'Manually matched an external payment transaction to a tenant rent obligation.',
+            $transaction,
+            ['status' => $before],
+            ['status' => $transaction->status, 'lease_id' => $lease->id, 'payment_destination_id' => $destination?->id],
+            $request
+        );
+
+        return response()->json(['message' => 'Payment transaction reconciled.','data' => $transaction]);
     }
 }
