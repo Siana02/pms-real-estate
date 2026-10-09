@@ -76,11 +76,22 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         Http::assertSent(fn (Request $request) =>
             str_contains($request->url(), '/mpesa/stkpushquery/v1/query')
             && $request->hasHeader('Authorization', 'Bearer test-platform-token')
-            && $request['BusinessShortCode'] === '123456'
+            && $request['BusinessShortCode'] === '174379'
             && $request['CheckoutRequestID'] === 'ws_CO_test_query'
             && filled($request['Password'])
             && filled($request['Timestamp'])
         );
+    }
+
+    public function test_sandbox_query_rejects_a_real_merchant_shortcode(): void
+    {
+        $destination = $this->configuredDestination('ready');
+        $destination->details = ['paybill' => '123456', 'account' => 'Rent'];
+
+        $this->expectException(\\RuntimeException::class);
+        $this->expectExceptionMessage('Daraja sandbox STK testing requires the Safaricom sandbox PayBill shortcode 174379');
+
+        app(DarajaService::class)->queryStk($destination, 'ws_CO_test_query');
     }
 
     private function configuredDestination(string $status): PaymentDestination
@@ -89,7 +100,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
             'organization_id' => 10,
             'property_id' => 20,
             'method' => 'mpesa_paybill',
-            'details' => ['paybill' => '123456', 'account' => 'Rent'],
+            'details' => ['paybill' => '174379', 'account' => 'Rent'],
             'is_active' => true,
             'daraja_shortcode_type' => 'PayBill',
             'daraja_passkey' => 'merchant-passkey-secret',
