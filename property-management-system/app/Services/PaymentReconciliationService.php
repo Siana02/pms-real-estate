@@ -59,6 +59,27 @@ class PaymentReconciliationService
                 ->lockForUpdate()
                 ->findOrFail($transaction->id);
 
+            // Re-check after acquiring the row lock. Duplicate webhooks and concurrent
+            // manager actions can otherwise allocate the same receipt more than once.
+            if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+                return $transaction->fresh([
+                    'matchedLease.tenant',
+                    'matchedLease.property',
+                    'matchedLease.unit',
+                    'matchedRentObligation',
+                    'payment.allocations.rentObligation',
+                ]);
+            }
+
+            if (round((float) $transaction->amount, 2) <= 0) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'reconciliation_note' => 'Payment amount must be greater than zero.',
+                ]);
+
+                return $transaction->fresh();
+            }
+
             $at = CarbonImmutable::parse($transaction->transaction_at);
             app(RentLedgerService::class)->ensureForPeriod($at);
 
@@ -67,7 +88,7 @@ class PaymentReconciliationService
 
             $query = Leases::query()
                 ->where('organization_id', $transaction->organization_id)
-                ->whereNotIn('status', ['ended', 'terminated'])
+                ->whereNotIn('status', ['ended', 'terminated', 'pending'])
                 ->whereDate('start_date', '<=', $at->toDateString())
                 ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $at->toDateString()));
 
@@ -146,7 +167,7 @@ class PaymentReconciliationService
     {
         abort_unless((int) $transaction->organization_id === (int) $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
         $at = CarbonImmutable::parse($transaction->transaction_at);
-        abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
+        abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated', 'pending'], true)
             || CarbonImmutable::parse($lease->start_date)->greaterThan($at)
             || ($lease->end_date && CarbonImmutable::parse($lease->end_date)->lessThan($at)),
             422, 'The selected lease was not active on the payment date.');
@@ -167,6 +188,22 @@ class PaymentReconciliationService
 
         return DB::transaction(function () use ($transaction, $lease) {
             $transaction = PaymentTransaction::query()->lockForUpdate()->findOrFail($transaction->id);
+
+            // A second resolver may have waited for the first one to commit. Re-check
+            // status under the lock to keep payment, allocations and credits idempotent.
+            if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+                abort_unless((int) $transaction->matched_lease_id === (int) $lease->id, 422,
+                    'This payment is already reconciled to a different lease and cannot be reassigned.');
+
+                return $transaction->fresh([
+                    'matchedLease.tenant',
+                    'matchedLease.property',
+                    'matchedLease.unit',
+                    'matchedRentObligation',
+                    'payment.allocations.rentObligation',
+                ]);
+            }
+
             $at = CarbonImmutable::parse($transaction->transaction_at);
 
             app(RentLedgerService::class)->ensureForPeriod($at);
@@ -240,16 +277,79 @@ class PaymentReconciliationService
         $totalAllocated = round(array_sum(array_column($allocations, 'amount')), 2);
         $totalAmount = round((float) $transaction->amount, 2);
 
-        if ($totalAllocated + round($creditAmount, 2) !== $totalAmount) {
-            throw new \RuntimeException('Payment allocation total does not equal the transaction amount.');
+        // Compare integer cents rather than binary floating-point values.
+        $allocatedCents = (int) round($totalAllocated * 100);
+        $creditCents = (int) round(round($creditAmount, 2) * 100);
+        $totalCents = (int) round($totalAmount * 100);
+
+        if ($allocatedCents + $creditCents !== $totalCents || $totalCents <= 0) {
+            throw new \RuntimeException('Payment allocation total does not equal a positive transaction amount.');
         }
 
-        $payment = Payment::firstOrCreate(
-            [
+        // Tenants can report a payment in the portal before the matching M-PESA
+        // callback arrives. Reuse that claim when it is a clear match; never create a
+        // second paid payment for the same receipt. Conflicts are held for manager review.
+        $existingPayment = Payment::query()
+            ->where('organization_id', $transaction->organization_id)
+            ->where(function ($query) use ($transaction) {
+                $query->where('reference', $transaction->external_transaction_id)
+                    ->orWhere('provider_transaction_id', $transaction->external_transaction_id);
+            })
+            ->whereIn('status', ['pending', 'paid'])
+            ->lockForUpdate()
+            ->first();
+
+        if ($existingPayment) {
+            $sameLease = (int) $existingPayment->lease_id === (int) $lease->id;
+            $sameAmount = abs(round((float) $existingPayment->amount, 2) - $totalAmount) < 0.001;
+            $isRent = $existingPayment->payment_type === 'rent';
+
+            if (!$sameLease || !$sameAmount || !$isRent) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'reconciliation_note' => 'A payment with this receipt/reference already exists, but its lease, amount or payment type conflicts with the callback. No duplicate payment was created.',
+                ]);
+
+                return $transaction->fresh();
+            }
+
+            // A previously paid claim is already represented in the rent ledger.
+            // Link the bank callback to it without allocating the receipt a second time.
+            if ($existingPayment->status === 'paid') {
+                $transaction->update([
+                    'status' => 'reconciled',
+                    'matched_lease_id' => $lease->id,
+                    'matched_rent_obligation_id' => $existingPayment->rent_obligation_id,
+                    'payment_id' => $existingPayment->id,
+                    'reconciliation_note' => 'M-PESA callback matched an already-paid tenant payment by receipt, lease and amount. Existing ledger entry reused; no duplicate allocation created.',
+                ]);
+
+                return $transaction->fresh([
+                    'matchedLease.tenant',
+                    'matchedLease.property',
+                    'matchedLease.unit',
+                    'matchedRentObligation',
+                    'payment.allocations.rentObligation',
+                ]);
+            }
+
+            $existingPayment->update([
                 'provider' => $transaction->provider,
                 'provider_transaction_id' => $transaction->external_transaction_id,
-                'organization_id' => $transaction->organization_id,
-            ],
+                'payment_destination_id' => $transaction->payment_destination_id,
+                'payment_date' => $at->toDateString(),
+                'status' => 'paid',
+                'tx_ref' => $existingPayment->tx_ref ?: 'RECON-PT-' . $transaction->id,
+                'notes' => trim((string) $existingPayment->notes . "\nM-PESA callback confirmed this tenant-submitted payment."),
+            ]);
+            $payment = $existingPayment;
+        } else {
+            $payment = Payment::firstOrCreate(
+                [
+                    'provider' => $transaction->provider,
+                    'provider_transaction_id' => $transaction->external_transaction_id,
+                    'organization_id' => $transaction->organization_id,
+                ],
             [
                 'organization_id' => $transaction->organization_id,
                 'lease_id' => $lease->id,
@@ -264,7 +364,8 @@ class PaymentReconciliationService
                 'payment_type' => 'rent',
                 'notes' => 'External payment transaction reconciled into the rent ledger.',
             ]
-        );
+            );
+        }
 
         foreach ($allocations as $allocation) {
             PaymentAllocation::firstOrCreate(

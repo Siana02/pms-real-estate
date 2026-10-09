@@ -60,7 +60,7 @@ class DarajaController extends Controller
         $lease = Leases::query()
             ->where('organization_id', $tenant->organization_id)
             ->where('tenant_id', $tenant->id)
-            ->whereNotIn('status', ['ended', 'terminated'])
+            ->whereNotIn('status', ['ended', 'terminated', 'pending'])
             ->whereDate('start_date', '<=', $today->toDateString())
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today->toDateString()))
             ->orderByDesc('start_date')->first();
@@ -164,12 +164,28 @@ class DarajaController extends Controller
 
         $resultCode = (string) ($callback['ResultCode'] ?? '');
         if ($resultCode !== '0') {
-            $checkout->update([
-                'status' => 'failed',
-                'result_code' => $resultCode,
-                'result_description' => mb_substr((string) ($callback['ResultDesc'] ?? 'Payment not completed.'), 0, 1000),
-                'callback_payload' => $payload,
-            ]);
+            DB::transaction(function () use ($checkout, $resultCode, $callback, $payload) {
+                $locked = DarajaStkCheckout::query()->lockForUpdate()->findOrFail($checkout->id);
+
+                // A delayed/retried failure callback must never downgrade a checkout
+                // already confirmed as paid (or move a review case out of the review queue).
+                if (in_array($locked->status, ['completed', 'needs_review'], true)) {
+                    Log::warning('Daraja STK failure callback arrived after a terminal/review checkout state.', [
+                        'checkout_id' => $locked->id,
+                        'existing_status' => $locked->status,
+                        'incoming_result_code' => $resultCode,
+                    ]);
+                    return;
+                }
+
+                $locked->update([
+                    'status' => 'failed',
+                    'result_code' => $resultCode,
+                    'result_description' => mb_substr((string) ($callback['ResultDesc'] ?? 'Payment not completed.'), 0, 1000),
+                    'callback_payload' => $payload,
+                ]);
+            }, 3);
+
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
@@ -188,7 +204,22 @@ class DarajaController extends Controller
         try {
             DB::transaction(function () use ($checkout, $payload, $receipt, $amount, $phone, $transactionAt, $reconciliation) {
                 $locked = DarajaStkCheckout::whereKey($checkout->id)->lockForUpdate()->firstOrFail();
-                if ($locked->status === 'completed') {
+
+                // Callback delivery is at-least-once. Accept exact duplicates without
+                // touching the ledger, but flag conflicting duplicates for investigation.
+                if (in_array($locked->status, ['completed', 'needs_review'], true) && $locked->mpesa_receipt) {
+                    $sameReceipt = hash_equals((string) $locked->mpesa_receipt, $receipt);
+                    $sameAmount = abs((float) $locked->amount - $amount) < 0.001;
+                    if (!$sameReceipt || !$sameAmount) {
+                        Log::critical('Conflicting successful Daraja STK callback received for an already processed checkout.', [
+                            'checkout_id' => $locked->id,
+                            'stored_receipt' => $locked->mpesa_receipt,
+                            'incoming_receipt' => $receipt,
+                            'requested_amount' => (float) $locked->amount,
+                            'incoming_amount' => $amount,
+                            'existing_status' => $locked->status,
+                        ]);
+                    }
                     return;
                 }
 

@@ -163,6 +163,20 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertSame(1, PaymentTransaction::count());
     }
 
+    public function test_pending_lease_is_not_eligible_for_automatic_c2b_routing(): void
+    {
+        $created = $this->createDestinationAndLease('Pending Properties', 'pending-properties@example.test', '51683/{unit}');
+        DB::table('leases')->where('id', $created['lease_id'])->update(['status' => 'pending']);
+
+        $result = app(DarajaC2bRoutingService::class)->findMatches(
+            '123456',
+            'LEASE-' . $created['organization_id'],
+            CarbonImmutable::parse('2026-10-09')
+        );
+
+        $this->assertCount(0, $result['matches'], 'Pending leases must not receive automatic rent allocations.');
+    }
+
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
     {
         $now = now();

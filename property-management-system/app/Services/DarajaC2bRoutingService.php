@@ -277,7 +277,7 @@ class DarajaC2bRoutingService
                 $leases = Leases::query()
                     ->where('organization_id', $destination->organization_id)
                     ->where('property_id', $destination->property_id)
-                    ->whereNotIn('status', ['ended', 'terminated'])
+                    ->whereNotIn('status', ['ended', 'terminated', 'pending'])
                     ->whereDate('start_date', '<=', $at->toDateString())
                     ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $at->toDateString()))
                     ->with('unit')
