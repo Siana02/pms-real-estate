@@ -144,11 +144,7 @@ class PaymentReconciliationService
 
     public function resolve(PaymentTransaction $transaction, Leases $lease): PaymentTransaction
     {
-        if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
-            return $transaction->fresh(['matchedLease.tenant', 'matchedLease.property', 'matchedLease.unit', 'matchedRentObligation', 'payment.allocations.rentObligation']);
-        }
-
-        abort_unless($transaction->organization_id === $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
+        abort_unless((int) $transaction->organization_id === (int) $lease->organization_id, 403, 'The payment and lease must belong to the same organization.');
         $at = CarbonImmutable::parse($transaction->transaction_at);
         abort_if(in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
             || CarbonImmutable::parse($lease->start_date)->greaterThan($at)
@@ -161,6 +157,12 @@ class PaymentReconciliationService
                 || (int) $destination->organization_id !== (int) $lease->organization_id
                 || (int) $destination->property_id !== (int) $lease->property_id,
                 422, 'The selected lease does not belong to the payment destination property.');
+        }
+
+        if (in_array($transaction->status, ['reconciled', 'reconciled_with_credit'], true)) {
+            abort_unless((int) $transaction->matched_lease_id === (int) $lease->id, 422,
+                'This payment is already reconciled to a different lease and cannot be reassigned.');
+            return $transaction->fresh(['matchedLease.tenant', 'matchedLease.property', 'matchedLease.unit', 'matchedRentObligation', 'payment.allocations.rentObligation']);
         }
 
         return DB::transaction(function () use ($transaction, $lease) {
