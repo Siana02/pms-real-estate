@@ -55,7 +55,7 @@ class DarajaService
         $response->throw();
         $data = $response->json();
 
-        if (($data['ResponseCode'] ?? null) !== '0' || empty($data['CheckoutRequestID'])) {
+        if ((string) ($data['ResponseCode'] ?? '') !== '0' || empty($data['CheckoutRequestID'])) {
             throw new RuntimeException($data['ResponseDescription'] ?? 'Safaricom could not start the STK Push.');
         }
 
