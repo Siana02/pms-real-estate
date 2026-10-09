@@ -272,7 +272,7 @@ class DarajaController extends Controller
 
     public function stkCallback(Request $request, PaymentReconciliationService $reconciliation): JsonResponse
     {
-        $payload = $request->all();
+        $payload = $request->except(['token']);
         $callback = data_get($payload, 'Body.stkCallback');
         if (!is_array($callback) || empty($callback['CheckoutRequestID'])) {
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Invalid callback payload'], 400);
