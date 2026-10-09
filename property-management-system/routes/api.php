@@ -51,7 +51,6 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('organization/daraja', [DarajaController::class, 'show']);
     Route::put('organization/daraja', [DarajaController::class, 'save']);
     Route::post('organization/daraja/register-c2b', [DarajaController::class, 'registerC2B'])->middleware('throttle:5,1');
-    Route::post('organization/daraja/register-c2b', [DarajaController::class, 'registerC2B'])->middleware('throttle:6,1');
     Route::get('organization/payment-destinations', [PaymentDestinationController::class, 'index']);
     Route::post('organization/payment-destinations', [PaymentDestinationController::class, 'store']);
     Route::patch('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'update']);
@@ -94,11 +93,11 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
 
 Route::get('webhooks/flutterwave', fn () => response()->json(['message' => 'Use POST.'], 405));
 Route::post('webhooks/flutterwave', [FlutterwaveController::class, 'webhook']);
-Route::post('webhooks/daraja/stk', [DarajaController::class, 'stkCallback'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/{callbackToken}/stk', [DarajaController::class, 'stkCallback'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/{callbackToken}/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/{callbackToken}/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
-Route::post('webhooks/daraja/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
-Route::post('webhooks/daraja/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/{callbackToken}/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/{callbackToken}/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
 
 Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
