@@ -1387,7 +1387,6 @@ class TenantPortalController extends Controller
                     'details' => $destination->details,
                 ];
             })->values(),
-            'stk_push' => \\App\\Models\\DarajaIntegration::where('organization_id', $lease->organization_id)->where('enabled', true)->exists(),
             'online' => [
                 'available' => FlutterwaveIntegration::where('organization_id', $lease->organization_id)->exists(),
                 'label' => 'Pay online',
