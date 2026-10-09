@@ -23,7 +23,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         parent::setUp();
 
         config(['daraja.environment' => 'sandbox']);
-        $this->organization = Organization::create(['name' => 'Daraja Test Organization']);
+        $this->organization = Organization::create(['name' => 'Daraja Test Organization', 'email' => 'daraja-test.invalid']);
         OrganizationDarajaCredential::create([
             'organization_id' => $this->organization->id,
             'consumer_key' => 'organization-consumer-key',
