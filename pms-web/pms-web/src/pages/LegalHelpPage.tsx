@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Search, ShieldCheck, Scale, CreditCard, Building2, Users, Wallet, Wrench, Settings, ChevronRight } from "lucide-react";
+import { BookOpen, Search, ShieldCheck, Scale, ChevronRight } from "lucide-react";
 
 type Section = { title: string; audience: string; body: string };
 const terms: Section[] = [
@@ -56,7 +56,6 @@ export default function LegalHelpPage({initialTab = "help"}: {initialTab?: "help
  const [query,setQuery]=useState("");
  const data=tab==="terms"?terms:tab==="privacy"?privacy:allHelp;
  const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return q?data.filter(s=>(s.title+" "+s.audience+" "+s.body).toLowerCase().includes(q)):data},[data,query]);
- const Icon=tab==="terms"?Scale:tab==="privacy"?ShieldCheck:BookOpen;
  return <main style={{minHeight:"100vh",background:"var(--pms-bg, #f7f8fb)",color:"var(--pms-text, #172033)",padding:"clamp(1rem,4vw,3rem)"}}>
   <div style={{maxWidth:1000,margin:"0 auto"}}>
    <header style={{marginBottom:"1.5rem"}}><Link to="/" style={{color:"inherit",textDecoration:"none",fontSize:".9rem"}}>← Property Management System</Link><h1 style={{fontSize:"clamp(2rem,5vw,3rem)",margin:"1rem 0 .5rem"}}>{tab==="terms"?"Terms of Service":tab==="privacy"?"Privacy Policy":"Help Centre & User Manual"}</h1><p style={{maxWidth:760,lineHeight:1.7,opacity:.8}}>Practical guidance for property owners, administrators, managers, staff and tenants. Content may be updated as features change. Last reviewed: 10 October 2026.</p></header>
