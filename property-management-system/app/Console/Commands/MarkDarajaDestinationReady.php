@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\PaymentDestination;
+use App\Models\OrganizationDarajaCredential;
 use Illuminate\Console\Command;
 
 class MarkDarajaDestinationReady extends Command
@@ -21,14 +22,15 @@ class MarkDarajaDestinationReady extends Command
             return self::FAILURE;
         }
 
-        if (!config('daraja.platform_enabled') || !filled(config('daraja.consumer_key')) || !filled(config('daraja.consumer_secret'))) {
-            $this->error('The MARSWebz platform Daraja credentials are not configured.');
-            return self::FAILURE;
-        }
-
         $destination = PaymentDestination::find($this->argument('destination_id'));
         if (!$destination) {
             $this->error('Payment destination not found.');
+            return self::FAILURE;
+        }
+
+        $credentials = OrganizationDarajaCredential::where('organization_id', $destination->organization_id)->first();
+        if (!$credentials || !$credentials->isConfigured()) {
+            $this->error('The owning organization has not configured its own Daraja consumer key and consumer secret.');
             return self::FAILURE;
         }
 
