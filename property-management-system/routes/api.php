@@ -21,6 +21,7 @@ use App\Http\Controllers\OrganizationPaymentSettingsController;
 use App\Http\Controllers\FlutterwaveController;
 use App\Http\Controllers\PaymentDestinationController;
 use App\Http\Controllers\PaymentReconciliationController;
+use App\Http\Controllers\DarajaController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +48,8 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
+    Route::get('organization/daraja', [DarajaController::class, 'show']);
+    Route::put('organization/daraja', [DarajaController::class, 'save']);
     Route::get('organization/payment-destinations', [PaymentDestinationController::class, 'index']);
     Route::post('organization/payment-destinations', [PaymentDestinationController::class, 'store']);
     Route::patch('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'update']);
@@ -89,6 +92,9 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
 
 Route::get('webhooks/flutterwave', fn () => response()->json(['message' => 'Use POST.'], 405));
 Route::post('webhooks/flutterwave', [FlutterwaveController::class, 'webhook']);
+Route::post('webhooks/daraja/stk', [DarajaController::class, 'stkCallback'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
 
 Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
@@ -99,6 +105,7 @@ Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
     Route::delete('profile/photo', [TenantPortalController::class, 'removeProfilePhoto']);
     Route::get('payments', [TenantPortalController::class, 'payments']);
     Route::post('payments', [TenantPortalController::class, 'storePayment']);
+    Route::post('mpesa/stk-push', [DarajaController::class, 'initiateStk'])->middleware('throttle:6,1');
     Route::get('maintenance-requests', [TenantMaintenanceController::class, 'index']);
     Route::post('maintenance-requests', [TenantMaintenanceController::class, 'store']);
     Route::patch('maintenance-requests/{maintenanceRequest}/availability', [TenantMaintenanceController::class, 'availability']);
