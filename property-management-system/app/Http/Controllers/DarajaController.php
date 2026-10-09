@@ -204,7 +204,7 @@ class DarajaController extends Controller
         $checkout = DarajaStkCheckout::create([
             'organization_id' => $lease->organization_id,
             'lease_id' => $lease->id,
-            'payment_destination_id' => $destination->id,
+            'payment_destination_id' => $destination?->id,
             'account_reference' => substr($shortReference, 0, 12),
             'tenant_payment_reference' => $fullReference,
             'phone' => $phone,
