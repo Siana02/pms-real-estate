@@ -2031,7 +2031,7 @@ function TenantDashboardPage() {
           <p className="td-welcome-script">Everything about your home in one place.</p>
           <div className="td-welcome-stats" aria-label="Quick home status">
             {(() => {
-              const meta = leaseStatusMeta(lease?.status);
+              const meta = leaseStatusMeta(lease?.status ?? null);
               const tone = meta.className === "tp-pill--good" ? "good" : meta.className === "tp-pill--wait" ? "wait" : meta.className === "tp-pill--info" ? "info" : "mute";
               return <span className={`td-welcome-stat td-welcome-stat--${tone}`}><span className="td-welcome-stat__dot" aria-hidden="true" />Lease status: {meta.label}</span>;
             })()}
