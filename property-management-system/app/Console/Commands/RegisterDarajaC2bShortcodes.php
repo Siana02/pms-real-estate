@@ -37,7 +37,7 @@ class RegisterDarajaC2bShortcodes extends Command
             ->get()
             ->filter(fn (PaymentDestination $destination) => filled($destination->darajaShortcode()));
 
-        $shortcodes = $destinations->pluck('darajaShortcode')->unique()->values();
+        $shortcodes = $destinations->map(fn (PaymentDestination $destination) => $destination->darajaShortcode())->filter()->unique()->values();
         if ($this->option('shortcode')) {
             $shortcodes = $shortcodes->filter(fn ($value) => $value === (string) $this->option('shortcode'))->values();
         }
