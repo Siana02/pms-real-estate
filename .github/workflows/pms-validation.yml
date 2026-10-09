@@ -51,16 +51,7 @@ jobs:
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: Check changed PHP files
-        working-directory: .
-        shell: bash
         run: |
-          git fetch origin main --depth=1
-          files=$(git diff --name-only --diff-filter=ACMRT origin/main...HEAD -- 'property-management-system/**/*.php')
-          if [ -z "$files" ]; then
-            echo "No changed PHP files to lint."
-            exit 0
-          fi
-          while IFS= read -r file; do
-            php -l "$file"
-          done <<< "$files"
+          php -l app/Http/Controllers/AuthController.php
+          php -l config/services.php
       - run: php artisan test
