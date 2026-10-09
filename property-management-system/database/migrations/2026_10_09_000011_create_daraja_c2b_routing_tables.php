@@ -39,7 +39,7 @@ return new class extends Migration
             $table->text('review_reason')->nullable();
             $table->json('raw_payload')->nullable();
             $table->timestamps();
-            $table->unique(['environment', 'shortcode', 'receipt'], 'daraja_c2b_env_shortcode_receipt_unique');
+            $table->unique(['environment', 'receipt'], 'daraja_c2b_env_receipt_unique');
             $table->index(['status', 'created_at']);
             $table->index(['organization_id', 'status']);
         });
