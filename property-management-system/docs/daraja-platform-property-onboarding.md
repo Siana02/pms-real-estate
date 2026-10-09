@@ -1,30 +1,12 @@
 # Daraja platform and property onboarding
 
-## Platform credentials
+## Environment and organization credentials
 
-Configure these secrets in the backend deployment environment or secret manager. Do not place them in React/Vite environment variables and do not collect them from property managers.
+Set `DARAJA_ENVIRONMENT=sandbox` for sandbox or `production` for live payments in the backend environment. Production callbacks require a public HTTPS `APP_URL`.
 
-- `DARAJA_PLATFORM_ENABLED=true` only after the platform credentials and callback HTTPS endpoint are configured.
-- `DARAJA_ENVIRONMENT=sandbox` for sandbox, or `production` for live payments.
-- `DARAJA_CONSUMER_KEY` and `DARAJA_CONSUMER_SECRET` are the MARSWebz platform Daraja app credentials.
+Each organization owner/admin enters their own Daraja consumer key and consumer secret in payment-destination setup. These credentials are stored once per organization, encrypted at rest, and never returned by the API. The same organization app credentials are used for STK initiation, STK status queries, and C2B URL registration. Merchant shortcode and STK passkey remain destination-specific.
 
-After changing the environment, clear Laravel's cached configuration and restart the backend workers/application. Production callbacks require a public HTTPS `APP_URL`.
-
-## Property merchant configuration
-
-An organization owner/admin configures a PayBill or Till destination on the relevant property. The merchant passkey is encrypted at rest and is never returned in API responses. The platform consumer key/secret are not stored on property records.
-
-A configured shortcode and passkey do not prove Safaricom has authorized the platform app to transact against that merchant. A new or changed merchant configuration therefore enters `awaiting_merchant_authorization` and STK Push stays disabled.
-
-After independently verifying the merchant shortcode, shortcode type, passkey and Safaricom app/merchant authorization for the currently configured environment, an authorized backend operator may run:
-
-```sh
-php artisan daraja:mark-destination-ready DESTINATION_ID --confirmed
-```
-
-Do not use `--confirmed` just because a manager entered a passkey. The command records that verification was performed externally; it does not grant Safaricom permission.
-
-The destination returns to awaiting verification when the shortcode/type/passkey changes. STK Push is available only when the destination is active, complete, marked ready, and platform credentials are enabled.
+Changing organization credentials resets prior STK and C2B authorization checks. Entering credentials does not prove Safaricom has authorized the app for the merchant; authorization must be independently verified.
 
 ## Sandbox STK configuration
 
@@ -38,7 +20,7 @@ If a checkout remains `pending` because its STK callback was not received, an au
 php artisan daraja:query-stk CHECKOUT_ID
 ```
 
-The command uses the checkout's own payment destination shortcode/passkey and the platform credentials for the currently configured environment. It does not accept a shortcode, checkout request ID, or credentials supplied by a tenant.
+The command uses the checkout's own payment destination shortcode/passkey and the owning organization's encrypted Daraja app credentials. It does not accept a shortcode, checkout request ID, or credentials supplied by a tenant.
 
 - A definitive non-zero Safaricom `ResultCode` changes the pending checkout to `failed`.
 - A successful result without receipt/amount metadata changes the checkout to `needs_review`; it does **not** create a paid payment or rent-ledger entry.
@@ -57,7 +39,7 @@ The STK configuration and shared C2B registration/routing are separate readiness
 
 ## C2B registration and reconciliation
 
-C2B callbacks are registered once per unique `environment + shortcode`, not once per property or organization. The registration record stores an encrypted callback token and a hash used to authenticate incoming callback paths. Do not restore manager-facing per-organization C2B registration: a shared shortcode must have one canonical callback pair for this platform.
+C2B callbacks are registered once per unique `environment + shortcode`, not once per property. Registration uses the Daraja app credentials belonging to the organization that owns the selected destination. The registration record stores an encrypted callback token and a hash used to authenticate incoming callback paths. Do not restore manager-facing per-organization C2B registration: a shared shortcode must have one canonical callback pair for this platform.
 
 C2B authorization is tracked separately from STK readiness. This allows a verified PayBill/Till to receive C2B payments even if its STK passkey has not been configured.
 

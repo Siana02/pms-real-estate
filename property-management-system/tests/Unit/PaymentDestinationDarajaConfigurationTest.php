@@ -2,8 +2,11 @@
 
 namespace Tests\Unit;
 
+use App\Models\Organization;
+use App\Models\OrganizationDarajaCredential;
 use App\Models\PaymentDestination;
 use App\Services\DarajaService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -11,15 +14,21 @@ use Tests\TestCase;
 
 class PaymentDestinationDarajaConfigurationTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private Organization $organization;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        config([
-            'daraja.platform_enabled' => true,
-            'daraja.consumer_key' => 'platform-consumer-key',
-            'daraja.consumer_secret' => 'platform-consumer-secret',
-            'daraja.environment' => 'sandbox',
+        config(['daraja.environment' => 'sandbox']);
+        $this->organization = Organization::create(['name' => 'Daraja Test Organization', 'email' => 'daraja-test.invalid']);
+        OrganizationDarajaCredential::create([
+            'organization_id' => $this->organization->id,
+            'consumer_key' => 'organization-consumer-key',
+            'consumer_secret' => 'organization-consumer-secret',
+            'enabled' => true,
         ]);
     }
 
@@ -34,9 +43,9 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertTrue($destination->stkPushReady());
     }
 
-    public function test_destination_is_not_ready_when_platform_credentials_are_missing(): void
+    public function test_destination_is_not_ready_when_organization_credentials_are_missing(): void
     {
-        config(['daraja.platform_enabled' => false]);
+        OrganizationDarajaCredential::where('organization_id', $this->organization->id)->delete();
 
         $destination = $this->configuredDestination('ready');
 
@@ -46,18 +55,21 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     public function test_merchant_secrets_are_encrypted_and_hidden_from_serialization(): void
     {
         $destination = $this->configuredDestination('awaiting_merchant_authorization');
+        $credential = OrganizationDarajaCredential::where('organization_id', $this->organization->id)->firstOrFail();
 
         $this->assertNotSame('merchant-passkey-secret', $destination->getAttributes()['daraja_passkey']);
-        $this->assertNotSame('callback-token-secret', $destination->getAttributes()['daraja_callback_token']);
+        $this->assertNotSame('organization-consumer-secret', $credential->getAttributes()['consumer_secret']);
         $this->assertArrayNotHasKey('daraja_passkey', $destination->toArray());
         $this->assertArrayNotHasKey('daraja_callback_token', $destination->toArray());
+        $this->assertArrayNotHasKey('consumer_key', $credential->toArray());
+        $this->assertArrayNotHasKey('consumer_secret', $credential->toArray());
     }
 
-    public function test_stk_query_uses_platform_token_and_destination_merchant_credentials(): void
+    public function test_stk_query_uses_organization_token_and_destination_merchant_credentials(): void
     {
-        Cache::forget('daraja:platform-token:sandbox');
+        Cache::flush();
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query' => Http::response([
                 'ResponseCode' => '0',
                 'ResponseDescription' => 'The service request has been accepted successfully',
@@ -75,7 +87,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertSame('0', (string) $result['ResultCode']);
         Http::assertSent(fn (Request $request) =>
             str_contains($request->url(), '/mpesa/stkpushquery/v1/query')
-            && $request->hasHeader('Authorization', 'Bearer test-platform-token')
+            && $request->hasHeader('Authorization', 'Bearer test-organization-token')
             && $request['BusinessShortCode'] === '174379'
             && $request['CheckoutRequestID'] === 'ws_CO_test_query'
             && filled($request['Password'])
@@ -88,7 +100,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $destination = $this->configuredDestination('ready');
         $destination->details = ['paybill' => '123456', 'account' => 'Rent'];
 
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Daraja sandbox STK testing requires the Safaricom sandbox PayBill shortcode 174379');
 
         app(DarajaService::class)->queryStk($destination, 'ws_CO_test_query');
@@ -97,7 +109,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     private function configuredDestination(string $status): PaymentDestination
     {
         return new PaymentDestination([
-            'organization_id' => 10,
+            'organization_id' => $this->organization->id,
             'property_id' => 20,
             'method' => 'mpesa_paybill',
             'details' => ['paybill' => '174379', 'account' => 'Rent'],
