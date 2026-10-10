@@ -2,23 +2,26 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
+  Check,
   ChevronRight,
   CircleHelp,
   ExternalLink,
   KeyRound,
   LogOut,
+  Palette,
   ShieldCheck,
   SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 import TenantDashboardLayout from "../../layouts/TenantDashboardLayout";
+import { applyTheme, readThemeId, THEMES } from "../../styles/themes";
 
 const styles = `
 .ts-page{display:flex;flex-direction:column;gap:1rem;max-width:62rem;margin:0 auto}
-.ts-intro{display:flex;align-items:center;gap:.9rem;padding:1.1rem 1.2rem;border:1px solid var(--tp-line);border-radius:var(--tp-r-lg);background:linear-gradient(135deg,#f8fbff,#fff)}
+.ts-intro{display:flex;align-items:center;gap:.9rem;padding:1.1rem 1.2rem;border:1px solid var(--tp-line);border-radius:var(--tp-r-lg);background:var(--tp-surface)}
 .ts-intro__icon{display:flex;align-items:center;justify-content:center;flex:none;width:2.65rem;height:2.65rem;border-radius:.8rem;background:var(--tp-blue-pale);color:var(--tp-blue)}
 .ts-intro h2{margin:0;font-size:.98rem}.ts-intro p{margin:.28rem 0 0;color:var(--tp-muted);font-size:.78rem;line-height:1.5}
-.ts-section{padding:1.1rem 1.15rem;border:1px solid var(--tp-line);border-radius:var(--tp-r-md);background:#fff;box-shadow:var(--tp-shadow-sm)}
+.ts-section{padding:1.1rem 1.15rem;border:1px solid var(--tp-line);border-radius:var(--tp-r-md);background:var(--tp-surface);box-shadow:var(--tp-shadow-sm)}
 .ts-section__head{display:flex;align-items:flex-start;gap:.7rem;margin-bottom:.85rem}.ts-section__icon{display:flex;align-items:center;justify-content:center;flex:none;width:2.15rem;height:2.15rem;border-radius:.65rem;background:var(--tp-surface-tint);color:var(--tp-blue)}.ts-section h3{margin:0;font-size:.88rem}.ts-section__head p{margin:.22rem 0 0;color:var(--tp-muted);font-size:.72rem;line-height:1.45}
 .ts-list{display:flex;flex-direction:column;border-top:1px solid var(--tp-line-soft)}
 .ts-row{display:flex;align-items:center;gap:.8rem;padding:.85rem .15rem;border-bottom:1px solid var(--tp-line-soft);text-decoration:none;color:inherit}.ts-row:last-child{border-bottom:0}.ts-row__icon{display:flex;align-items:center;justify-content:center;flex:none;width:2rem;height:2rem;border-radius:.55rem;background:var(--tp-surface-sunken);color:var(--tp-muted)}.ts-row__icon svg{width:1rem;height:1rem}.ts-row__copy{min-width:0;flex:1}.ts-row__title{display:block;font-size:.8rem;font-weight:700;color:var(--tp-ink)}.ts-row__sub{display:block;margin-top:.18rem;font-size:.7rem;line-height:1.4;color:var(--tp-muted)}.ts-row__end{display:flex;align-items:center;gap:.5rem;color:var(--tp-faint)}.ts-row__end svg{width:.95rem;height:.95rem}
@@ -41,6 +44,11 @@ function TenantSettingsPage() {
   const navigate = useNavigate();
   const user = useMemo(readUser, []);
   const [signedOut, setSignedOut] = useState(false);
+  const [themeId, setThemeId] = useState(readThemeId);
+  function chooseTheme(id: string) {
+    applyTheme(id);
+    setThemeId(id);
+  }
 
   const name = typeof user.name === "string" && user.name.trim() ? user.name : "Tenant";
   const email = typeof user.email === "string" ? user.email : "";
@@ -96,6 +104,31 @@ function TenantSettingsPage() {
               </div>
               <span className="ts-row__end"><span>Open profile</span><ChevronRight/></span>
             </Link>
+          </div>
+        </section>
+
+        <section className="ts-section" aria-labelledby="tenant-theme-heading">
+          <div className="ts-section__head">
+            <span className="ts-section__icon"><Palette size={16}/></span>
+            <div>
+              <h3 id="tenant-theme-heading">Appearance</h3>
+              <p>Choose the same premium colour themes available to property managers. Your choice is saved on this device.</p>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,9rem),1fr))",gap:".65rem"}}>
+            {THEMES.map(theme => (
+              <button key={theme.id} type="button" onClick={() => chooseTheme(theme.id)} aria-pressed={themeId===theme.id}
+                style={{position:"relative",display:"flex",flexDirection:"column",alignItems:"stretch",gap:".55rem",padding:".7rem",borderRadius:".75rem",border:themeId===theme.id?"2px solid var(--tp-blue)":"1px solid var(--tp-line)",background:"var(--tp-surface)",color:"var(--tp-ink)",textAlign:"left",cursor:"pointer",minWidth:0}}>
+                <span aria-hidden="true" style={{display:"flex",gap:".25rem",height:"2.4rem",padding:".4rem",borderRadius:".45rem",background:theme.tokens.bg,border:"1px solid "+theme.tokens.border}}>
+                  <span style={{width:"28%",borderRadius:".25rem",background:theme.tokens.rail,border:"1px solid "+theme.tokens.border}}/>
+                  <span style={{flex:1,borderRadius:".25rem",background:theme.tokens.surface,border:"1px solid "+theme.tokens.border}}/>
+                  <span style={{width:".5rem",borderRadius:".25rem",background:theme.tokens.accent}}/>
+                </span>
+                <strong style={{fontSize:".8rem"}}>{theme.name}</strong>
+                <span style={{fontSize:".68rem",lineHeight:1.4,color:"var(--tp-muted)"}}>{theme.description}</span>
+                {themeId===theme.id && <span style={{display:"inline-flex",alignItems:"center",gap:".25rem",fontSize:".68rem",fontWeight:700,color:"var(--tp-blue)"}}><Check size={14}/> Active theme</span>}
+              </button>
+            ))}
           </div>
         </section>
 
