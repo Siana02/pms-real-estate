@@ -24,6 +24,8 @@ use App\Http\Controllers\PaymentReconciliationController;
 use App\Http\Controllers\DarajaController;
 use App\Http\Controllers\OrganizationDarajaCredentialController;
 use App\Http\Controllers\GuestTenantPaymentLinkController;
+use App\Http\Controllers\PlatformSubscriptionController;
+use App\Http\Middleware\EnsureActivePlatformSubscription;
 
 use Illuminate\Support\Facades\Route;
 
