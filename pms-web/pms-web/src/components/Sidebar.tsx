@@ -12,7 +12,6 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
-  Receipt,
   Settings,
   Users,
   Wrench,
