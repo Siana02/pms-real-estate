@@ -26,30 +26,30 @@ import {
 const styles = `
 .tp-root {
   /* surfaces */
-  --tp-bg: #f6f7f9;
-  --tp-surface: #ffffff;
-  --tp-surface-sunken: #f1f3f7;
-  --tp-surface-tint: #eef3ff;
+  --tp-bg: var(--pms-bg, #f6f7f9);
+  --tp-surface: var(--pms-surface, #ffffff);
+  --tp-surface-sunken: var(--pms-glass-strong, #f1f3f7);
+  --tp-surface-tint: var(--pms-accent-soft, #eef3ff);
  
   /* ink */
-  --tp-ink: #0f172a;
-  --tp-ink-soft: #334155;
-  --tp-muted: #64748b;
-  --tp-faint: #94a3b8;
+  --tp-ink: var(--pms-text, #0f172a);
+  --tp-ink-soft: var(--pms-text, #334155);
+  --tp-muted: var(--pms-muted, #64748b);
+  --tp-faint: var(--pms-faint, #94a3b8);
  
   /* lines */
-  --tp-line: #e2e8f0;
-  --tp-line-soft: #eef1f5;
+  --tp-line: var(--pms-border, #e2e8f0);
+  --tp-line-soft: var(--pms-border-soft, #eef1f5);
  
   /* meaning */
-  --tp-blue: #2563eb;
-  --tp-blue-dark: #1d4ed8;
-  --tp-blue-pale: #dbeafe;
-  --tp-green: #15803d;
+  --tp-blue: var(--pms-accent, #2563eb);
+  --tp-blue-dark: var(--pms-accent, #1d4ed8);
+  --tp-blue-pale: var(--pms-accent-soft, #dbeafe);
+  --tp-green: var(--pms-success, #15803d);
   --tp-green-pale: #dcfce7;
-  --tp-amber: #b45309;
+  --tp-amber: var(--pms-warn, #b45309);
   --tp-amber-pale: #fef3c7;
-  --tp-red: #b91c1c;
+  --tp-red: var(--pms-danger, #b91c1c);
   --tp-red-pale: #fee2e2;
  
   /* shape */
@@ -765,7 +765,7 @@ const styles = `
 .tp-content.tl-page .tp-page-head{justify-content:center!important;text-align:center!important;align-items:center!important}
 .tp-content.tl-page .tp-page-head__content{width:100%!important;justify-content:center!important}
 .tp-content.tl-page .tp-page-head__copy{width:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important}
-.tp-content.tl-page .tp-page-title{color:#0F172A!important;font-size:clamp(1.75rem,3vw,2.15rem)!important;font-weight:750!important;letter-spacing:-.035em!important}
+.tp-content.tl-page .tp-page-title{color:var(--pms-heading,#0F172A)!important;font-size:clamp(1.75rem,3vw,2.15rem)!important;font-weight:750!important;letter-spacing:-.035em!important}
 .tp-content.tl-page .tp-page-sub{max-width:34rem!important;margin:.5rem auto 0!important;color:#64748B!important;font-size:.9rem!important}
 /* Responsive guardrails for narrow phones and landscape tablets. */
 @media (max-width: 639px) {
