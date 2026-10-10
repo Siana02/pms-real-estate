@@ -58,10 +58,17 @@ class PlatformSubscriptionController extends Controller
         return 150;
     }
 
-    private function quote(Organization $organization, string $planCode, array $overrides = []): array
+    private function quoteFromMix(string $planCode, array $mix, array $overrides = []): array
     {
-        $units = $organization->properties()->with('units:id,property_id,unit_type')->get()
-            ->flatMap(fn ($property) => $property->units);
+        $count = 0; $amount = 0;
+        foreach ($mix as $unitType => $quantity) { $quantity = max(0, (int) $quantity); $count += $quantity; $amount += $quantity * $this->rateFor($planCode, (string) $unitType, $overrides); }
+        return ['billable_units' => $count, 'monthly_amount' => $amount];
+    }
+
+    private function quote(Organization $organization, string $planCode, array $overrides = [], array $fallbackMix = []): array
+    {
+        $units = $organization->properties()->with('units:id,property_id,unit_type')->get()->flatMap(fn ($property) => $property->units);
+        if ($units->isEmpty() && $fallbackMix) return $this->quoteFromMix($planCode, $fallbackMix, $overrides);
         $amount = $units->sum(fn ($unit) => $this->rateFor($planCode, $unit->unit_type, $overrides));
         return ['billable_units' => $units->count(), 'monthly_amount' => $amount];
     }
@@ -73,7 +80,7 @@ class PlatformSubscriptionController extends Controller
 
         $subscription = $organization->platformSubscription;
         $plans = array_values($this->plans());
-        $quote = $subscription ? $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? []) : null;
+        $quote = $subscription ? $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? [], $subscription->unit_mix ?? []) : null;
         return response()->json([
             'plans' => $plans,
             'subscription' => $subscription,
@@ -87,7 +94,8 @@ class PlatformSubscriptionController extends Controller
     public function select(Request $request)
     {
         abort_unless(in_array($request->user()->role, ['admin', 'owner'], true), 403, 'Only the organization owner or primary administrator can manage the platform subscription.');
-        $validated = $request->validate(['plan_code' => ['required', Rule::in(array_keys($this->plans()))]]);
+        $validated = $request->validate(['plan_code' => ['required', Rule::in(array_keys($this->plans()))], 'unit_mix' => ['required', 'array'], 'unit_mix.*' => ['required', 'integer', 'min:0', 'max:100000']]);
+        abort_if(array_sum($validated['unit_mix']) < 1, 422, 'Enter at least one expected unit before choosing a plan.');
         $organization = $request->user()->organization;
         abort_if(!$organization, 422, 'No organization is associated with this account.');
 
@@ -104,7 +112,8 @@ class PlatformSubscriptionController extends Controller
                 'current_period_starts_at' => null,
                 'current_period_ends_at' => null,
             ]);
-            $quote = $this->quote($organization, $validated['plan_code'], $subscription->pricing_overrides ?? []);
+            $subscription->unit_mix = $validated['unit_mix'];
+            $quote = $this->quote($organization, $validated['plan_code'], $subscription->pricing_overrides ?? [], $validated['unit_mix']);
             $subscription->billable_units = $quote['billable_units'];
             $subscription->monthly_amount = $quote['monthly_amount'];
             $subscription->save();
@@ -114,7 +123,7 @@ class PlatformSubscriptionController extends Controller
         return response()->json([
             'message' => 'Plan selected. Payment is required before organization onboarding can continue.',
             'subscription' => $subscription->fresh(),
-            'quote' => $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? []),
+            'quote' => $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? [], $subscription->unit_mix ?? []),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
         ], 201);
     }
@@ -160,7 +169,7 @@ class PlatformSubscriptionController extends Controller
             if ($validated['approved']) {
                 $subscription = PlatformSubscription::whereKey($payment->platform_subscription_id)->lockForUpdate()->firstOrFail();
                 $organization = Organization::findOrFail($subscription->organization_id);
-                $quote = $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? []);
+                $quote = $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? [], $subscription->unit_mix ?? []);
                 $starts = now();
                 $subscription->update([
                     'status' => 'active',
