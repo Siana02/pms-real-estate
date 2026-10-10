@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { apiRequest } from "../services/api";
 import {
   Bell,
   Building2,
@@ -642,6 +643,13 @@ const styles = `
   background: var(--tp-surface);
   box-shadow: 0 12px 28px -20px rgba(37, 99, 235, 0.38);
 }
+.tp-search-results { position:absolute; top:calc(100% + .5rem); left:0; right:0; z-index:120; max-height:min(60vh,24rem); overflow:auto; padding:.35rem; border:1px solid var(--tp-line); border-radius:.85rem; background:var(--tp-surface); box-shadow:var(--tp-shadow-pop); }
+.tp-search-results__meta { padding:.45rem .6rem; color:var(--tp-muted); font-size:.72rem; }
+.tp-search-result { display:block; width:100%; padding:.65rem .7rem; border-radius:.55rem; text-align:left; color:var(--tp-ink); }
+.tp-search-result:hover,.tp-search-result:focus-visible { background:var(--tp-surface-tint); outline:none; }
+.tp-search-result strong { display:block; font-size:.82rem; }
+.tp-search-result small { display:block; margin-top:.2rem; color:var(--tp-muted); font-size:.72rem; line-height:1.4; }
+
  
 /* ---------- content ---------- */
 .tp-main {
@@ -900,6 +908,10 @@ function TenantDashboardLayout({
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [globalQuery, setGlobalQuery] = useState("");
+  const [globalResults, setGlobalResults] = useState<Array<{title:string;detail:string;to:string;key:string}>>([]);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+  const [globalSearchError, setGlobalSearchError] = useState("");
   const [identity, setIdentity] = useState<TenantIdentity>({
     name: "Tenant",
     residence: "",
@@ -922,6 +934,66 @@ function TenantDashboardLayout({
       window.removeEventListener("pms:organization", refreshOrganizationLogo);
   }, []);
  
+  useEffect(() => {
+    const query = globalQuery.trim().toLowerCase();
+    if (query.length < 2) {
+      setGlobalResults([]);
+      setGlobalSearchLoading(false);
+      setGlobalSearchError("");
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setGlobalSearchLoading(true);
+      setGlobalSearchError("");
+      const sources = [
+        { endpoint: "/tenant/payments", to: "/tenant/payments", label: "Payment" },
+        { endpoint: "/tenant/maintenance-requests", to: "/tenant/maintenance", label: "Maintenance request" },
+        { endpoint: "/tenant/notifications", to: "/tenant/notifications", label: "Notification" },
+        { endpoint: "/tenant/lease-agreement", to: "/tenant/lease", label: "Lease / document" },
+      ];
+      try {
+        const responses = await Promise.allSettled(sources.map(source => apiRequest(source.endpoint)));
+        const results: Array<{title:string;detail:string;to:string;key:string}> = [];
+        const visited = new Set<object>();
+        const visit = (value: unknown, source: typeof sources[number], depth = 0) => {
+          if (!value || typeof value !== "object" || depth > 5) return;
+          if (visited.has(value as object)) return;
+          visited.add(value as object);
+          if (Array.isArray(value)) {
+            value.forEach(item => visit(item, source, depth + 1));
+            return;
+          }
+          const record = value as Record<string, unknown>;
+          const textValue = Object.values(record).filter(v => typeof v === "string" || typeof v === "number" || typeof v === "boolean").join(" ").toLowerCase();
+          const title = [record.title, record.name, record.subject, record.payment_reference, record.reference, record.unit_number, record.document_name, record.type]
+            .find(v => typeof v === "string" && v.trim()) as string | undefined;
+          const detail = [record.status, record.amount, record.currency, record.created_at, record.transaction_at, record.reported_date, record.description, record.message]
+            .filter(v => typeof v === "string" || typeof v === "number").join(" · ");
+          if (textValue.includes(query) && title) {
+            const key = source.to + ":" + String(record.id ?? title) + ":" + detail;
+            if (!results.some(result => result.key === key)) results.push({ title: title.slice(0, 100), detail: (detail || source.label).slice(0, 180), to: source.to, key });
+          }
+          Object.values(record).forEach(child => {
+            if (child && typeof child === "object") visit(child, source, depth + 1);
+          });
+        };
+        responses.forEach((response, index) => {
+          if (response.status === "fulfilled") visit(response.value, sources[index]);
+        });
+        if (!cancelled) {
+          setGlobalResults(results.slice(0, 8));
+          if (responses.every(response => response.status === "rejected")) setGlobalSearchError("Search is temporarily unavailable. Please try again.");
+        }
+      } catch {
+        if (!cancelled) setGlobalSearchError("Search is temporarily unavailable. Please try again.");
+      } finally {
+        if (!cancelled) setGlobalSearchLoading(false);
+      }
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [globalQuery]);
+
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
@@ -1099,8 +1171,25 @@ function TenantDashboardLayout({
               <input
                 id="tenant-search"
                 type="search"
+                value={globalQuery}
+                onChange={event => setGlobalQuery(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === "Escape") setGlobalQuery("");
+                  if (event.key === "Enter" && globalResults[0]) {
+                    navigate(globalResults[0].to);
+                    setGlobalQuery("");
+                  }
+                }}
+                aria-label="Search your payments, maintenance requests, notifications and lease documents"
+                aria-expanded={globalQuery.trim().length >= 2}
+                aria-controls="tenant-global-search-results"
+                autoComplete="off"
                 placeholder="Search payments, requests, documents…"
               />
+              {globalQuery.trim().length >= 2 && <div id="tenant-global-search-results" className="tp-search-results" role="status">
+                <div className="tp-search-results__meta">{globalSearchLoading ? "Searching your records…" : globalSearchError || (globalResults.length ? `${globalResults.length} matching records` : "No matching records found")}</div>
+                {!globalSearchLoading && !globalSearchError && globalResults.map(result => <button type="button" key={result.key} className="tp-search-result" onClick={() => { navigate(result.to); setGlobalQuery(""); }}><strong>{result.title}</strong><small>{result.detail || result.to.replace("/tenant/","").replace(/-/g," ")}</small></button>)}
+              </div>}
             </div>
  
             <span className="tp-top__spacer" />

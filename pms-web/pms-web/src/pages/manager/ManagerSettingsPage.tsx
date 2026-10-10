@@ -351,6 +351,7 @@ interface Profile {
   organization: string;
   email: string;
   user: string;
+  username: string;
   role: string;
 }
  
@@ -371,6 +372,7 @@ function readProfile(): Profile {
     organization: asString(organization.name) || "Your organization",
     email: asString(organization.email) || asString(user.email),
     user: asString(user.name) || "—",
+    username: asString(user.username),
     role: asString(user.role) || "property_manager",
   };
 }
@@ -1019,6 +1021,10 @@ function ManagerSettingsPage() {
                 <li className="st-list__row">
                   <span className="st-list__key">Signed in as</span>
                   <span className="st-list__value">{profile.user}</span>
+                </li>
+                <li className="st-list__row">
+                  <span className="st-list__key">Username</span>
+                  <span className="st-list__value">{profile.username ? `@${profile.username}` : "Not assigned"}</span>
                 </li>
                 <li className="st-list__row">
                   <span className="st-list__key">Role</span>

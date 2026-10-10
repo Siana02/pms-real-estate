@@ -1037,9 +1037,6 @@ const numberValue = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const textValue = (value: unknown) =>
-  typeof value === "string" ? value : "";
-
 const money = (value: number, currency: string) =>
   new Intl.NumberFormat("en-KE", {
     style: "currency",

@@ -81,7 +81,6 @@ class PaymentReconciliationService
             }
 
             $at = CarbonImmutable::parse($transaction->transaction_at);
-            app(RentLedgerService::class)->ensureForPeriod($at);
 
             $reference = $this->normalizeReference($transaction->payment_reference);
             $destination = $transaction->paymentDestination()->first();
@@ -206,7 +205,6 @@ class PaymentReconciliationService
 
             $at = CarbonImmutable::parse($transaction->transaction_at);
 
-            app(RentLedgerService::class)->ensureForPeriod($at);
             $this->ensureLeaseObligationsThrough($lease, $at);
 
             $obligations = $this->outstandingObligations($lease, $at);

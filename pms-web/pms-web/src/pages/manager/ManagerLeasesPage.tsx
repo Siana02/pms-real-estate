@@ -741,9 +741,6 @@ function ManagerLeasesPage() {
   const managerTermsChanged = selectedLease
     ? managerTermsDraft !== (selectedLease.manager_terms ?? "")
     : false;
-  const tenantTermsChanged = selectedLease
-    ? tenantTermsDraft !== (selectedLease.tenant_terms ?? "")
-    : false;
   const depositAmountNumber = Number(depositAmountDraft);
   const depositValid =
     selectedLease !== null &&

@@ -1,0 +1,57 @@
+name: PMS validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feat/auth-legal-help-onboarding-search]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend type-check, build and lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pms-web/pms-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pms-web/pms-web/package-lock.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npm run lint
+
+  backend:
+    name: Laravel tests and changed PHP syntax
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: property-management-system
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, gd, intl, zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Check changed PHP files
+        run: |
+          php -l app/Http/Controllers/AuthController.php
+          php -l config/services.php
+      - run: php artisan test

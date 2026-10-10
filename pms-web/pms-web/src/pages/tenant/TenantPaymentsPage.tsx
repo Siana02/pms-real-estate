@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CheckCircle2,
   CreditCard,
+  Building2,
   Download,
   Loader2,
   Receipt,
@@ -1106,7 +1107,7 @@ function TenantPaymentsPage() {
                   )}
                 </div>
 
-                {method !== "flutterwave" && method !== "mpesa_stk" && (
+                {method !== "flutterwave" && (
                   <>
                     <div className="tpay-field">
                       <label htmlFor="pay-destination">Payment destination</label>

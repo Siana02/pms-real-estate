@@ -2031,7 +2031,7 @@ function TenantDashboardPage() {
           <p className="td-welcome-script">Everything about your home in one place.</p>
           <div className="td-welcome-stats" aria-label="Quick home status">
             {(() => {
-              const meta = leaseStatusMeta(lease?.status);
+              const meta = leaseStatusMeta(lease?.status ?? null);
               const tone = meta.className === "tp-pill--good" ? "good" : meta.className === "tp-pill--wait" ? "wait" : meta.className === "tp-pill--info" ? "info" : "mute";
               return <span className={`td-welcome-stat td-welcome-stat--${tone}`}><span className="td-welcome-stat__dot" aria-hidden="true" />Lease status: {meta.label}</span>;
             })()}
@@ -2170,7 +2170,7 @@ function TenantDashboardPage() {
                   <p className="td-home__group-title">Financial & lease</p>
                   <div className="td-home__data">
                     <div className="td-home__data-row"><CreditCard /><div><dt>Monthly rent</dt><dd className="tp-money">{money(lease?.monthly_rent, currency)}</dd></div></div>
-                    <div className="td-home__data-row"><FileText /><div><dt>Lease status</dt><dd>{(() => { const meta = leaseStatusMeta(lease?.status); return <span className={`tp-pill ${meta.className}`}>{meta.label}</span>; })()}</dd></div></div>
+                    <div className="td-home__data-row"><FileText /><div><dt>Lease status</dt><dd>{(() => { const meta = leaseStatusMeta(lease?.status ?? null); return <span className={`tp-pill ${meta.className}`}>{meta.label}</span>; })()}</dd></div></div>
                     <div className="td-home__data-row"><CalendarDays /><div><dt>Lease ends</dt><dd>{longDate(lease?.end_date)}</dd></div></div>
                   </div>
                 </section>

@@ -14,7 +14,6 @@ import {
   MapPin,
   Phone,
   Ruler,
-  ShieldCheck,
   Sparkles,
   Wrench,
 } from "lucide-react";

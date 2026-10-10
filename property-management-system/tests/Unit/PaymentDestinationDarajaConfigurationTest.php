@@ -139,7 +139,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         Http::fake();
 
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('M-PESA STK Push is not ready for this property payment destination.');
 
         try {
@@ -165,7 +165,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
             ], 200),
         ]);
 
-        $this->expectException(\\RuntimeException::class);
+        $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Invalid Access Token');
 
         app(DarajaService::class)->initiateStk(

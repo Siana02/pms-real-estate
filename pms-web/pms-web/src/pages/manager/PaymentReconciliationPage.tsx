@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, Clock3, RefreshCw, Search, Walle
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
 import { managerStyles } from "../../styles/managerUI";
-import { formatDate, formatMoney, readCurrency, rows, asNumber, asString, toRecord, namedRef } from "../../services/format";
+import { formatDate, formatMoney, rows, asNumber, asString, toRecord } from "../../services/format";
 
 type ReconciliationStatus = "pending" | "reconciled" | "reconciled_with_credit" | "needs_review" | "unmatched";
 interface Allocation { id:number; amount:number; rentObligation:{id:number; period:string; due_date:string; amount_due:number}|null }
@@ -103,7 +103,7 @@ function ResolveDrawer({transaction,leases,destinations,onClose,onDone}:{transac
  </div>
 }
 function ReconciliationPage(){
- const currency=useMemo(readCurrency,[]); const [items,setItems]=useState<Transaction[]>([]),[leases,setLeases]=useState<Lease[]>([]),[destinations,setDestinations]=useState<Destination[]>([]);
+ const [items,setItems]=useState<Transaction[]>([]),[leases,setLeases]=useState<Lease[]>([]),[destinations,setDestinations]=useState<Destination[]>([]);
  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[query,setQuery]=useState(""),[filter,setFilter]=useState("all"),[selected,setSelected]=useState<Transaction|null>(null),[resolving,setResolving]=useState(false);
  const load=useCallback(async()=>{setLoading(true);setError("");try{const [p,l,d]=await Promise.all([apiRequest("/payment-reconciliation"),apiRequest("/leases"),apiRequest("/organization/payment-destinations")]);setItems(parse(p));setLeases(rows(l).map(r=>{const t=toRecord(r.tenant),u=toRecord(r.unit),pr=toRecord(r.property);return{id:asNumber(r.id),property_id:asNumber(r.property_id),label:[asString(t.name)||`Lease #${asNumber(r.id)}`,asString(u.unit_number)?`· ${asString(u.unit_number)}`:"",asString(pr.name)?`· ${asString(pr.name)}`:""].filter(Boolean).join(" ")}}));setDestinations(rows(toRecord(d).data??d).map(r=>({id:asNumber(r.id),property_id:asNumber(r.property_id),property_name:asString(r.property_name)||null,method:asString(r.method),details:toRecord(r.details),is_active:Boolean(r.is_active),daraja:toRecord(r.daraja) as Destination["daraja"]})));}catch(e){setError(e instanceof Error?e.message:"Could not load reconciliation queue.");}finally{setLoading(false);}},[]);
  useEffect(()=>{void load()},[load]);
