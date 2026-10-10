@@ -233,6 +233,7 @@ public function usernameAvailable(Request $request)
                     'organization_id' => $user->organization_id,
                     'tenant_id' => $user->tenant_id,
                     'must_change_password' => $user->must_change_password,
+                    'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
                 ],
                 'tenant' => [
                     'id' => $user->tenant_id,
@@ -367,6 +368,7 @@ public function usernameAvailable(Request $request)
             'organization_id' => $user->organization_id,
             'tenant_id' => $user->tenant_id,
             'must_change_password' => (bool) $user->must_change_password,
+                'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
         ],
     ]);
 }
@@ -518,6 +520,7 @@ public function usernameAvailable(Request $request)
                 'organization_id' => $user->organization_id,
                 'tenant_id' => $user->tenant_id,
                 'must_change_password' => (bool) $user->must_change_password,
+                'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
             ],
         ]);
     }
@@ -676,6 +679,7 @@ public function usernameAvailable(Request $request)
                 'organization_id' => $user->organization_id,
                 'tenant_id' => $user->tenant_id,
                 'must_change_password' => (bool) $user->must_change_password,
+                'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
             ],
         ]);
     }
