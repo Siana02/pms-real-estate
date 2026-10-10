@@ -290,7 +290,7 @@ function AddUnitDrawer({
                 <option value="18 bedroom">18 bedroom</option>
                 <option value="19 bedroom">19 bedroom</option>
                 <option value="20 bedroom">20 bedroom</option>
-                <option value="Commercial / other">Commercial / other</option>
+                <option value="Commercial / other">Commercial / other</option><option value="20+ bedroom">20+ bedroom</option>
               </select>
               <p className="mg-hint">Used to group similar units together.</p>
             </div>
