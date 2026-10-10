@@ -48,6 +48,7 @@ class PlatformSubscriptionController extends Controller
 
         if ($plan === 'basic') return 100;
         if ($plan === 'standard') return 125;
+        // Premium pricing is flat for every unit with two or more bedrooms.
         if (str_contains($normalized, '20+ bedroom')) return 200;
         if (str_contains($normalized, 'bed-sit') || str_contains($normalized, 'bedsitter') || str_contains($normalized, 'studio')) return 100;
         if (preg_match('/(\d+)\s*[- ]?\s*(?:bed|bedroom)/', $normalized, $matches)) {
