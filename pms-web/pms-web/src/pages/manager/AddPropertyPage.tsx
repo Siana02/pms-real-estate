@@ -1658,6 +1658,16 @@ function AddProperties() {
                             <option value="5 bedroom">5 bedroom</option><option value="6 bedroom">6 bedroom</option>
                             <option value="7 bedroom">7 bedroom</option><option value="8 bedroom">8 bedroom</option>
                             <option value="9 bedroom">9 bedroom</option><option value="10 bedroom">10 bedroom</option>
+                            <option value="11 bedroom">11 bedroom</option>
+                            <option value="12 bedroom">12 bedroom</option>
+                            <option value="13 bedroom">13 bedroom</option>
+                            <option value="14 bedroom">14 bedroom</option>
+                            <option value="15 bedroom">15 bedroom</option>
+                            <option value="16 bedroom">16 bedroom</option>
+                            <option value="17 bedroom">17 bedroom</option>
+                            <option value="18 bedroom">18 bedroom</option>
+                            <option value="19 bedroom">19 bedroom</option>
+                            <option value="20 bedroom">20 bedroom</option>
                             <option value="Commercial / other">Commercial / other</option>
                           </select>
                         </div>
