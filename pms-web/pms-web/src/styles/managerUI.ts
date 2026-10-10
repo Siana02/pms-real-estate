@@ -655,6 +655,10 @@ border-color: transparent;
 @media (min-width: 640px) {
   .mg-grid2 { grid-template-columns: 1fr 1fr; }
 }
+
+@media (min-width: 1024px) {
+  .mg-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
  
 @media (min-width: 768px) {
   .mg-root { padding: 2rem 1.5rem 3.5rem; }
