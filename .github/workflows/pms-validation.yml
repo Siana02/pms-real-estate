@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/auth-legal-help-onboarding-search, feat/pms-auth-tour-themes-responsive]
+    branches: [main, feat/auth-legal-help-onboarding-search, feat/pms-auth-tour-themes-responsive, feat/platform-subscriptions-unit-pricing]
 
 permissions:
   contents: read
@@ -53,5 +53,14 @@ jobs:
       - name: Check changed PHP files
         run: |
           php -l app/Http/Controllers/AuthController.php
+          php -l app/Http/Controllers/PlatformSubscriptionController.php
+          php -l app/Http/Controllers/GuestTenantPaymentLinkController.php
+          php -l app/Http/Controllers/PropertyController.php
+          php -l app/Http/Controllers/UnitController.php
+          php -l app/Http/Middleware/EnsureActivePlatformSubscription.php
+          php -l app/Http/Middleware/EnsureSubscriptionFeature.php
+          php -l app/Models/PlatformSubscription.php
+          php -l app/Models/PlatformSubscriptionPayment.php
+          php -l database/migrations/2026_10_10_000001_create_platform_subscriptions_table.php
           php -l config/services.php
       - run: php artisan test
