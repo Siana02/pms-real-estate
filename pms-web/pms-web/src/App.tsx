@@ -34,6 +34,7 @@ import TenantProfilePage from "./pages/tenant/TenantProfilePage";
 import TenantHelpPage from "./pages/tenant/TenantHelpPage";
 import TenantSettingsPage from "./pages/tenant/TenantSettingsPage";
 import { applyTheme, readThemeId } from "./styles/themes";
+import { API_BASE } from "./services/api";
 
 type Portal = "manager" | "tenant";
 const TENANT_ROLES = ["tenant"];
@@ -46,11 +47,17 @@ function homePath(): string { return portalForRole(getRole()) === "tenant" ? "/t
 function RequireAuth({ children }: { children: ReactNode }) { return getToken() ? <>{children}</> : <Navigate to="/login" replace />; }
 function RequirePortal({ portal, children }: { portal: Portal; children: ReactNode }) { if (!getToken()) return <Navigate to="/login" replace />; if (portalForRole(getRole()) !== portal) return <Navigate to={homePath()} replace />; if (mustChangePassword()) return <Navigate to="/password-setup" replace />; return <>{children}</>; }
 function HomeRedirect() { return <Navigate to={homePath()} replace />; }
+type TourStep = { title: string; body: string; targets: string[] };
+
 function FirstLoginGuide({ portal, children }: { portal: Portal; children: ReactNode }) {
  const [visible, setVisible] = useState(false);
  const [usernameNotice, setUsernameNotice] = useState(false);
  const [user, setUser] = useState<Record<string, unknown>>({});
+ const [stepIndex, setStepIndex] = useState(0);
+ const [spotlight, setSpotlight] = useState<{top:number;left:number;width:number;height:number}|null>(null);
+
  useEffect(() => {
+  let hideTimer: number | undefined;
   try {
    const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user");
    const current = raw ? JSON.parse(raw) as Record<string, unknown> : {};
@@ -60,29 +67,124 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
    if (typeof current.username === "string" && current.username && localStorage.getItem(usernameKey) !== "done") {
     setUsernameNotice(true);
     localStorage.setItem(usernameKey, "done");
-    window.setTimeout(() => setUsernameNotice(false), 7500);
+    hideTimer = window.setTimeout(() => setUsernameNotice(false), 7500);
    }
    const key = "pms:first-login-guide:" + identity;
-   if (localStorage.getItem(key) !== "done") {
-    setVisible(true);
-   }
+   if (localStorage.getItem(key) !== "done") setVisible(true);
   } catch { setVisible(false); }
+  return () => { if (hideTimer) window.clearTimeout(hideTimer); };
  }, [portal]);
- function dismiss() {
+
+ const role = String(user.role ?? "").toLowerCase();
+ const managerSteps: TourStep[] = [
+  { title: "Dashboard", body: "Start here for a high-level view of your portfolio, occupancy, tasks and recent activity.", targets: ["/manager/dashboard"] },
+  { title: "Properties", body: "Add and maintain the properties your organisation manages. Keep addresses and property details accurate.", targets: ["/manager/properties"] },
+  { title: "Units", body: "Create and update individual units, their rent details, availability and occupancy status.", targets: ["/manager/units"] },
+  { title: "Tenants", body: "Review tenant records, contact details and registration or tenancy status.", targets: ["/manager/tenants"] },
+  { title: "Leases", body: "Create and review tenancy agreements, dates, rent terms and deposits. Check the correct unit and tenant before saving.", targets: ["/manager/leases"] },
+  { title: "Payments", body: "Review rent receipts and payment records. Confirm provider references and payment status before treating a payment as received.", targets: ["/manager/payments"] },
+  { title: "Reconciliation", body: "Match incoming provider transactions to the right tenant or lease, investigate unmatched payments and resolve exceptions carefully.", targets: ["/manager/reconciliation"] },
+  { title: "Tenant payment links", body: "Create and manage shareable payment links. Verify the organisation's configured PayBill or Till and amount before sharing a link.", targets: ["/manager/guest-payment-links"] },
+  { title: "Expenses", body: "Record property expenses and supporting details so your organisation can review operating costs.", targets: ["/manager/expenses"] },
+  { title: "Maintenance and requests", body: "Use Maintenance to follow repairs and service issues. Requests is where staff or operational requests can be reviewed and actioned.", targets: ["/manager/maintenance", "/manager/requests"] },
+  ...(role === "owner" || role === "admin" ? [{ title: "Audit log", body: "Review the recorded activity trail for accountability. Use it to investigate changes and understand who performed an action.", targets: ["/manager/audit-log"] }] : []),
+  { title: "Settings and team", body: "Configure organisation preferences, payment destinations and theme. Owners/admins can manage staff access and permissions here.", targets: ["/manager/settings"] },
+ ];
+ const tenantSteps: TourStep[] = [
+  { title: "Your dashboard", body: "Start here for your tenancy overview, reminders and recent updates.", targets: [] },
+  { title: "Your home", body: "Review the property and unit details associated with your tenancy.", targets: [] },
+  { title: "Payments", body: "Review your rent ledger and payment history. If you pay through a provider, keep the confirmation reference.", targets: [] },
+  { title: "Lease", body: "Find your lease details and available agreement documents.", targets: [] },
+  { title: "Maintenance", body: "Report a repair or maintenance issue and follow its status.", targets: [] },
+  { title: "Notifications", body: "Check updates about your tenancy, payments, lease and maintenance requests.", targets: [] },
+  { title: "Profile and settings", body: "Keep your contact details current and manage account preferences and appearance.", targets: [] },
+  { title: "Help centre", body: "Use Help when you need guidance on payments, lease information, maintenance or how to use the portal.", targets: [] },
+ ];
+ const steps = portal === "manager" ? managerSteps : tenantSteps;
+ const safeStepIndex = Math.min(stepIndex, steps.length - 1);
+ const currentStep = steps[safeStepIndex];
+
+ useEffect(() => {
+  if (!visible || portal !== "manager" || !currentStep?.targets.length) {
+   setSpotlight(null);
+   return;
+  }
+  let timer: number | undefined;
+  const locate = () => {
+   const nodes = currentStep.targets.flatMap(target =>
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${target}"]`))
+   );
+   const visibleNodes = nodes.filter(node => {
+    const rect = node.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth;
+   });
+   if (!visibleNodes.length) { setSpotlight(null); return; }
+   const rects = visibleNodes.map(node => node.getBoundingClientRect());
+   const left = Math.min(...rects.map(rect => rect.left));
+   const top = Math.min(...rects.map(rect => rect.top));
+   const right = Math.max(...rects.map(rect => rect.right));
+   const bottom = Math.max(...rects.map(rect => rect.bottom));
+   setSpotlight({left,top,width:right-left,height:bottom-top});
+  };
+  if (window.innerWidth < 1024) {
+   window.dispatchEvent(new CustomEvent("pms:open-manager-nav"));
+   timer = window.setTimeout(locate, 180);
+  } else locate();
+  window.addEventListener("resize", locate);
+  window.addEventListener("scroll", locate, true);
+  return () => {
+   if (timer) window.clearTimeout(timer);
+   window.removeEventListener("resize", locate);
+   window.removeEventListener("scroll", locate, true);
+  };
+ }, [visible, portal, safeStepIndex, role]);
+
+ function markComplete() {
   try {
-   const key = "pms:first-login-guide:" + String(user.id ?? user.email ?? portal);
-   localStorage.setItem(key, "done");
+   localStorage.setItem("pms:first-login-guide:" + String(user.id ?? user.email ?? portal), "done");
   } catch {}
   setVisible(false);
+  setSpotlight(null);
+  window.dispatchEvent(new CustomEvent("pms:close-manager-nav"));
  }
- return <>{children}{usernameNotice && typeof user.username === "string" && <div role="status" aria-live="polite" style={{position:"fixed",top:"1rem",right:"1rem",zIndex:10002,width:"min(92vw,360px)",padding:"1rem 1.1rem",borderRadius:14,background:"#102a43",color:"#fff",boxShadow:"0 12px 36px #0004",lineHeight:1.55}}><strong style={{display:"block",marginBottom:".2rem"}}>Your username: @{user.username}</strong><span style={{fontSize:".88rem"}}>You can find it again in your profile or account settings.</span><button type="button" onClick={()=>setUsernameNotice(false)} aria-label="Dismiss username notice" style={{float:"right",marginTop:".45rem",padding:".2rem .5rem",border:"1px solid #ffffff66",borderRadius:8,color:"#fff",background:"transparent",cursor:"pointer"}}>Dismiss</button></div>}{visible && <div role="dialog" aria-modal="true" aria-labelledby="pms-first-guide-title" style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(8,15,30,.68)",display:"grid",placeItems:"center",padding:"1rem"}}>
-  <section style={{width:"min(100%,540px)",background:"var(--pms-card,#fff)",color:"var(--pms-text,#172033)",borderRadius:20,padding:"clamp(1.25rem,4vw,2rem)",boxShadow:"0 24px 80px #0005"}}>
-   <p style={{margin:"0 0 .4rem",fontSize:".75rem",fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",opacity:.65}}>{portal==="manager"?"Quick manager tour":"Account information"}</p>
-   <h2 id="pms-first-guide-title" style={{margin:"0 0 .75rem",fontSize:"1.6rem"}}>{portal==="manager"?"Welcome to your property workspace":"Welcome to your tenant portal"}</h2>
-   {portal==="manager" ? <><p style={{lineHeight:1.7}}>Here is a quick guide to the main areas. You can reopen the full searchable manual from Help at any time.</p><ul style={{lineHeight:1.9,paddingLeft:"1.25rem"}}><li><strong>Properties & Units:</strong> maintain your portfolio and occupancy records.</li><li><strong>Tenants & Leases:</strong> manage tenant details, tenancy terms and dates.</li><li><strong>Payments & Reconciliation:</strong> record receipts and verify provider transactions.</li><li><strong>Expenses & Maintenance:</strong> track costs, repair requests and follow-ups.</li><li><strong>Settings & Team:</strong> configure your organisation and review staff permissions.</li></ul><p style={{lineHeight:1.6,fontSize:".9rem",opacity:.8}}>Always verify payment destinations and transaction status with the provider. The Platform does not hold rent or pay taxes on your behalf.</p></> : <p style={{lineHeight:1.7}}>Use your dashboard to review your tenancy information, Payments for your ledger, Maintenance to report repairs, Lease for agreement details, Notifications for updates and Profile for your account details.</p>}
-   <button type="button" onClick={dismiss} style={{marginTop:".75rem",width:"100%",padding:".9rem 1rem",border:0,borderRadius:12,background:"#2458d3",color:"white",fontWeight:700,cursor:"pointer"}}>Got it, let me continue</button>
-  </section>
- </div>}</>;
+ function connectGoogle() {
+  markComplete();
+  const backendOrigin = API_BASE.replace(/\/api\/?$/, "");
+  window.location.href = `${backendOrigin}/auth/google/redirect?mode=login`;
+ }
+ const cardTop = spotlight ? Math.max(12, Math.min(spotlight.top, window.innerHeight - 350)) : undefined;
+ const cardLeft = spotlight && spotlight.left + spotlight.width + 18 < window.innerWidth - 330
+  ? spotlight.left + spotlight.width + 18 : undefined;
+
+ return <>{children}
+  {usernameNotice && typeof user.username === "string" && <div role="status" aria-live="polite" style={{position:"fixed",top:"1rem",right:"1rem",zIndex:10002,width:"min(92vw,360px)",padding:"1rem 1.1rem",borderRadius:14,background:"var(--pms-surface,#102a43)",color:"var(--pms-text,#fff)",border:"1px solid var(--pms-border,transparent)",boxShadow:"0 12px 36px #0004",lineHeight:1.55}}><strong style={{display:"block",marginBottom:".2rem"}}>Your username: @{user.username}</strong><span style={{fontSize:".88rem"}}>You can find it again in your profile or account settings.</span><button type="button" onClick={()=>setUsernameNotice(false)} aria-label="Dismiss username notice" style={{float:"right",marginTop:".45rem",padding:".2rem .5rem",border:"1px solid currentColor",borderRadius:8,color:"inherit",background:"transparent",cursor:"pointer"}}>Dismiss</button></div>}
+  {visible && currentStep && <div role="dialog" aria-modal="true" aria-labelledby="pms-first-guide-title" style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(4,10,20,.58)",padding:"1rem"}}>
+   {spotlight && <div aria-hidden="true" style={{position:"fixed",top:spotlight.top-5,left:spotlight.left-5,width:spotlight.width+10,height:spotlight.height+10,zIndex:10001,border:"2px solid #8ab4ff",borderRadius:12,boxShadow:"0 0 0 9999px rgba(4,10,20,.66),0 0 0 5px rgba(138,180,255,.2)",pointerEvents:"none",transition:"all .18s ease"}}/>}
+   <section style={{position:"fixed",top:cardTop ?? "50%",left:cardLeft ?? "50%",transform:cardTop===undefined?"translate(-50%,-50%)":"none",width:"min(360px,calc(100vw - 32px))",maxHeight:"min(78vh,620px)",overflowY:"auto",background:"var(--pms-surface,#111f31)",color:"var(--pms-text,#f8fafc)",border:"1px solid var(--pms-border,rgba(255,255,255,.18))",borderRadius:20,padding:"1.2rem",boxShadow:"0 24px 80px rgba(0,0,0,.48)",zIndex:10002}}>
+    <p style={{margin:"0 0 .35rem",fontSize:".72rem",fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",color:"var(--pms-accent,#8ab4ff)"}}>{portal==="manager"?"Manager workspace tour":"Tenant portal tour"} · {safeStepIndex+1} of {steps.length}</p>
+    <h2 id="pms-first-guide-title" style={{margin:"0 0 .6rem",fontSize:"1.35rem",lineHeight:1.25,color:"var(--pms-heading,#fff)"}}>{safeStepIndex===0 ? (portal==="manager"?"Welcome to your property workspace":"Welcome to your tenant portal") : currentStep.title}</h2>
+    <p style={{margin:"0 0 .85rem",lineHeight:1.65,fontSize:".92rem",color:"var(--pms-text,#f8fafc)"}}>{currentStep.body}</p>
+    {portal==="manager" && safeStepIndex===0 && <div style={{padding:".85rem",marginBottom:".9rem",borderRadius:12,border:"1px solid var(--pms-border,rgba(255,255,255,.18))",background:"var(--pms-glass,rgba(255,255,255,.05))"}}>
+     <strong style={{display:"block",fontSize:".86rem",marginBottom:".3rem"}}>Make sign-in easier with Google</strong>
+     <p style={{margin:"0 0 .65rem",fontSize:".8rem",lineHeight:1.5,color:"var(--pms-muted,#bdc8d7)"}}>Connect using the Google account that has the same email as this profile. If you already signed in with Google, you can skip this.</p>
+     <button type="button" onClick={connectGoogle} style={{width:"100%",padding:".7rem .8rem",border:"1px solid var(--pms-border,rgba(255,255,255,.2))",borderRadius:10,background:"var(--pms-glass-strong,rgba(255,255,255,.08))",color:"var(--pms-text,#fff)",fontWeight:750,cursor:"pointer"}}>Connect Google sign-in</button>
+    </div>}
+    {portal==="tenant" && safeStepIndex===0 && <div style={{padding:".85rem",marginBottom:".9rem",borderRadius:12,border:"1px solid var(--pms-border,rgba(255,255,255,.18))",background:"var(--pms-glass,rgba(255,255,255,.05))"}}>
+     <strong style={{display:"block",fontSize:".86rem",marginBottom:".3rem"}}>Make sign-in easier with Google</strong>
+     <p style={{margin:"0 0 .65rem",fontSize:".8rem",lineHeight:1.5,color:"var(--pms-muted,#bdc8d7)"}}>Use the Google account with the same email as this profile. If you already use Google to sign in, continue the tour.</p>
+     <button type="button" onClick={connectGoogle} style={{width:"100%",padding:".7rem .8rem",border:"1px solid var(--pms-border,rgba(255,255,255,.2))",borderRadius:10,background:"var(--pms-glass-strong,rgba(255,255,255,.08))",color:"var(--pms-text,#fff)",fontWeight:750,cursor:"pointer"}}>Connect Google sign-in</button>
+    </div>}
+    {portal==="manager" && spotlight && <p style={{margin:"0 0 .8rem",fontSize:".75rem",fontWeight:700,color:"var(--pms-accent,#8ab4ff)"}}>↖ Look at the highlighted sidebar item</p>}
+    <div style={{display:"flex",gap:".55rem",justifyContent:"space-between",alignItems:"center",marginTop:".75rem"}}>
+     <button type="button" onClick={markComplete} style={{padding:".65rem .75rem",border:"1px solid var(--pms-border,rgba(255,255,255,.2))",borderRadius:10,background:"transparent",color:"var(--pms-muted,#bdc8d7)",fontSize:".8rem",cursor:"pointer"}}>Skip tour</button>
+     <div style={{display:"flex",gap:".5rem"}}>
+      {safeStepIndex>0 && <button type="button" onClick={()=>setStepIndex(value=>Math.max(0,value-1))} style={{padding:".65rem .8rem",border:"1px solid var(--pms-border,rgba(255,255,255,.2))",borderRadius:10,background:"transparent",color:"var(--pms-text,#fff)",fontWeight:700,cursor:"pointer"}}>Back</button>}
+      <button type="button" onClick={()=>safeStepIndex===steps.length-1?markComplete():setStepIndex(value=>Math.min(steps.length-1,value+1))} style={{padding:".65rem .9rem",border:0,borderRadius:10,background:"var(--pms-accent,#3b82f6)",color:"#fff",fontWeight:800,cursor:"pointer"}}>{safeStepIndex===steps.length-1?"Finish tour":"Next"}</button>
+     </div>
+    </div>
+   </section>
+  </div>}
+ </>;
 }
 function App() { useEffect(() => { applyTheme(readThemeId(), false); }, []); return <BrowserRouter><Routes>
 <Route path="/" element={<LandingPage/>}/><Route path="/help" element={<LegalHelpPage initialTab="help"/>}/><Route path="/terms" element={<LegalHelpPage initialTab="terms"/>}/><Route path="/privacy" element={<LegalHelpPage initialTab="privacy"/>}/><Route path="/manager/help" element={<RequirePortal portal="manager"><LegalHelpPage initialTab="help"/></RequirePortal>}/><Route path="/guest-payment/:token" element={<GuestPaymentPage/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/forgot-password" element={<PasswordResetPage/>}/><Route path="/reset-password" element={<PasswordResetPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/password-setup" element={<RequireAuth><ChangePasswordPage/></RequireAuth>}/><Route path="/accept-invite" element={<AcceptInvitePage/>}/>
