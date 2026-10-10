@@ -769,6 +769,8 @@ const styles = `
 .tp-content.tl-page .tp-page-sub{max-width:34rem!important;margin:.5rem auto 0!important;color:#64748B!important;font-size:.9rem!important}
 /* Responsive guardrails for narrow phones and landscape tablets. */
 @media (max-width: 639px) {
+  .tp-content [style*="grid-template-columns: repeat(2"],
+  .tp-content [style*="grid-template-columns: repeat(3"] { grid-template-columns: minmax(0, 1fr) !important; }
   .tp-content { padding: .9rem .75rem 5.5rem; }
   .tp-page-head { gap: .75rem; margin-bottom: 1.1rem; }
   .tp-page-title { font-size: clamp(1.35rem, 6vw, 1.65rem); overflow-wrap: anywhere; }
