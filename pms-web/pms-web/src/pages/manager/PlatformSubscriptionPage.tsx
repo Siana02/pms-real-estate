@@ -17,6 +17,7 @@ export default function PlatformSubscriptionPage() {
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [unitMix, setUnitMix] = useState<Record<string, number>>({"Bedsitter":0,"Studio":0,"1 bedroom":0,"2 bedroom":0,"3 bedroom":0,"4 bedroom":0,"5 bedroom":0,"6 bedroom":0,"Commercial / other":0});
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
@@ -30,7 +31,7 @@ export default function PlatformSubscriptionPage() {
   const canManage = (() => { try { const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user"); const role = raw ? (JSON.parse(raw) as {role?: string}).role : ""; return role === "admin" || role === "owner"; } catch { return false; } })();
   async function choosePlan(planCode: string) {
     setBusyPlan(planCode); setError(""); setNotice("");
-    try { const result = await apiRequest("/platform-subscription/select", { method: "POST", body: JSON.stringify({plan_code: planCode}) }) as {message?: string}; setNotice(result.message ?? "Plan selected."); await load(); }
+    try { const result = await apiRequest("/platform-subscription/select", { method: "POST", body: JSON.stringify({plan_code: planCode, unit_mix: unitMix}) }) as {message?: string}; setNotice(result.message ?? "Plan selected."); await load(); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Could not select this plan."); }
     finally { setBusyPlan(""); }
   }
@@ -52,6 +53,14 @@ export default function PlatformSubscriptionPage() {
       <div style={{display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap",alignItems:"center"}}><div><p style={{margin:"0 0 6px",color:"var(--pms-muted,#aab7ca)",fontSize:13}}>Current selection</p><h2 style={{margin:"0 0 6px",fontSize:22}}>{currentPlan?.name ?? data.subscription.plan_code} plan</h2><p style={{margin:0,color:"var(--pms-muted,#aab7ca)"}}>{data.subscription.billable_units} billable units · {formatMoney(data.quote?.monthly_amount ?? Number(data.subscription.monthly_amount), "KES")} estimated per month</p></div><span style={{display:"inline-flex",alignItems:"center",gap:7,borderRadius:999,padding:"7px 12px",fontSize:12,fontWeight:800,background:data.subscription.status==="active"?"rgba(74,222,128,.12)":"rgba(251,191,36,.12)",color:data.subscription.status==="active"?"#86efac":"#fcd34d"}}>{data.subscription.status==="active"?<BadgeCheck size={15}/>:<ShieldAlert size={15}/>} {data.subscription.status.replaceAll("_"," ")}</span></div>
       {data.subscription.current_period_ends_at && <p style={{margin:"12px 0 0",fontSize:13,color:"var(--pms-muted,#aab7ca)"}}>Current period ends {new Date(data.subscription.current_period_ends_at).toLocaleDateString()}</p>}
     </section>}
+    <section style={{padding:20,borderRadius:18,border:"1px solid var(--pms-border,rgba(255,255,255,.14))",marginBottom:18}}>
+      <h2 style={{margin:"0 0 6px",fontSize:19}}>Estimate your portfolio</h2>
+      <p style={{fontSize:13,lineHeight:1.55,color:"var(--pms-muted,#aab7ca)",margin:"0 0 14px"}}>Enter the approximate number of each unit type you expect to manage. This creates an initial quote before you add properties. Your monthly bill is recalculated against the actual units recorded in the system.</p>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:12}}>
+        {Object.keys(unitMix).map(type=><label key={type} style={{display:"grid",gap:6,fontSize:12,fontWeight:750}}>{type}<input type="number" min="0" step="1" value={unitMix[type]} onChange={event=>setUnitMix(current=>({...current,[type]:Math.max(0,Number(event.target.value)||0)}))} style={{width:"100%",padding:11,borderRadius:10,border:"1px solid var(--pms-border,rgba(255,255,255,.2))",background:"var(--pms-input,rgba(255,255,255,.05))",color:"inherit"}}/></label>)}
+      </div>
+      <p style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",margin:"12px 0 0"}}>Expected units: {Object.values(unitMix).reduce((sum,count)=>sum+count,0)} · Select at least one unit type. Larger units are charged by their actual bedroom count once onboarded.</p>
+    </section>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,290px),1fr))",gap:16,alignItems:"stretch"}}>
       {(data?.plans ?? []).map((plan) => {
         const selected = data?.subscription?.plan_code === plan.code;
@@ -61,7 +70,7 @@ export default function PlatformSubscriptionPage() {
           <p style={{fontSize:25,fontWeight:850,letterSpacing:"-.04em",margin:"0 0 8px"}}>{price}</p><p style={{fontSize:13,lineHeight:1.6,color:"var(--pms-muted,#aab7ca)",minHeight:58,margin:"0 0 16px"}}>{plan.description}</p>
           {plan.code==="premium" && <div style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",marginBottom:14}}>Bedsitter/studio: KES 100 · 1 bedroom: KES 150 · 2 bedroom: KES 200 · 3 bedroom: KES 250 · 4 bedroom: KES 300. Larger units add KES 50 per bedroom beyond two. Negotiated rates can be configured by the platform team.</div>}
           <ul style={{listStyle:"none",padding:0,margin:"0 0 22px",display:"grid",gap:10}}>{plan.features.map(feature=><li key={feature} style={{display:"flex",gap:9,fontSize:13,lineHeight:1.45}}><Check size={16} style={{flexShrink:0,color:"#86efac",marginTop:1}}/>{feature}</li>)}</ul>
-          <div style={{marginTop:"auto"}}>{selected?<button type="button" disabled style={{width:"100%",padding:12,borderRadius:12,border:"1px solid var(--pms-border,rgba(255,255,255,.14))",background:"transparent",color:"var(--pms-muted,#aab7ca)",fontWeight:800}}>{data?.subscription?.status==="active"?"Current plan":"Selected plan"}</button>:<button type="button" disabled={!canManage||!!busyPlan||data?.subscription?.status==="active"} onClick={()=>void choosePlan(plan.code)} style={{width:"100%",padding:12,borderRadius:12,border:0,background:"var(--pms-accent,#3b82f6)",color:"#fff",fontWeight:850,opacity:(!canManage||!!busyPlan||data?.subscription?.status==="active")?0.55:1}}>{busyPlan===plan.code?"Saving…":data?.subscription?"Choose this plan":"Select plan"}</button>}</div>
+          <div style={{marginTop:"auto"}}>{selected?<button type="button" disabled style={{width:"100%",padding:12,borderRadius:12,border:"1px solid var(--pms-border,rgba(255,255,255,.14))",background:"transparent",color:"var(--pms-muted,#aab7ca)",fontWeight:800}}>{data?.subscription?.status==="active"?"Current plan":"Selected plan"}</button>:<button type="button" disabled={!canManage||!!busyPlan||data?.subscription?.status==="active"||Object.values(unitMix).reduce((sum,count)=>sum+count,0)<1} onClick={()=>void choosePlan(plan.code)} style={{width:"100%",padding:12,borderRadius:12,border:0,background:"var(--pms-accent,#3b82f6)",color:"#fff",fontWeight:850,opacity:(!canManage||!!busyPlan||data?.subscription?.status==="active")?0.55:1}}>{busyPlan===plan.code?"Saving…":data?.subscription?"Choose this plan":"Select plan"}</button>}</div>
         </article>;
       })}
     </div>
