@@ -46,11 +46,11 @@ const styles = `
   --tp-blue-dark: var(--pms-accent, #1d4ed8);
   --tp-blue-pale: var(--pms-accent-soft, #dbeafe);
   --tp-green: var(--pms-success, #15803d);
-  --tp-green-pale: #dcfce7;
+  --tp-green-pale: var(--pms-glass, #dcfce7);
   --tp-amber: var(--pms-warn, #b45309);
-  --tp-amber-pale: #fef3c7;
+  --tp-amber-pale: var(--pms-glass, #fef3c7);
   --tp-red: var(--pms-danger, #b91c1c);
-  --tp-red-pale: #fee2e2;
+  --tp-red-pale: var(--pms-glass, #fee2e2);
  
   /* shape */
   --tp-r-xs: 0.375rem;
