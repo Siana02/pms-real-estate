@@ -69,7 +69,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
     localStorage.setItem(usernameKey, "done");
     hideTimer = window.setTimeout(() => setUsernameNotice(false), 7500);
    }
-   const key = "pms:first-login-guide:" + identity;
+   const key = "pms:first-login-guide:v2:" + identity;
    if (localStorage.getItem(key) !== "done") setVisible(true);
   } catch { setVisible(false); }
   return () => { if (hideTimer) window.clearTimeout(hideTimer); };
@@ -141,7 +141,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
 
  function markComplete() {
   try {
-   localStorage.setItem("pms:first-login-guide:" + String(user.id ?? user.email ?? portal), "done");
+   localStorage.setItem("pms:first-login-guide:v2:" + String(user.id ?? user.email ?? portal), "done");
   } catch {}
   setVisible(false);
   setSpotlight(null);
