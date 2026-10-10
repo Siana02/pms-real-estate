@@ -294,12 +294,12 @@ const NAV_GROUPS = [
     { label: "Properties", to: "/manager/properties", icon: Building2 },
     { label: "Units", to: "/manager/units", icon: DoorOpen },
     { label: "Tenants", to: "/manager/tenants", icon: Users },
+    { label: "Tenant payment links", to: "/manager/guest-payment-links", icon: Link2 },
     { label: "Leases", to: "/manager/leases", icon: FileText },
   ]},
   { label: "Money", items: [
     { label: "Payments", to: "/manager/payments", icon: Banknote },
     { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
-    { label: "Tenant payment links", to: "/manager/guest-payment-links", icon: Link2 },
   ]},
   { label: "Operations", items: [
     { label: "Expenses", to: "/manager/expenses", icon: Receipt },
