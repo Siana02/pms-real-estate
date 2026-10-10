@@ -13,6 +13,11 @@ class PlatformSubscriptionController extends Controller
 {
     private function plans(): array
     {
+        $premiumUnitRates = ['Bedsitter' => 100, 'Studio' => 100, '1 bedroom' => 150, 'Commercial / other' => 150, '20+ bedroom' => 200];
+        for ($bedrooms = 2; $bedrooms <= 20; $bedrooms++) {
+            $premiumUnitRates[$bedrooms . ' bedroom'] = 200;
+        }
+
         return [
             'basic' => [
                 'code' => 'basic', 'name' => 'Basic', 'price_model' => 'flat',
@@ -26,7 +31,7 @@ class PlatformSubscriptionController extends Controller
             ],
             'premium' => [
                 'code' => 'premium', 'name' => 'Premium', 'price_model' => 'unit_type',
-                'base_rate' => null, 'description' => 'Full tenant-facing experience and the complete management toolkit, priced by unit type.',
+                'base_rate' => null, 'unit_rates' => $premiumUnitRates, 'description' => 'Full tenant-facing experience and the complete management toolkit, priced by unit type.',
                 'features' => ['Everything in Standard', 'Tenant portal registration and onboarding', 'Tenant dashboard, lease and payment views', 'Tenant payment links', 'Full payment matching, reconciliation and ledger', 'Maintenance requests, notifications and tenant self-service', 'Expanded reporting, audit history and management workflows'],
             ],
         ];
