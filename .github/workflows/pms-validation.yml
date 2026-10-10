@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/auth-legal-help-onboarding-search]
+    branches: [main, feat/auth-legal-help-onboarding-search, feat/pms-auth-tour-themes-responsive]
 
 permissions:
   contents: read

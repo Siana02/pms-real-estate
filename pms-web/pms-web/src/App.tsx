@@ -126,10 +126,24 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
    const bottom = Math.max(...rects.map(rect => rect.bottom));
    setSpotlight({left,top,width:right-left,height:bottom-top});
   };
+  // Reveal the current sidebar destination before measuring it. This scrolls
+  // the nearest navigation scroller, keeping later items such as Audit log visible.
+  const revealTarget = () => {
+   const firstTarget = currentStep.targets
+    .map(target => document.querySelector<HTMLElement>('[data-tour="' + target + '"]'))
+    .find((node): node is HTMLElement => Boolean(node));
+   firstTarget?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  };
   if (window.innerWidth < 1024) {
    window.dispatchEvent(new CustomEvent("pms:open-manager-nav"));
-   timer = window.setTimeout(locate, 180);
-  } else locate();
+   timer = window.setTimeout(() => {
+    revealTarget();
+    timer = window.setTimeout(locate, 300);
+   }, 180);
+  } else {
+   revealTarget();
+   timer = window.setTimeout(locate, 300);
+  }
   window.addEventListener("resize", locate);
   window.addEventListener("scroll", locate, true);
   return () => {

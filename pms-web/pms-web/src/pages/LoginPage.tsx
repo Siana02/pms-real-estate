@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -922,6 +922,8 @@ function encodeBase64Url(value: ArrayBuffer): string {
 /* ------------------------------------------------------------------ */
 
 function LoginPage() {
+  // Reuse the in-flight exchange when React StrictMode replays this effect.
+  const oauthExchangePromise = useRef<Promise<unknown> | null>(null);
   const navigate = useNavigate();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -1058,11 +1060,14 @@ function LoginPage() {
     if (!oauthCode) return;
 
     let cancelled = false;
+    if (!oauthExchangePromise.current) {
+      oauthExchangePromise.current = apiRequest("/oauth/exchange", {
+        method: "POST",
+        body: JSON.stringify({ code: oauthCode }),
+      });
+    }
 
-    apiRequest("/oauth/exchange", {
-      method: "POST",
-      body: JSON.stringify({ code: oauthCode }),
-    })
+    oauthExchangePromise.current
       .then((payload) => {
         if (cancelled) return;
         const data = payload as {
