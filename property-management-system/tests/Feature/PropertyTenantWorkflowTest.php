@@ -288,7 +288,7 @@ class PropertyTenantWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('user.must_change_password', true);
         $tenantToken = $tenantLogin->json('token');
 
-        $this->withToken($tenantToken)->postJson('/api/change-password', [
+        $this->flushHeaders()->withToken($tenantToken)->postJson('/api/change-password', [
             'current_password' => $temporaryPassword,
             'password' => 'PermanentPass123!',
             'password_confirmation' => 'PermanentPass123!',
@@ -446,7 +446,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'tenant_terms' => 'Tenant accepts the current lease terms.',
         ]);
 
-        $this->withToken($managerToken)
+        $this->flushHeaders()->withToken($managerToken)
             ->getJson('/api/leases')
             ->assertOk()
             ->assertJsonPath('0.tenant_terms', 'Tenant accepts the current lease terms.');
@@ -548,7 +548,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $tenantToken = $tenantUser->createToken('deposit-tenant')->plainTextToken;
         $leaseId = $tenant->leases()->value('id');
 
-        $this->withToken($tenantToken)
+        $this->flushHeaders()->withToken($tenantToken)
             ->postJson('/api/tenant/deposit/mark-paid')
             ->assertOk();
 
