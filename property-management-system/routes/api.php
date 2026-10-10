@@ -45,10 +45,15 @@ Route::get('guest-payments/{token}', [GuestTenantPaymentLinkController::class, '
 Route::post('guest-payments/{token}/stk-push', [GuestTenantPaymentLinkController::class, 'initiateStk'])->middleware('throttle:6,1');
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('platform-subscription/status', [PlatformSubscriptionController::class, 'status']);
+    Route::post('platform-subscription/select', [PlatformSubscriptionController::class, 'select']);
+    Route::post('platform-subscription/payment-reference', [PlatformSubscriptionController::class, 'submitPayment']);
+    Route::post('platform-subscription/payments/{payment}/verify', [PlatformSubscriptionController::class, 'verifyPayment']);
+    Route::put('platform-subscription/organizations/{organization}/custom-pricing', [PlatformSubscriptionController::class, 'setCustomPricing']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
 });
 
-Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
+Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'role:admin,property_manager,owner,staff'])->group(function () {
     Route::get('guest-payment-links', [GuestTenantPaymentLinkController::class, 'index']);
     Route::post('guest-payment-links', [GuestTenantPaymentLinkController::class, 'store'])->middleware('throttle:20,1');
     Route::delete('guest-payment-links/{guestTenantPaymentLink}', [GuestTenantPaymentLinkController::class, 'revoke']);
