@@ -39,143 +39,68 @@ export interface Theme {
  
 export const THEMES: Theme[] = [
   {
-    id: "midnight",
-    name: "Midnight",
-    description: "The default deep-navy portal with a blue-indigo accent.",
+    id: "dark",
+    name: "Obsidian",
+    description: "A quiet, premium charcoal workspace with sapphire accents.",
     scheme: "dark",
     tokens: {
-      bg: "#030712",
-      bgSoft: "#0b1220",
-      rail: "rgba(9, 14, 28, 0.94)",
-      surface: "rgba(15, 23, 42, 0.55)",
-      glass: "rgba(255, 255, 255, 0.05)",
-      glassStrong: "rgba(255, 255, 255, 0.1)",
-      border: "rgba(255, 255, 255, 0.1)",
-      borderSoft: "rgba(255, 255, 255, 0.06)",
-      text: "#f8fafc",
-      heading: "#ffffff",
-      muted: "#94a3b8",
-      faint: "#64748b",
-      accent: "#3b82f6",
-      accent2: "#4f46e5",
-      accentSoft: "rgba(59, 130, 246, 0.16)",
-      success: "#4ade80",
-      warn: "#fbbf24",
-      danger: "#f87171",
-      shadow: "0 30px 60px -20px rgba(0, 0, 0, 0.75)",
+      bg: "#0b1018", bgSoft: "#111a27", rail: "#0d1420",
+      surface: "#151f2d", glass: "rgba(255,255,255,.045)", glassStrong: "rgba(255,255,255,.085)",
+      border: "rgba(203,213,225,.16)", borderSoft: "rgba(203,213,225,.09)",
+      text: "#f1f5f9", heading: "#ffffff", muted: "#bdc8d7", faint: "#91a0b4",
+      accent: "#7aa7ff", accent2: "#9b8cff", accentSoft: "rgba(122,167,255,.16)",
+      success: "#5ee0a0", warn: "#ffd166", danger: "#ff8b9a",
+      shadow: "0 24px 64px -24px rgba(0,0,0,.62)",
     },
   },
   {
-    id: "graphite",
-    name: "Graphite",
-    description: "Neutral charcoal with a cool teal accent — low glare.",
-    scheme: "dark",
-    tokens: {
-      bg: "#0c0d10",
-      bgSoft: "#15171c",
-      rail: "rgba(18, 20, 25, 0.95)",
-      surface: "rgba(32, 35, 42, 0.6)",
-      glass: "rgba(255, 255, 255, 0.045)",
-      glassStrong: "rgba(255, 255, 255, 0.09)",
-      border: "rgba(255, 255, 255, 0.1)",
-      borderSoft: "rgba(255, 255, 255, 0.06)",
-      text: "#f4f4f5",
-      heading: "#ffffff",
-      muted: "#a1a1aa",
-      faint: "#71717a",
-      accent: "#22d3ee",
-      accent2: "#0891b2",
-      accentSoft: "rgba(34, 211, 238, 0.15)",
-      success: "#34d399",
-      warn: "#fbbf24",
-      danger: "#fb7185",
-      shadow: "0 30px 60px -20px rgba(0, 0, 0, 0.8)",
-    },
-  },
-  {
-    id: "ledger",
-    name: "Emerald ledger",
-    description: "Finance-forward green on near-black, for money-heavy days.",
-    scheme: "dark",
-    tokens: {
-      bg: "#04120c",
-      bgSoft: "#071b13",
-      rail: "rgba(6, 26, 19, 0.95)",
-      surface: "rgba(12, 40, 30, 0.55)",
-      glass: "rgba(209, 250, 229, 0.05)",
-      glassStrong: "rgba(209, 250, 229, 0.1)",
-      border: "rgba(167, 243, 208, 0.14)",
-      borderSoft: "rgba(167, 243, 208, 0.08)",
-      text: "#ecfdf5",
-      heading: "#ffffff",
-      muted: "#8fb8a6",
-      faint: "#5f8a78",
-      accent: "#10b981",
-      accent2: "#047857",
-      accentSoft: "rgba(16, 185, 129, 0.16)",
-      success: "#4ade80",
-      warn: "#fcd34d",
-      danger: "#fb7185",
-      shadow: "0 30px 60px -20px rgba(0, 20, 12, 0.8)",
-    },
-  },
-  {
-    id: "royal",
-    name: "Royal violet",
-    description: "Warm violet accents over a plum-tinted dark shell.",
-    scheme: "dark",
-    tokens: {
-      bg: "#0b0716",
-      bgSoft: "#150e26",
-      rail: "rgba(19, 12, 36, 0.95)",
-      surface: "rgba(35, 24, 62, 0.55)",
-      glass: "rgba(233, 213, 255, 0.05)",
-      glassStrong: "rgba(233, 213, 255, 0.1)",
-      border: "rgba(216, 180, 254, 0.14)",
-      borderSoft: "rgba(216, 180, 254, 0.08)",
-      text: "#f5f3ff",
-      heading: "#ffffff",
-      muted: "#a99cc4",
-      faint: "#7c6f99",
-      accent: "#a855f7",
-      accent2: "#6366f1",
-      accentSoft: "rgba(168, 85, 247, 0.18)",
-      success: "#4ade80",
-      warn: "#fbbf24",
-      danger: "#fb7185",
-      shadow: "0 30px 60px -20px rgba(10, 0, 25, 0.8)",
-    },
-  },
-  {
-    id: "daylight",
-    name: "Daylight",
-    description: "Light off-white workspace for bright offices and printing.",
+    id: "light",
+    name: "Porcelain",
+    description: "Warm porcelain surfaces, crisp ink and understated blue details.",
     scheme: "light",
     tokens: {
-      bg: "#f1f5f9",
-      bgSoft: "#e2e8f0",
-      rail: "rgba(255, 255, 255, 0.97)",
-      surface: "#ffffff",
-      glass: "rgba(15, 23, 42, 0.035)",
-      glassStrong: "rgba(15, 23, 42, 0.07)",
-      border: "rgba(15, 23, 42, 0.14)",
-      borderSoft: "rgba(15, 23, 42, 0.08)",
-      text: "#0f172a",
-      heading: "#0b1220",
-      muted: "#475569",
-      faint: "#64748b",
-      accent: "#2563eb",
-      accent2: "#4338ca",
-      accentSoft: "rgba(37, 99, 235, 0.1)",
-      success: "#15803d",
-      warn: "#b45309",
-      danger: "#b91c1c",
-      shadow: "0 20px 45px -28px rgba(15, 23, 42, 0.45)",
+      bg: "#f5f6f8", bgSoft: "#e9edf2", rail: "#ffffff",
+      surface: "#ffffff", glass: "rgba(15,23,42,.035)", glassStrong: "rgba(15,23,42,.07)",
+      border: "rgba(30,41,59,.16)", borderSoft: "rgba(30,41,59,.09)",
+      text: "#172033", heading: "#0b1220", muted: "#4b5568", faint: "#667085",
+      accent: "#2459c4", accent2: "#4f46a5", accentSoft: "rgba(36,89,196,.11)",
+      success: "#167348", warn: "#965a08", danger: "#b42335",
+      shadow: "0 20px 48px -28px rgba(15,23,42,.3)",
+    },
+  },
+  {
+    id: "pink",
+    name: "Rosewood",
+    description: "Muted rose, plum and soft champagne for a polished warm finish.",
+    scheme: "light",
+    tokens: {
+      bg: "#fbf5f7", bgSoft: "#f2e6ec", rail: "#fffafb",
+      surface: "#ffffff", glass: "rgba(89,34,62,.04)", glassStrong: "rgba(89,34,62,.075)",
+      border: "rgba(89,34,62,.16)", borderSoft: "rgba(89,34,62,.09)",
+      text: "#382130", heading: "#281321", muted: "#725666", faint: "#8b7182",
+      accent: "#9a4168", accent2: "#6f365e", accentSoft: "rgba(154,65,104,.12)",
+      success: "#236c50", warn: "#89520b", danger: "#a52e48",
+      shadow: "0 20px 48px -28px rgba(76,32,56,.24)",
+    },
+  },
+  {
+    id: "blue",
+    name: "Sapphire",
+    description: "A tailored blue-grey palette with deep navy and bright sapphire highlights.",
+    scheme: "dark",
+    tokens: {
+      bg: "#0b1524", bgSoft: "#11243a", rail: "#0d1c30",
+      surface: "#142b43", glass: "rgba(191,219,254,.05)", glassStrong: "rgba(191,219,254,.1)",
+      border: "rgba(191,219,254,.18)", borderSoft: "rgba(191,219,254,.1)",
+      text: "#eaf3ff", heading: "#ffffff", muted: "#b5cbe2", faint: "#8eabc9",
+      accent: "#70b7ff", accent2: "#91a8ff", accentSoft: "rgba(112,183,255,.17)",
+      success: "#5ee0b0", warn: "#ffd166", danger: "#ff91a4",
+      shadow: "0 24px 64px -24px rgba(0,8,25,.62)",
     },
   },
 ];
- 
-export const DEFAULT_THEME_ID = "midnight";
+
+export const DEFAULT_THEME_ID = "dark";
  
 const THEME_KEY = "pms.theme";
 const LOGO_KEY = "pms.brand.logo";
@@ -227,6 +152,46 @@ const BRIDGE_CSS = `
   color: var(--pms-text);
 }
  
+.tp-root {
+  --tp-bg: var(--pms-bg);
+  --tp-surface: var(--pms-surface);
+  --tp-surface-sunken: var(--pms-glass-strong);
+  --tp-surface-tint: var(--pms-accent-soft);
+  --tp-ink: var(--pms-text);
+  --tp-ink-soft: var(--pms-text);
+  --tp-muted: var(--pms-muted);
+  --tp-faint: var(--pms-faint);
+  --tp-line: var(--pms-border);
+  --tp-line-soft: var(--pms-border-soft);
+  --tp-blue: var(--pms-accent);
+  --tp-blue-dark: var(--pms-accent);
+  --tp-blue-pale: var(--pms-accent-soft);
+  --tp-green: var(--pms-success);
+  --tp-green-pale: var(--pms-glass);
+  --tp-amber: var(--pms-warn);
+  --tp-amber-pale: var(--pms-glass);
+  --tp-red: var(--pms-danger);
+  --tp-red-pale: var(--pms-glass);
+  color: var(--pms-text);
+}
+.tp-root .tp-top,
+.tp-root .tp-tabs { background: var(--pms-rail); border-color: var(--pms-border); }
+.tp-root .tp-side { background: var(--pms-rail); border-color: var(--pms-border); }
+.tp-root .tp-page-title,
+.tp-root .tp-section__title,
+.tp-root .tp-value,
+.tp-root .tp-link,
+.tp-root .tp-top__brand { color: var(--pms-heading); }
+.tp-root .tp-link[aria-current="page"] { background: var(--pms-accent-soft); color: var(--pms-accent); }
+.tp-root .tp-top input { color: var(--pms-text); }
+.tp-root .tp-card,
+.tp-root .tp-content .ts-section,
+.tp-root .tp-content .ts-intro { background: var(--pms-surface); color: var(--pms-text); }
+.tp-root .tp-page-sub,
+.tp-root .tp-section__sub,
+.tp-root .tp-label,
+.tp-root .tp-empty__text { color: var(--pms-muted); }
+
 .tn-root {
   --tn-bg: var(--pms-bg);
   --tn-surface: var(--pms-surface);
@@ -243,7 +208,18 @@ const BRIDGE_CSS = `
   --tn-success: var(--pms-success);
 }
  
-.dl-topbar { background: var(--pms-rail); }
+ .dl-topbar, .dl-rail { background: var(--pms-rail); border-color: var(--pms-border); }
+.dl-brand__name { color: var(--pms-heading); }
+.dl-iconbtn { background: var(--pms-surface); color: var(--pms-text); border-color: var(--pms-border); }
+.sb { color: var(--pms-text); }
+.sb .sb-org__label, .sb .sb-nav__label { color: var(--pms-muted); }
+.sb .sb-org__name, .sb .sb-link { color: var(--pms-text) !important; }
+.sb .sb-org__email, .sb .sb-link svg { color: var(--pms-muted) !important; }
+.sb .sb-link:hover { background: var(--pms-glass-strong); color: var(--pms-heading) !important; }
+.sb .sb-link--active { background: var(--pms-accent-soft); color: var(--pms-accent) !important; }
+.sb .sb-link--active svg { color: var(--pms-accent) !important; }
+.sb .sb-org { border-color: var(--pms-border); }
+.sb .sb-foot { border-color: var(--pms-border); }
  
 [data-pms-scheme="light"] .dl-rail,
 [data-pms-scheme="light"] .dl-topbar { backdrop-filter: none; }
@@ -263,7 +239,12 @@ export function findTheme(id: string): Theme {
 }
  
 export function readThemeId(): string {
-  return localStorage.getItem(THEME_KEY) ?? DEFAULT_THEME_ID;
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    return stored && THEMES.some((theme) => theme.id === stored) ? stored : DEFAULT_THEME_ID;
+  } catch {
+    return DEFAULT_THEME_ID;
+  }
 }
  
 export function readBrandLogo(): string | null {
