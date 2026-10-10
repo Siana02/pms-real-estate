@@ -77,6 +77,10 @@ public function usernameAvailable(Request $request)
                 'oauth_registration_code' => ['nullable', 'string', 'size:64'],
             ]);
 
+            $organization = Organization::with('platformSubscription')->findOrFail($validated['organization_id']);
+            $subscription = $organization->platformSubscription;
+            abort_unless($subscription && $subscription->isActive() && $subscription->plan_code === 'premium', 403, 'Tenant portal registration is available only to organizations with an active Premium subscription.');
+
             $user = DB::transaction(function () use ($validated) {
                 $tenant = Tenant::where('organization_id', $validated['organization_id'])
                     ->where('email', $validated['email'])
