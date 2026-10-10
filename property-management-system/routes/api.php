@@ -48,6 +48,7 @@ Route::post('guest-payments/{token}/stk-push', [GuestTenantPaymentLinkController
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('platform-subscription/status', [PlatformSubscriptionController::class, 'status']);
+    Route::get('platform-subscription/admin/payments', [PlatformSubscriptionController::class, 'pendingPayments']);
     Route::post('platform-subscription/select', [PlatformSubscriptionController::class, 'select']);
     Route::post('platform-subscription/payment-reference', [PlatformSubscriptionController::class, 'submitPayment']);
     Route::post('platform-subscription/payments/{payment}/verify', [PlatformSubscriptionController::class, 'verifyPayment']);
