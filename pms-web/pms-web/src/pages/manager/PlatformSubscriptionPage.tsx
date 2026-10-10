@@ -59,7 +59,7 @@ export default function PlatformSubscriptionPage() {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:12}}>
         {Object.keys(unitMix).map(type=><label key={type} style={{display:"grid",gap:6,fontSize:12,fontWeight:750}}>{type}<input type="number" min="0" step="1" value={unitMix[type]} onChange={event=>setUnitMix(current=>({...current,[type]:Math.max(0,Number(event.target.value)||0)}))} style={{width:"100%",padding:11,borderRadius:10,border:"1px solid var(--pms-border,rgba(255,255,255,.2))",background:"var(--pms-input,rgba(255,255,255,.05))",color:"inherit"}}/></label>)}
       </div>
-      <p style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",margin:"12px 0 0"}}>Expected units: {Object.values(unitMix).reduce((sum,count)=>sum+count,0)} · Select at least one unit type. Premium pricing increases by KES 50 per bedroom beyond two; the 20+ category starts at KES 1,100 per unit and negotiated rates can be set by the platform team.</p>
+      <p style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",margin:"12px 0 0"}}>Expected units: {Object.values(unitMix).reduce((sum,count)=>sum+count,0)} · Select at least one unit type. Premium pricing is KES 100 for bedsitters/studios, KES 150 for one-bedroom units, and KES 200 for every unit with two or more bedrooms (including 20+). Negotiated rates can be set by the platform team.</p>
     </section>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,290px),1fr))",gap:16,alignItems:"stretch"}}>
       {(data?.plans ?? []).map((plan) => {
@@ -72,15 +72,15 @@ export default function PlatformSubscriptionPage() {
           if (plan.code === "standard") return sum + count * 125;
           if (type.includes("bedsitter") || type === "studio") return sum + count * 100;
           if (type.includes("commercial")) return sum + count * 150;
-          if (type.includes("20+ bedroom")) return sum + count * 1100;
+          if (type.includes("20+ bedroom")) return sum + count * 200;
           const bedrooms = Number.parseInt(type, 10);
           if (!Number.isFinite(bedrooms)) return sum + count * 150;
-          return sum + count * (bedrooms === 1 ? 150 : 200 + ((bedrooms - 2) * 50));
+          return sum + count * (bedrooms === 1 ? 150 : 200);
         }, 0);
         return <article key={plan.code} style={{display:"flex",flexDirection:"column",padding:22,borderRadius:20,border:selected?"1px solid var(--pms-accent,#8ab4ff)":"1px solid var(--pms-border,rgba(255,255,255,.14))",background:selected?"rgba(59,130,246,.08)":"var(--pms-surface,rgba(255,255,255,.025))",minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>{plan.code==="premium"?<Sparkles size={18}/>:<CreditCard size={18}/>}<h2 style={{fontSize:21,margin:0}}>{plan.name}</h2>{plan.code==="premium"&&<span style={{fontSize:10,fontWeight:900,padding:"4px 7px",borderRadius:999,background:"rgba(139,92,246,.16)",color:"#c4b5fd"}}>FULL ACCESS</span>}</div>
           <p style={{fontSize:25,fontWeight:850,letterSpacing:"-.04em",margin:"0 0 8px"}}>{price}</p><p style={{fontSize:13,color:"var(--pms-muted,#aab7ca)",margin:"0 0 8px"}}>Estimate for {estimatedUnits} units: <strong>{formatMoney(estimatedAmount, "KES")} / month</strong></p><p style={{fontSize:13,lineHeight:1.6,color:"var(--pms-muted,#aab7ca)",minHeight:58,margin:"0 0 16px"}}>{plan.description}</p>
-          {plan.code==="premium" && <div style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",marginBottom:14}}>Bedsitter/studio: KES 100 · 1 bedroom: KES 150 · 2 bedroom: KES 200 · 3 bedroom: KES 250 · 4 bedroom: KES 300. Larger units add KES 50 per bedroom beyond two. Negotiated rates can be configured by the platform team.</div>}
+          {plan.code==="premium" && <div style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,.04)",marginBottom:14}}>Bedsitter/studio: KES 100 · 1 bedroom: KES 150 · 2–20+ bedrooms: KES 200 per unit. Negotiated rates can be configured by the platform team.</div>}
           <ul style={{listStyle:"none",padding:0,margin:"0 0 22px",display:"grid",gap:10}}>{plan.features.map(feature=><li key={feature} style={{display:"flex",gap:9,fontSize:13,lineHeight:1.45}}><Check size={16} style={{flexShrink:0,color:"#86efac",marginTop:1}}/>{feature}</li>)}</ul>
           <div style={{marginTop:"auto"}}>{selected?<button type="button" disabled style={{width:"100%",padding:12,borderRadius:12,border:"1px solid var(--pms-border,rgba(255,255,255,.14))",background:"transparent",color:"var(--pms-muted,#aab7ca)",fontWeight:800}}>{data?.subscription?.status==="active"?"Current plan":"Selected plan"}</button>:<button type="button" disabled={!canManage||!!busyPlan||data?.subscription?.status==="active"||Object.values(unitMix).reduce((sum,count)=>sum+count,0)<1} onClick={()=>void choosePlan(plan.code)} style={{width:"100%",padding:12,borderRadius:12,border:0,background:"var(--pms-accent,#3b82f6)",color:"#fff",fontWeight:850,opacity:(!canManage||!!busyPlan||data?.subscription?.status==="active")?0.55:1}}>{busyPlan===plan.code?"Saving…":data?.subscription?"Choose this plan":"Select plan"}</button>}</div>
         </article>;
