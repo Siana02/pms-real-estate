@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->unsignedInteger('billable_units')->default(0);
             $table->decimal('monthly_amount', 12, 2)->default(0);
             $table->json('pricing_overrides')->nullable();
+            $table->json('unit_mix')->nullable();
             $table->timestamp('current_period_starts_at')->nullable();
             $table->timestamp('current_period_ends_at')->nullable();
             $table->timestamp('last_payment_at')->nullable();
