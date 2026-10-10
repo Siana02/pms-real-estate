@@ -79,8 +79,15 @@ class PlatformSubscriptionController extends Controller
         if (!$organization) return response()->json(['message' => 'No organization is associated with this account.'], 422);
 
         $subscription = $organization->platformSubscription;
+        if ($subscription && $subscription->status === 'active' && (!$subscription->current_period_ends_at || $subscription->current_period_ends_at->isPast())) {
+            $subscription->update(['status' => 'past_due']);
+        }
         $plans = array_values($this->plans());
         $quote = $subscription ? $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? [], $subscription->unit_mix ?? []) : null;
+        if ($subscription && $quote && ($subscription->billable_units !== $quote['billable_units'] || (float) $subscription->monthly_amount !== (float) $quote['monthly_amount'])) {
+            $subscription->update(['billable_units' => $quote['billable_units'], 'monthly_amount' => $quote['monthly_amount']]);
+            $subscription->refresh();
+        }
         return response()->json([
             'plans' => $plans,
             'subscription' => $subscription,
