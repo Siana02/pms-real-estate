@@ -48,11 +48,11 @@ class PlatformSubscriptionController extends Controller
 
         if ($plan === 'basic') return 100;
         if ($plan === 'standard') return 125;
-        if (str_contains($normalized, '20+ bedroom')) return 1100;
+        if (str_contains($normalized, '20+ bedroom')) return 200;
         if (str_contains($normalized, 'bed-sit') || str_contains($normalized, 'bedsitter') || str_contains($normalized, 'studio')) return 100;
         if (preg_match('/(\d+)\s*[- ]?\s*(?:bed|bedroom)/', $normalized, $matches)) {
             $bedrooms = max(1, (int) $matches[1]);
-            return $bedrooms === 1 ? 150 : 200 + (($bedrooms - 2) * 50);
+            return $bedrooms === 1 ? 150 : 200;
         }
         if (str_contains($normalized, 'one bedroom') || str_contains($normalized, '1 bedroom')) return 150;
         if (str_contains($normalized, 'two bedroom') || str_contains($normalized, '2 bedroom')) return 200;
