@@ -73,9 +73,8 @@ export default function PlatformSubscriptionPage() {
           if (type.includes("bedsitter") || type === "studio") return sum + count * 100;
           if (type.includes("commercial")) return sum + count * 150;
           if (type.includes("20+ bedroom")) return sum + count * 1100;
-          const match = type.match(/(\\d+)\\s*[- ]?\\s*(?:bed|bedroom)/);
-          if (!match) return sum + count * 150;
-          const bedrooms = Number(match[1]);
+          const bedrooms = Number.parseInt(type, 10);
+          if (!Number.isFinite(bedrooms)) return sum + count * 150;
           return sum + count * (bedrooms === 1 ? 150 : 200 + ((bedrooms - 2) * 50));
         }, 0);
         return <article key={plan.code} style={{display:"flex",flexDirection:"column",padding:22,borderRadius:20,border:selected?"1px solid var(--pms-accent,#8ab4ff)":"1px solid var(--pms-border,rgba(255,255,255,.14))",background:selected?"rgba(59,130,246,.08)":"var(--pms-surface,rgba(255,255,255,.025))",minWidth:0}}>
