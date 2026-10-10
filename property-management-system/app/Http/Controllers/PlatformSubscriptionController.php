@@ -95,6 +95,12 @@ class PlatformSubscriptionController extends Controller
             'till_number' => config('services.platform_billing.till_number'),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
             'payments' => $subscription ? $subscription->payments()->latest()->limit(10)->get() : [],
+            'features' => match ($subscription?->plan_code) {
+                'basic' => ['payment_matching'],
+                'standard' => ['payment_matching', 'tenant_payment_links'],
+                'premium' => ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'],
+                default => [],
+            },
         ]);
     }
 
