@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'platform_billing' => [
+        'till_number' => env('PLATFORM_MPESA_TILL'),
+    ],
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
