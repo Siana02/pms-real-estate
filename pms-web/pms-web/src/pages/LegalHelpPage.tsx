@@ -67,8 +67,9 @@ export default function LegalHelpPage({initialTab = "help"}: {initialTab?: "help
  const audienceData=useMemo(()=>data.filter(section=>{
   const audience=section.audience.toLowerCase();
   const tenantOnly=audience.includes("tenant") && !audience.includes("manager") && !audience.includes("owner") && !audience.includes("admin") && !audience.includes("staff") && !audience.includes("both");
+  const shared=audience.startsWith("both");
   const managerOnly=audience.includes("property manager") || audience.includes("property owner") || audience.includes("organisation admin") || audience.includes("billing contact") || audience.includes("authorised administrator") || audience.includes("staff");
-  return audienceMode==="tenant" ? !managerOnly : !tenantOnly;
+  return audienceMode==="tenant" ? (!managerOnly || shared) : !tenantOnly;
  }),[data,audienceMode]);
  const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return q?audienceData.filter(s=>(s.title+" "+s.body).toLowerCase().includes(q)):audienceData},[audienceData,query]);
  return <main style={{minHeight:"100vh",background:"var(--pms-bg, #f7f8fb)",color:"var(--pms-text, #172033)",padding:"clamp(1rem,4vw,3rem)",overflowWrap:"anywhere"}}>
