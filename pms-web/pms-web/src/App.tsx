@@ -148,7 +148,6 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   window.dispatchEvent(new CustomEvent("pms:close-manager-nav"));
  }
  function connectGoogle() {
-  markComplete();
   const backendOrigin = API_BASE.replace(/\/api\/?$/, "");
   window.location.href = `${backendOrigin}/auth/google/redirect?mode=login`;
  }
