@@ -299,12 +299,11 @@ const NAV_GROUPS = [
     { label: "Leases", to: "/manager/leases", icon: FileText },
   ]},
   { label: "Money", items: [
-    { label: "Platform subscription", to: "/manager/subscription", icon: CreditCard },
     { label: "Payments", to: "/manager/payments", icon: Banknote },
     { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
   ]},
   { label: "Operations", items: [
-    { label: "Expenses", to: "/manager/expenses", icon: Receipt },
+    { label: "Billing & subscriptions", to: "/manager/expenses", icon: CreditCard },
     { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
     { label: "Requests", to: "/manager/requests", icon: ClipboardList },
   ]},
