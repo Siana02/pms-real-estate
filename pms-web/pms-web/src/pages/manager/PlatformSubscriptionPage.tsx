@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import {
-  ArrowRight, BadgeCheck, Check, CheckCircle2, ChevronDown, CircleHelp,
+  ArrowRight, BadgeCheck, Check, CheckCircle2, CircleHelp,
   Clock3, CreditCard, Crown, ExternalLink, FileCheck2, LockKeyhole,
   RefreshCw, ShieldCheck, Sparkles, WalletCards, XCircle, Zap
 } from "lucide-react";
@@ -13,6 +14,7 @@ type Plan = {
   name: string;
   price_model: "flat" | "unit_type";
   base_rate: number | null;
+  unit_rates?: Record<string, number>;
   description: string;
   features: string[];
 };
@@ -24,6 +26,7 @@ type Subscription = {
   billable_units: number;
   current_period_ends_at: string | null;
   unit_mix?: Record<string, number>;
+  pricing_overrides?: Record<string, number>;
 };
 type Payment = {
   id: number;
@@ -127,7 +130,8 @@ export default function PlatformSubscriptionPage() {
     for (const plan of data?.plans ?? []) {
       totals[plan.code] = Object.entries(unitMix).reduce((sum, [type, rawCount]) => {
         const count = Math.max(0, Number(rawCount) || 0);
-        const rate = plan.code === "basic" ? 100 : plan.code === "standard" ? 125 : premiumRate(type);
+        const override = data?.subscription?.pricing_overrides?.[type];
+        const rate = typeof override === "number" ? override : plan.code === "premium" ? (plan.unit_rates?.[type] ?? premiumRate(type)) : (plan.base_rate ?? (plan.code === "basic" ? 100 : 125));
         return sum + count * rate;
       }, 0);
     }
@@ -156,7 +160,7 @@ export default function PlatformSubscriptionPage() {
     }
   }
 
-  async function submitReference(event: React.FormEvent<HTMLFormElement>) {
+  async function submitReference(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setNotice("");
@@ -239,7 +243,8 @@ export default function PlatformSubscriptionPage() {
               const selected = data?.subscription?.plan_code === plan.code;
               const featured = plan.code === "premium";
               const estimate = estimates[plan.code] ?? 0;
-              const headlinePrice = plan.code === "basic" ? "KES 100" : plan.code === "standard" ? "KES 125" : "KES 100–200";
+              const premiumRates = Object.values(plan.unit_rates ?? { studio: 100, oneBedroom: 150, twoBedroom: 200 });
+              const headlinePrice = plan.price_model === "flat" ? "KES " + (plan.base_rate ?? 0) : "KES " + Math.min(...premiumRates) + "–" + Math.max(...premiumRates);
               const priceSuffix = "per unit / month";
               const caption = plan.code === "basic" ? "Simple, dependable payment matching." : plan.code === "standard" ? "More ways for tenants to pay you." : "A fuller digital experience for your properties.";
               const planFeatures = plan.features.filter((feature) => !feature.toLowerCase().startsWith("no "));
@@ -274,7 +279,7 @@ export default function PlatformSubscriptionPage() {
             <thead><tr><th>Capability</th>{(data?.plans ?? []).map((plan) => <th key={plan.code}>{plan.name}</th>)}</tr></thead>
             <tbody>
               {[
-                { label: "Monthly rate", values: ["KES 100 per unit", "KES 125 per unit", "KES 100–200 by unit type"] },
+                { label: "Monthly rate", values: (data?.plans ?? []).map((plan) => plan.price_model === "flat" ? "KES " + (plan.base_rate ?? 0) + " per unit" : "KES " + Math.min(...Object.values(plan.unit_rates ?? { studio: 100, oneBedroom: 150, twoBedroom: 200 })) + "–" + Math.max(...Object.values(plan.unit_rates ?? { studio: 100, oneBedroom: 150, twoBedroom: 200 })) + " by unit type") },
                 { label: "Payment matching to property records", values: ["Included", "Included", "Included"] },
                 { label: "Shareable tenant payment links", values: ["—", "Included", "Included"] },
                 { label: "Tenant portal and self-service", values: ["—", "—", "Included"] },
