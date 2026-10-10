@@ -102,7 +102,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
  ];
  const steps = portal === "manager" ? managerSteps : tenantSteps;
  const safeStepIndex = Math.min(stepIndex, steps.length - 1);
- const currentStep = steps[safeStepIndex];
+ const currentStep = steps[safeStepIndex] ?? steps[0];
 
  useEffect(() => {
   if (!visible || portal !== "manager" || !currentStep?.targets.length) {
@@ -152,7 +152,8 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   const backendOrigin = API_BASE.replace(/\/api\/?$/, "");
   window.location.href = `${backendOrigin}/auth/google/redirect?mode=login`;
  }
- const cardTop = spotlight ? Math.max(12, Math.min(spotlight.top, window.innerHeight - 350)) : undefined;
+ const cardHeight = Math.min(620, window.innerHeight * 0.78);
+ const cardTop = spotlight ? Math.max(12, Math.min(spotlight.top, window.innerHeight - cardHeight - 24)) : undefined;
  const cardLeft = spotlight && spotlight.left + spotlight.width + 18 < window.innerWidth - 330
   ? spotlight.left + spotlight.width + 18 : undefined;
 
