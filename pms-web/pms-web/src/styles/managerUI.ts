@@ -706,5 +706,7 @@ border-color: transparent;
   .mg-panel__head { flex-wrap: wrap; }
 }
 
+@media (min-width: 1024px) { .mg-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
 `;
 
