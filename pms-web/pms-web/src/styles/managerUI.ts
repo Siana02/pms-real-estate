@@ -674,5 +674,33 @@ border-color: transparent;
     transition-duration: 0.001ms !important;
   }
 }
+/* Shared responsive safety for all manager portal pages. */
+.mg-root { min-width: 0; overflow-wrap: anywhere; }
+.mg-shell, .mg-header, .mg-panel, .mg-panel__body, .mg-panel__head { min-width: 0; max-width: 100%; }
+.mg-panel__head, .mg-actions { flex-wrap: wrap; }
+.mg-grid2, .mg-grid3 { grid-template-columns: minmax(0, 1fr); }
+.mg-root img, .mg-root video, .mg-root canvas { max-width: 100%; height: auto; }
+.mg-root input, .mg-root select, .mg-root textarea { max-width: 100%; min-width: 0; }
+.mg-root pre, .mg-root code { overflow-wrap: anywhere; white-space: pre-wrap; }
+.mg-root .mg-btn { max-width: 100%; white-space: normal; }
+@media (max-width: 639px) {
+  .mg-root { padding: .9rem .7rem 2rem; }
+  .mg-shell { gap: 1rem; }
+  .mg-header { align-items: stretch; gap: .8rem; }
+  .mg-header__actions, .mg-actions { width: 100%; }
+  .mg-actions > *, .mg-header__actions > * { flex: 1 1 auto; }
+  .mg-panel { border-radius: 1rem; }
+  .mg-panel__head { align-items: flex-start; gap: .5rem; }
+  .mg-panel__body { padding: .85rem; }
+  .mg-table tr { padding: .75rem; }
+  .mg-table td { gap: .65rem; overflow-wrap: anywhere; }
+  .mg-drawer { width: 100%; max-width: 100vw; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .mg-root { padding: 1.25rem 1rem 3rem; }
+  .mg-grid2, .mg-grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mg-panel__head { flex-wrap: wrap; }
+}
+
 `;
 
