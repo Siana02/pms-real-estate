@@ -81,6 +81,19 @@ function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
+    const openForTour = () => {
+      if (window.innerWidth < 1024) setMobileOpen(true);
+    };
+    const closeForTour = () => setMobileOpen(false);
+    window.addEventListener("pms:open-manager-nav", openForTour);
+    window.addEventListener("pms:close-manager-nav", closeForTour);
+    return () => {
+      window.removeEventListener("pms:open-manager-nav", openForTour);
+      window.removeEventListener("pms:close-manager-nav", closeForTour);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!mobileOpen) return;
 
     function onKeyDown(event: KeyboardEvent) {
