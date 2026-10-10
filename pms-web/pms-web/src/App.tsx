@@ -15,7 +15,6 @@ import ManagerUnitsPage from "./pages/manager/ManagerUnitsPage";
 import ManagerLeasesPage from "./pages/manager/ManagerLeasesPage";
 import ManagerPaymentsPage from "./pages/manager/ManagerPaymentsPage";
 import PaymentReconciliationPage from "./pages/manager/PaymentReconciliationPage";
-import ManagerExpensesPage from "./pages/manager/ManagerExpensesPage";
 import ManagerMaintenancePage from "./pages/manager/ManagerMaintenancePage";
 import ManagerSettingsPage from "./pages/manager/ManagerSettingsPage";
 import TeamPage from "./pages/manager/TeamPage";
@@ -23,6 +22,8 @@ import AcceptInvitePage from "./pages/AcceptInvitePage";
 import RequestsPage from "./pages/manager/RequestsPage";
 import AuditLogPage from "./pages/manager/AuditLogPage";
 import ManagerGuestPaymentLinksPage from "./pages/manager/ManagerGuestPaymentLinksPage";
+import PlatformSubscriptionPage from "./pages/manager/PlatformSubscriptionPage";
+import PlatformAdminSubscriptionsPage from "./pages/manager/PlatformAdminSubscriptionsPage";
 import GuestPaymentPage from "./pages/GuestPaymentPage";
 import TenantDashboardPage from "./pages/tenant/TenantDashboardPage";
 import MyHomePage from "./pages/tenant/MyHomePage";
@@ -43,9 +44,46 @@ function getToken(): string | null { try { return localStorage.getItem("token") 
 function getRole(): string { try { const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user"); if (!raw) return ""; const parsed: unknown = JSON.parse(raw); if (parsed && typeof parsed === "object") { const role = (parsed as Record<string, unknown>).role; if (typeof role === "string") return role.trim().toLowerCase(); } } catch {} return ""; }
 function mustChangePassword(): boolean { try { const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user"); if (!raw) return false; const parsed: unknown = JSON.parse(raw); return !!(parsed && typeof parsed === "object" && (parsed as Record<string, unknown>).must_change_password === true); } catch { return false; } }
 function portalForRole(role: string): Portal { if (TENANT_ROLES.includes(role)) return "tenant"; if (MANAGER_ROLES.includes(role)) return "manager"; return "manager"; }
-function homePath(): string { return portalForRole(getRole()) === "tenant" ? "/tenant/dashboard" : "/manager/dashboard"; }
+function homePath(): string { return getRole() === "platform_admin" ? "/platform-admin/subscriptions" : portalForRole(getRole()) === "tenant" ? "/tenant/dashboard" : "/manager/dashboard"; }
 function RequireAuth({ children }: { children: ReactNode }) { return getToken() ? <>{children}</> : <Navigate to="/login" replace />; }
-function RequirePortal({ portal, children }: { portal: Portal; children: ReactNode }) { if (!getToken()) return <Navigate to="/login" replace />; if (portalForRole(getRole()) !== portal) return <Navigate to={homePath()} replace />; if (mustChangePassword()) return <Navigate to="/password-setup" replace />; return <>{children}</>; }
+function RequirePortal({ portal, children, allowUnsubscribed = false }: { portal: Portal; children: ReactNode; allowUnsubscribed?: boolean }) {
+ const [subscriptionAccess, setSubscriptionAccess] = useState<"checking" | "active" | "required" | "feature_blocked" | "error">(allowUnsubscribed ? "active" : "checking");
+ const currentPath = window.location.pathname;
+ useEffect(() => {
+  if (allowUnsubscribed || !getToken()) return;
+  let cancelled = false;
+  const token = getToken();
+  fetch(API_BASE + "/platform-subscription/status", { headers: { Accept: "application/json", Authorization: "Bearer " + token } })
+   .then(async response => {
+    if (!response.ok) throw new Error("Unable to verify the organization subscription.");
+    return response.json() as Promise<{ subscription?: { status?: string; current_period_ends_at?: string | null } | null; features?: string[] }>;
+   })
+   .then(payload => {
+    const subscription = payload.subscription;
+    const active = subscription?.status === "active" && !!subscription.current_period_ends_at && new Date(subscription.current_period_ends_at).getTime() > Date.now();
+    const requiredFeature = portal === "tenant" ? "tenant_portal" :
+      currentPath === "/manager/guest-payment-links" ? "tenant_payment_links" :
+      currentPath === "/manager/payments" ? "payment_ledger" :
+      ["/manager/maintenance", "/manager/requests", "/manager/settings/team", "/manager/audit-log"].includes(currentPath) ? "premium_operations" : null;
+    const hasFeature = !requiredFeature || (payload.features ?? []).includes(requiredFeature);
+    if (!cancelled) setSubscriptionAccess(!active ? "required" : hasFeature ? "active" : "feature_blocked");
+   })
+   .catch(() => { if (!cancelled) setSubscriptionAccess("error"); });
+  return () => { cancelled = true; };
+ }, [portal, allowUnsubscribed, currentPath]);
+ if (!getToken()) return <Navigate to="/login" replace />;
+ if (portalForRole(getRole()) !== portal) return <Navigate to={homePath()} replace />;
+ if (mustChangePassword()) return <Navigate to="/password-setup" replace />;
+ if (portal === "manager" && allowUnsubscribed) return <>{children}</>;
+ if (subscriptionAccess === "checking") return <div style={{minHeight:"50vh",display:"grid",placeItems:"center",padding:24,color:"var(--pms-text,#fff)"}}>Checking organization subscription…</div>;
+ if (subscriptionAccess === "feature_blocked") return <div style={{maxWidth:640,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h1>This feature is not included</h1><p>{portal === "tenant" ? "Your property manager’s current plan does not include tenant portal access. You do not need to pay anything. Please contact your property manager." : "Your organization can keep using the features included in its active subscription. Contact platform support to discuss a tier change or a negotiated rate."}</p>{portal === "manager" && <a href="/manager/subscription" style={{display:"inline-block",marginTop:10,padding:"10px 14px",borderRadius:10,background:"var(--pms-accent,#3b82f6)",color:"#fff",textDecoration:"none",fontWeight:800}}>View subscription</a>}</div>;
+ if (subscriptionAccess === "error") return <div style={{maxWidth:620,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h2>Subscription status unavailable</h2><p>We could not verify the organization’s subscription, so this page is temporarily locked. Check your connection and try again.</p><button type="button" onClick={()=>window.location.reload()}>Try again</button></div>;
+ if (subscriptionAccess === "required") {
+  if (portal === "manager") return <Navigate to="/manager/subscription" replace />;
+  return <div style={{maxWidth:640,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h1>Tenant access temporarily unavailable</h1><p>Your property manager’s platform subscription is not active at the moment. You do not need to pay a platform subscription. Please contact your property manager for an update.</p></div>;
+ }
+ return <>{children}</>;
+}
 function HomeRedirect() { return <Navigate to={homePath()} replace />; }
 type TourStep = { title: string; body: string; targets: string[] };
 
@@ -85,7 +123,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   { title: "Payments", body: "Review rent receipts and payment records. Confirm provider references and payment status before treating a payment as received.", targets: ["/manager/payments"] },
   { title: "Reconciliation", body: "Match incoming provider transactions to the right tenant or lease, investigate unmatched payments and resolve exceptions carefully.", targets: ["/manager/reconciliation"] },
   { title: "Tenant payment links", body: "Create and manage shareable payment links. Verify the organisation's configured PayBill or Till and amount before sharing a link.", targets: ["/manager/guest-payment-links"] },
-  { title: "Expenses", body: "Record property expenses and supporting details so your organisation can review operating costs.", targets: ["/manager/expenses"] },
+  { title: "Billing & subscriptions", body: "Manage your organization’s platform plan, monthly unit-based fee, payment references and subscription status. Property maintenance costs are handled by landlords or tenants, not recorded as manager expenses.", targets: ["/manager/expenses"] },
   { title: "Maintenance and requests", body: "Use Maintenance to follow repairs and service issues. Requests is where staff or operational requests can be reviewed and actioned.", targets: ["/manager/maintenance", "/manager/requests"] },
   ...(role === "owner" || role === "admin" ? [{ title: "Audit log", body: "Review the recorded activity trail for accountability. Use it to investigate changes and understand who performed an action.", targets: ["/manager/audit-log"] }] : []),
   { title: "Settings and team", body: "Configure organisation preferences, payment destinations and theme. Owners/admins can manage staff access and permissions here.", targets: ["/manager/settings"] },
@@ -202,7 +240,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
 }
 function App() { useEffect(() => { applyTheme(readThemeId(), false); }, []); return <BrowserRouter><Routes>
 <Route path="/" element={<LandingPage/>}/><Route path="/help" element={<LegalHelpPage initialTab="help"/>}/><Route path="/terms" element={<LegalHelpPage initialTab="terms"/>}/><Route path="/privacy" element={<LegalHelpPage initialTab="privacy"/>}/><Route path="/manager/help" element={<RequirePortal portal="manager"><LegalHelpPage initialTab="help"/></RequirePortal>}/><Route path="/guest-payment/:token" element={<GuestPaymentPage/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/forgot-password" element={<PasswordResetPage/>}/><Route path="/reset-password" element={<PasswordResetPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/password-setup" element={<RequireAuth><ChangePasswordPage/></RequireAuth>}/><Route path="/accept-invite" element={<AcceptInvitePage/>}/>
-<Route path="/manager/dashboard" element={<RequirePortal portal="manager"><FirstLoginGuide portal="manager"><DashboardPage/></FirstLoginGuide></RequirePortal>}/><Route path="/manager/properties/add" element={<RequirePortal portal="manager"><AddProperties/></RequirePortal>}/><Route path="/manager/properties" element={<RequirePortal portal="manager"><ManagerPropertiesPage/></RequirePortal>}/><Route path="/manager/units" element={<RequirePortal portal="manager"><ManagerUnitsPage/></RequirePortal>}/><Route path="/manager/tenants" element={<RequirePortal portal="manager"><ManagerTenantsPage/></RequirePortal>}/><Route path="/manager/leases" element={<RequirePortal portal="manager"><ManagerLeasesPage/></RequirePortal>}/><Route path="/manager/payments" element={<RequirePortal portal="manager"><ManagerPaymentsPage/></RequirePortal>}/><Route path="/manager/reconciliation" element={<RequirePortal portal="manager"><PaymentReconciliationPage/></RequirePortal>}/><Route path="/manager/guest-payment-links" element={<RequirePortal portal="manager"><ManagerGuestPaymentLinksPage/></RequirePortal>}/><Route path="/manager/expenses" element={<RequirePortal portal="manager"><ManagerExpensesPage/></RequirePortal>}/><Route path="/manager/maintenance" element={<RequirePortal portal="manager"><ManagerMaintenancePage/></RequirePortal>}/><Route path="/manager/settings" element={<RequirePortal portal="manager"><ManagerSettingsPage/></RequirePortal>}/><Route path="/manager/settings/team" element={<RequirePortal portal="manager"><TeamPage/></RequirePortal>}/><Route path="/manager/requests" element={<RequirePortal portal="manager"><RequestsPage/></RequirePortal>}/><Route path="/manager/audit-log" element={<RequirePortal portal="manager"><AuditLogPage/></RequirePortal>}/>
+<Route path="/platform-admin/subscriptions" element={<RequireAuth><PlatformAdminSubscriptionsPage/></RequireAuth}/><Route path="/manager/subscription" element={<RequirePortal portal="manager" allowUnsubscribed><PlatformSubscriptionPage/></RequirePortal>}/><Route path="/manager/dashboard" element={<RequirePortal portal="manager"><FirstLoginGuide portal="manager"><DashboardPage/></FirstLoginGuide></RequirePortal>}/><Route path="/manager/properties/add" element={<RequirePortal portal="manager"><AddProperties/></RequirePortal>}/><Route path="/manager/properties" element={<RequirePortal portal="manager"><ManagerPropertiesPage/></RequirePortal>}/><Route path="/manager/units" element={<RequirePortal portal="manager"><ManagerUnitsPage/></RequirePortal>}/><Route path="/manager/tenants" element={<RequirePortal portal="manager"><ManagerTenantsPage/></RequirePortal>}/><Route path="/manager/leases" element={<RequirePortal portal="manager"><ManagerLeasesPage/></RequirePortal>}/><Route path="/manager/payments" element={<RequirePortal portal="manager"><ManagerPaymentsPage/></RequirePortal>}/><Route path="/manager/reconciliation" element={<RequirePortal portal="manager"><PaymentReconciliationPage/></RequirePortal>}/><Route path="/manager/guest-payment-links" element={<RequirePortal portal="manager"><ManagerGuestPaymentLinksPage/></RequirePortal>}/><Route path="/manager/expenses" element={<RequirePortal portal="manager" allowUnsubscribed><PlatformSubscriptionPage/></RequirePortal>}/><Route path="/manager/maintenance" element={<RequirePortal portal="manager"><ManagerMaintenancePage/></RequirePortal>}/><Route path="/manager/settings" element={<RequirePortal portal="manager"><ManagerSettingsPage/></RequirePortal>}/><Route path="/manager/settings/team" element={<RequirePortal portal="manager"><TeamPage/></RequirePortal>}/><Route path="/manager/requests" element={<RequirePortal portal="manager"><RequestsPage/></RequirePortal>}/><Route path="/manager/audit-log" element={<RequirePortal portal="manager"><AuditLogPage/></RequirePortal>}/>
 <Route path="/tenant/dashboard" element={<RequirePortal portal="tenant"><FirstLoginGuide portal="tenant"><TenantDashboardPage/></FirstLoginGuide></RequirePortal>}/><Route path="/tenant/home" element={<RequirePortal portal="tenant"><MyHomePage/></RequirePortal>}/><Route path="/tenant/payments" element={<RequirePortal portal="tenant"><TenantPaymentsPage/></RequirePortal>}/><Route path="/tenant/maintenance" element={<RequirePortal portal="tenant"><TenantMaintenancePage/></RequirePortal>}/><Route path="/tenant/lease" element={<RequirePortal portal="tenant"><TenantLeasePage/></RequirePortal>}/><Route path="/tenant/notifications" element={<RequirePortal portal="tenant"><TenantNotificationsPage/></RequirePortal>}/><Route path="/tenant/profile" element={<RequirePortal portal="tenant"><TenantProfilePage/></RequirePortal>}/><Route path="/tenant/help" element={<RequirePortal portal="tenant"><TenantHelpPage/></RequirePortal>}/><Route path="/tenant/settings" element={<RequirePortal portal="tenant"><TenantSettingsPage/></RequirePortal>}/>
 <Route path="/dashboard" element={<Navigate to="/manager/dashboard" replace/>}/><Route path="/properties/add" element={<Navigate to="/manager/properties/add" replace/>}/><Route path="/tenant" element={<Navigate to="/tenant/dashboard" replace/>}/><Route path="/tenants" element={<Navigate to="/manager/tenants" replace/>}/><Route path="/properties" element={<Navigate to="/manager/properties" replace/>}/><Route path="/units" element={<Navigate to="/manager/units" replace/>}/><Route path="/leases" element={<Navigate to="/manager/leases" replace/>}/><Route path="/payments" element={<Navigate to="/manager/payments" replace/>}/><Route path="/expenses" element={<Navigate to="/manager/expenses" replace/>}/><Route path="/maintenance" element={<Navigate to="/manager/maintenance" replace/>}/><Route path="/settings" element={<Navigate to="/manager/settings" replace/>}/><Route path="/app" element={<RequireAuth><HomeRedirect/></RequireAuth>}/><Route path="/landing" element={<LandingPage/>}/>
 </Routes></BrowserRouter>; }

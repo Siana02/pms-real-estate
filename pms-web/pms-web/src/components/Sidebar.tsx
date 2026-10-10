@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Banknote,
+  CreditCard,
   WalletCards,
   Link2,
   Building2,
@@ -11,7 +12,6 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
-  Receipt,
   Settings,
   Users,
   Wrench,
@@ -302,7 +302,7 @@ const NAV_GROUPS = [
     { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
   ]},
   { label: "Operations", items: [
-    { label: "Expenses", to: "/manager/expenses", icon: Receipt },
+    { label: "Billing & subscriptions", to: "/manager/expenses", icon: CreditCard },
     { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
     { label: "Requests", to: "/manager/requests", icon: ClipboardList },
   ]},

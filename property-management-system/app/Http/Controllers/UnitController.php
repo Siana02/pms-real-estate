@@ -277,7 +277,7 @@ class UnitController extends Controller
         $validated = $request->validate([
             'property_id' => 'required|exists:properties,id',
             'unit_number' => 'required|string|max:255',
-            'unit_type' => 'nullable|string|max:255',
+            'unit_type' => 'required|string|max:255',
             'monthly_rent' => 'required|numeric|min:0',
             'deposit_amount' => 'nullable|numeric|min:0',
             'status' => 'nullable|in:vacant,occupied,reserved,maintenance',

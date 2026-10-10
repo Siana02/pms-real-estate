@@ -230,6 +230,9 @@ class GuestTenantPaymentLinkController extends Controller
             || (int) $lease->property->organization_id !== (int) $link->organization_id
             || (int) $lease->unit->property_id !== (int) $link->property_id,
             404, 'This payment link is no longer active for this tenancy.');
+        $organization = \\App\\Models\\Organization::with('platformSubscription')->find($link->organization_id);
+        $subscription = $organization?->platformSubscription;
+        abort_unless($subscription && $subscription->isActive() && in_array($subscription->plan_code, ['standard', 'premium'], true), 404, 'This payment link is unavailable because the organization subscription is inactive or does not include tenant payment links.');
         return $link;
     }
 

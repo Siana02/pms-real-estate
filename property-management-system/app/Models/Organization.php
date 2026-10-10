@@ -82,4 +82,9 @@ class Organization extends Model
         return $this->hasMany(Deposit::class);
     }
 
+    public function platformSubscription()
+    {
+        return $this->hasOne(PlatformSubscription::class);
+    }
+
 }

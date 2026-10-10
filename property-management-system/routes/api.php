@@ -24,6 +24,8 @@ use App\Http\Controllers\PaymentReconciliationController;
 use App\Http\Controllers\DarajaController;
 use App\Http\Controllers\OrganizationDarajaCredentialController;
 use App\Http\Controllers\GuestTenantPaymentLinkController;
+use App\Http\Controllers\PlatformSubscriptionController;
+use App\Http\Middleware\EnsureActivePlatformSubscription;
 
 use Illuminate\Support\Facades\Route;
 
@@ -45,13 +47,20 @@ Route::get('guest-payments/{token}', [GuestTenantPaymentLinkController::class, '
 Route::post('guest-payments/{token}/stk-push', [GuestTenantPaymentLinkController::class, 'initiateStk'])->middleware('throttle:6,1');
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('platform-subscription/status', [PlatformSubscriptionController::class, 'status']);
+    Route::get('platform-subscription/admin/payments', [PlatformSubscriptionController::class, 'pendingPayments']);
+    Route::get('platform-subscription/admin/organizations', [PlatformSubscriptionController::class, 'adminOrganizations']);
+    Route::post('platform-subscription/select', [PlatformSubscriptionController::class, 'select']);
+    Route::post('platform-subscription/payment-reference', [PlatformSubscriptionController::class, 'submitPayment']);
+    Route::post('platform-subscription/payments/{payment}/verify', [PlatformSubscriptionController::class, 'verifyPayment']);
+    Route::put('platform-subscription/organizations/{organization}/custom-pricing', [PlatformSubscriptionController::class, 'setCustomPricing']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
 });
 
-Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->group(function () {
-    Route::get('guest-payment-links', [GuestTenantPaymentLinkController::class, 'index']);
-    Route::post('guest-payment-links', [GuestTenantPaymentLinkController::class, 'store'])->middleware('throttle:20,1');
-    Route::delete('guest-payment-links/{guestTenantPaymentLink}', [GuestTenantPaymentLinkController::class, 'revoke']);
+Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'role:admin,property_manager,owner,staff'])->group(function () {
+    Route::get('guest-payment-links', [GuestTenantPaymentLinkController::class, 'index'])->middleware('subscription.feature:tenant_payment_links');
+    Route::post('guest-payment-links', [GuestTenantPaymentLinkController::class, 'store'])->middleware(['throttle:20,1', 'subscription.feature:tenant_payment_links']);
+    Route::delete('guest-payment-links/{guestTenantPaymentLink}', [GuestTenantPaymentLinkController::class, 'revoke'])->middleware('subscription.feature:tenant_payment_links');
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
@@ -68,33 +77,33 @@ Route::middleware(['auth:sanctum', 'role:admin,property_manager,owner,staff'])->
     Route::delete('organization/flutterwave', [FlutterwaveController::class, 'disconnect']);
     Route::post('organization/logo', [OrganizationController::class, 'uploadLogo']);
     Route::delete('organization/logo', [OrganizationController::class, 'removeLogo']);
-    Route::get('team', [TeamController::class, 'index']);
-    Route::post('team/invite', [TeamController::class, 'invite']);
-    Route::patch('team/{user}/role', [TeamController::class, 'updateRole']);
-    Route::patch('team/{user}/deactivate', [TeamController::class, 'deactivate']);
-    Route::patch('team/{user}/reactivate', [TeamController::class, 'reactivate']);
-    Route::post('team/{user}/resend-invitation', [TeamController::class, 'resendInvitation']);
-    Route::get('permissions', [PermissionController::class, 'catalog']);
-    Route::get('team/{user}/permissions', [PermissionController::class, 'user']);
-    Route::patch('team/{user}/permissions', [PermissionController::class, 'update']);
-    Route::get('audit-logs', [AuditLogController::class, 'index']);
-    Route::get('requests', [EmployeeRequestController::class, 'index']);
-    Route::post('requests', [EmployeeRequestController::class, 'store']);
-    Route::patch('requests/{employeeRequest}', [EmployeeRequestController::class, 'update']);
+    Route::get('team', [TeamController::class, 'index'])->middleware('subscription.feature:premium_operations');
+    Route::post('team/invite', [TeamController::class, 'invite'])->middleware('subscription.feature:premium_operations');
+    Route::patch('team/{user}/role', [TeamController::class, 'updateRole'])->middleware('subscription.feature:premium_operations');
+    Route::patch('team/{user}/deactivate', [TeamController::class, 'deactivate'])->middleware('subscription.feature:premium_operations');
+    Route::patch('team/{user}/reactivate', [TeamController::class, 'reactivate'])->middleware('subscription.feature:premium_operations');
+    Route::post('team/{user}/resend-invitation', [TeamController::class, 'resendInvitation'])->middleware('subscription.feature:premium_operations');
+    Route::get('permissions', [PermissionController::class, 'catalog'])->middleware('subscription.feature:premium_operations');
+    Route::get('team/{user}/permissions', [PermissionController::class, 'user'])->middleware('subscription.feature:premium_operations');
+    Route::patch('team/{user}/permissions', [PermissionController::class, 'update'])->middleware('subscription.feature:premium_operations');
+    Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('subscription.feature:premium_operations');
+    Route::get('requests', [EmployeeRequestController::class, 'index'])->middleware('subscription.feature:premium_operations');
+    Route::post('requests', [EmployeeRequestController::class, 'store'])->middleware('subscription.feature:premium_operations');
+    Route::patch('requests/{employeeRequest}', [EmployeeRequestController::class, 'update'])->middleware('subscription.feature:premium_operations');
     Route::apiResource('organizations', OrganizationController::class)->except(['index', 'destroy']);
     Route::apiResource('properties', PropertyController::class);
     Route::apiResource('units', UnitController::class);
     Route::apiResource('tenants', TenantController::class);
     Route::apiResource('leases', LeasesController::class);
     Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
-    Route::apiResource('payments', PaymentController::class);
+    Route::apiResource('payments', PaymentController::class)->middleware('subscription.feature:payment_ledger');
     Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
     Route::post('payment-reconciliation/transactions', [PaymentReconciliationController::class, 'ingest']);
     Route::post('payment-reconciliation/transactions/{paymentTransaction}/resolve', [PaymentReconciliationController::class, 'resolve']);
     Route::post('payments/{payment}/verify', [PaymentController::class, 'verify']);
     Route::post('payments/{payment}/reject', [PaymentController::class, 'reject']);
-    Route::apiResource('expenses', ExpenseController::class);
-    Route::apiResource('maintenance-requests', MaintenanceRequestController::class);
+    Route::apiResource('expenses', ExpenseController::class)->middleware('subscription.feature:premium_operations');
+    Route::apiResource('maintenance-requests', MaintenanceRequestController::class)->middleware('subscription.feature:premium_operations');
     Route::get('dashboard', [DashboardController::class, 'index']);
 });
 
@@ -105,7 +114,7 @@ Route::post('webhooks/daraja/{callbackToken}/confirm', [DarajaController::class,
 Route::post('webhooks/daraja/{callbackToken}/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
 
-Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
+Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'subscription.feature:tenant_portal'])->prefix('tenant')->group(function () {
     Route::get('overview', [TenantPortalController::class, 'overview']);
     Route::get('profile', [TenantPortalController::class, 'profile']);
     Route::patch('profile', [TenantPortalController::class, 'updateProfile']);

@@ -271,13 +271,27 @@ function AddUnitDrawer({
               <label className="mg-label" htmlFor="un-type">
                 Unit type
               </label>
-              <input
-                id="un-type"
-                className="mg-input"
-                value={unitType}
-                onChange={(event) => setUnitType(event.target.value)}
-                placeholder="e.g. One bedroom"
-              />
+              <select id="un-type" className="mg-select" value={unitType} onChange={(event) => setUnitType(event.target.value)} required>
+                <option value="">Choose unit type</option>
+                {unitType && !["Bedsitter","Studio","1 bedroom","2 bedroom","3 bedroom","4 bedroom","5 bedroom","6 bedroom","7 bedroom","8 bedroom","9 bedroom","10 bedroom","11 bedroom","12 bedroom","13 bedroom","14 bedroom","15 bedroom","16 bedroom","17 bedroom","18 bedroom","19 bedroom","20 bedroom","Commercial / other"].includes(unitType) && <option value={unitType}>{unitType} (existing)</option>}
+                <option value="Bedsitter">Bedsitter</option><option value="Studio">Studio</option>
+                <option value="1 bedroom">1 bedroom</option><option value="2 bedroom">2 bedroom</option>
+                <option value="3 bedroom">3 bedroom</option><option value="4 bedroom">4 bedroom</option>
+                <option value="5 bedroom">5 bedroom</option><option value="6 bedroom">6 bedroom</option>
+                <option value="7 bedroom">7 bedroom</option><option value="8 bedroom">8 bedroom</option>
+                <option value="9 bedroom">9 bedroom</option><option value="10 bedroom">10 bedroom</option>
+                <option value="11 bedroom">11 bedroom</option>
+                <option value="12 bedroom">12 bedroom</option>
+                <option value="13 bedroom">13 bedroom</option>
+                <option value="14 bedroom">14 bedroom</option>
+                <option value="15 bedroom">15 bedroom</option>
+                <option value="16 bedroom">16 bedroom</option>
+                <option value="17 bedroom">17 bedroom</option>
+                <option value="18 bedroom">18 bedroom</option>
+                <option value="19 bedroom">19 bedroom</option>
+                <option value="20 bedroom">20 bedroom</option>
+                <option value="Commercial / other">Commercial / other</option><option value="20+ bedroom">20+ bedroom</option>
+              </select>
               <p className="mg-hint">Used to group similar units together.</p>
             </div>
           </div>

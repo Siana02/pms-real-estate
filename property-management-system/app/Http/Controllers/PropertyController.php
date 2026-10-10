@@ -38,7 +38,7 @@ class PropertyController extends Controller
 
             'units' => 'array',
             'units.*.unit_number' => 'required|string|max:255|distinct:ignore_case',
-            'units.*.unit_type' => 'nullable|string|max:255',
+            'units.*.unit_type' => 'required|string|max:255',
             'units.*.status' => 'required|in:vacant,occupied,reserved,maintenance',
             'units.*.monthly_rent' => 'nullable|numeric|min:0',
             'units.*.deposit_amount' => 'nullable|numeric|min:0',
