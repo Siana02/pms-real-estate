@@ -233,6 +233,7 @@ public function usernameAvailable(Request $request)
                     'organization_id' => $user->organization_id,
                     'tenant_id' => $user->tenant_id,
                     'must_change_password' => $user->must_change_password,
+                    'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
                 ],
                 'tenant' => [
                     'id' => $user->tenant_id,
@@ -367,6 +368,7 @@ public function usernameAvailable(Request $request)
             'organization_id' => $user->organization_id,
             'tenant_id' => $user->tenant_id,
             'must_change_password' => (bool) $user->must_change_password,
+                'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
         ],
     ]);
 }
@@ -435,7 +437,38 @@ public function usernameAvailable(Request $request)
 
         $existingEmail = User::whereRaw('LOWER(email) = ?', [$email])->first();
         if ($existingEmail) {
-            return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('An account already exists with this email. Sign in with your password first, then connect ' . ucfirst($provider) . ' from your account settings.'));
+            // Only auto-link a Google identity when Google explicitly confirms
+            // ownership of the matching email address.
+            $rawProfile = $oauthUser->getRaw();
+            $emailVerified = filter_var($rawProfile['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+            if (!$emailVerified) {
+                return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('Google could not verify ownership of this email address. Please sign in with your password and try again.'));
+            }
+
+            $alreadyLinked = SocialAccount::where('user_id', $existingEmail->id)
+                ->where('provider', $provider)
+                ->where('provider_id', '!=', $providerId)
+                ->exists();
+
+            if ($alreadyLinked) {
+                return redirect()->to($this->frontendUrl() . '/login?oauth_error=' . rawurlencode('A different Google account is already connected to this profile. Sign in using your existing method or contact support.'));
+            }
+
+            if (!$account) {
+                SocialAccount::create([
+                    'user_id' => $existingEmail->id,
+                    'provider' => $provider,
+                    'provider_id' => $providerId,
+                    'email' => $email,
+                    'name' => $name,
+                    'avatar' => $oauthUser->getAvatar(),
+                ]);
+            }
+
+            $code = Str::random(64);
+            Cache::put('oauth:login:' . hash('sha256', $code), ['user_id' => $existingEmail->id], now()->addMinutes(2));
+            return redirect()->to($this->frontendUrl() . '/login?oauth_code=' . rawurlencode($code));
         }
 
         if ($mode === 'login') {
@@ -487,6 +520,7 @@ public function usernameAvailable(Request $request)
                 'organization_id' => $user->organization_id,
                 'tenant_id' => $user->tenant_id,
                 'must_change_password' => (bool) $user->must_change_password,
+                'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
             ],
         ]);
     }
@@ -645,6 +679,7 @@ public function usernameAvailable(Request $request)
                 'organization_id' => $user->organization_id,
                 'tenant_id' => $user->tenant_id,
                 'must_change_password' => (bool) $user->must_change_password,
+                'google_connected' => SocialAccount::where('user_id', $user->id)->where('provider', 'google')->exists(),
             ],
         ]);
     }
