@@ -178,13 +178,14 @@ const styles = `
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.08rem;
-  margin-top: 1.7rem;
+  gap: 1.05rem;
+  margin-top: 1.2rem;
   overflow-y: auto;
 }
  
+.sb-nav__group { display:flex; flex-direction:column; gap:.08rem; }
 .sb-nav__label {
-  margin: 0 0 0.55rem 0.7rem;
+  margin: 0 0 0.4rem 0.7rem;
   font-size: 0.57rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -285,18 +286,26 @@ const styles = `
 /*  DATA & HELPERS                                                     */
 /* ------------------------------------------------------------------ */
  
-const NAV_ITEMS = [
-  { label: "Dashboard", to: "/manager/dashboard", icon: LayoutDashboard },
-  { label: "Properties", to: "/manager/properties", icon: Building2 },
-  { label: "Units", to: "/manager/units", icon: DoorOpen },
-  { label: "Tenants", to: "/manager/tenants", icon: Users },
-  { label: "Leases", to: "/manager/leases", icon: FileText },
-  { label: "Payments", to: "/manager/payments", icon: Banknote },
-  { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
-  { label: "Tenant payment links", to: "/manager/guest-payment-links", icon: Link2 },
-  { label: "Expenses", to: "/manager/expenses", icon: Receipt },
-  { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
-  { label: "Requests", to: "/manager/requests", icon: ClipboardList },
+const NAV_GROUPS = [
+  { label: "Overview", items: [
+    { label: "Dashboard", to: "/manager/dashboard", icon: LayoutDashboard },
+  ]},
+  { label: "Portfolio", items: [
+    { label: "Properties", to: "/manager/properties", icon: Building2 },
+    { label: "Units", to: "/manager/units", icon: DoorOpen },
+    { label: "Tenants", to: "/manager/tenants", icon: Users },
+    { label: "Leases", to: "/manager/leases", icon: FileText },
+  ]},
+  { label: "Money", items: [
+    { label: "Payments", to: "/manager/payments", icon: Banknote },
+    { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
+    { label: "Tenant payment links", to: "/manager/guest-payment-links", icon: Link2 },
+  ]},
+  { label: "Operations", items: [
+    { label: "Expenses", to: "/manager/expenses", icon: Receipt },
+    { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
+    { label: "Requests", to: "/manager/requests", icon: ClipboardList },
+  ]},
 ];
  
 interface Organization {
@@ -400,19 +409,25 @@ function Sidebar() {
       </div>
  
       <nav className="sb-nav" aria-label="Main">
-        <p className="sb-nav__label">Manage</p>
- 
-        {NAV_ITEMS.map(({ label, to, icon: Icon }) => (
-          <NavLink key={label} to={to} className={linkClass}>
-            <Icon />
-            {label}
-          </NavLink>
+        {NAV_GROUPS.map((group) => (
+          <section className="sb-nav__group" key={group.label} aria-label={group.label}>
+            <p className="sb-nav__label">{group.label}</p>
+            {group.items.map(({ label, to, icon: Icon }) => (
+              <NavLink key={label} to={to} className={linkClass} data-tour={to}>
+                <Icon />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </section>
         ))}
         {isOwner && (
-          <NavLink to="/manager/audit-log" className={linkClass}>
-            <ShieldCheck />
-            Audit Log
-          </NavLink>
+          <section className="sb-nav__group" aria-label="Governance">
+            <p className="sb-nav__label">Governance</p>
+            <NavLink to="/manager/audit-log" className={linkClass} data-tour="/manager/audit-log">
+              <ShieldCheck />
+              <span>Audit log</span>
+            </NavLink>
+          </section>
         )}
       </nav>
  
@@ -429,7 +444,7 @@ function Sidebar() {
           <ShieldCheck />
           Privacy policy
         </NavLink>
-        <NavLink to="/settings" className={linkClass}>
+        <NavLink to="/settings" className={linkClass} data-tour="/manager/settings">
           <Settings />
           Settings
         </NavLink>
