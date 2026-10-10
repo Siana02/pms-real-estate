@@ -17,7 +17,7 @@ export default function PlatformSubscriptionPage() {
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [unitMix, setUnitMix] = useState<Record<string, number>>({"Bedsitter":0,"Studio":0,"1 bedroom":0,"2 bedroom":0,"3 bedroom":0,"4 bedroom":0,"5 bedroom":0,"6 bedroom":0,"Commercial / other":0});
+  const [unitMix, setUnitMix] = useState<Record<string, number>>({"Bedsitter":0,"Studio":0,"1 bedroom":0,"2 bedroom":0,"3 bedroom":0,"4 bedroom":0,"5 bedroom":0,"6 bedroom":0,"7 bedroom":0,"8 bedroom":0,"9 bedroom":0,"10 bedroom":0,"11 bedroom":0,"12 bedroom":0,"13 bedroom":0,"14 bedroom":0,"15 bedroom":0,"16 bedroom":0,"17 bedroom":0,"18 bedroom":0,"19 bedroom":0,"20 bedroom":0,"Commercial / other":0});
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
