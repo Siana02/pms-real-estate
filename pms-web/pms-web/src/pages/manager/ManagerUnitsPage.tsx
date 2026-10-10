@@ -271,13 +271,16 @@ function AddUnitDrawer({
               <label className="mg-label" htmlFor="un-type">
                 Unit type
               </label>
-              <input
-                id="un-type"
-                className="mg-input"
-                value={unitType}
-                onChange={(event) => setUnitType(event.target.value)}
-                placeholder="e.g. One bedroom"
-              />
+              <select id="un-type" className="mg-select" value={unitType} onChange={(event) => setUnitType(event.target.value)} required>
+                <option value="">Choose unit type</option>
+                <option value="Bedsitter">Bedsitter</option><option value="Studio">Studio</option>
+                <option value="1 bedroom">1 bedroom</option><option value="2 bedroom">2 bedroom</option>
+                <option value="3 bedroom">3 bedroom</option><option value="4 bedroom">4 bedroom</option>
+                <option value="5 bedroom">5 bedroom</option><option value="6 bedroom">6 bedroom</option>
+                <option value="7 bedroom">7 bedroom</option><option value="8 bedroom">8 bedroom</option>
+                <option value="9 bedroom">9 bedroom</option><option value="10 bedroom">10 bedroom</option>
+                <option value="Commercial / other">Commercial / other</option>
+              </select>
               <p className="mg-hint">Used to group similar units together.</p>
             </div>
           </div>
