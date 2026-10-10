@@ -239,7 +239,12 @@ export function findTheme(id: string): Theme {
 }
  
 export function readThemeId(): string {
-  return localStorage.getItem(THEME_KEY) ?? DEFAULT_THEME_ID;
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    return stored && THEMES.some((theme) => theme.id === stored) ? stored : DEFAULT_THEME_ID;
+  } catch {
+    return DEFAULT_THEME_ID;
+  }
 }
  
 export function readBrandLogo(): string | null {
