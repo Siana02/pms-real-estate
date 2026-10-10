@@ -59,7 +59,7 @@ export default function PlatformSubscriptionPage() {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:12}}>
         {Object.keys(unitMix).map(type=><label key={type} style={{display:"grid",gap:6,fontSize:12,fontWeight:750}}>{type}<input type="number" min="0" step="1" value={unitMix[type]} onChange={event=>setUnitMix(current=>({...current,[type]:Math.max(0,Number(event.target.value)||0)}))} style={{width:"100%",padding:11,borderRadius:10,border:"1px solid var(--pms-border,rgba(255,255,255,.2))",background:"var(--pms-input,rgba(255,255,255,.05))",color:"inherit"}}/></label>)}
       </div>
-      <p style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",margin:"12px 0 0"}}>Expected units: {Object.values(unitMix).reduce((sum,count)=>sum+count,0)} · Select at least one unit type. Premium pricing is KES 100 for bedsitters/studios, KES 150 for one-bedroom units, and KES 200 for every unit with two or more bedrooms (including 20+). Negotiated rates can be set by the platform team.</p>
+      <p style={{fontSize:12,color:"var(--pms-muted,#aab7ca)",margin:"12px 0 0"}}>Expected units: {Object.values(unitMix).reduce((sum,count)=>sum+count,0)} · Select at least one unit type. Premium rates are flat per unit: KES 100 for bedsitters/studios, KES 150 for one-bedroom units, and KES 200 for every unit with two or more bedrooms, including 20+ bedrooms. Negotiated per-unit rates set by the platform team take precedence.</p>
     </section>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,290px),1fr))",gap:16,alignItems:"stretch"}}>
       {(data?.plans ?? []).map((plan) => {
