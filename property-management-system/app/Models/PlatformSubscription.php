@@ -10,7 +10,7 @@ class PlatformSubscription extends Model
 {
     protected $fillable = [
         'organization_id', 'plan_code', 'status', 'billing_cycle',
-        'billable_units', 'monthly_amount', 'pricing_overrides',
+        'billable_units', 'monthly_amount', 'pricing_overrides', 'unit_mix',
         'current_period_starts_at', 'current_period_ends_at',
         'last_payment_at', 'selected_by',
     ];
@@ -19,6 +19,7 @@ class PlatformSubscription extends Model
     {
         return [
             'pricing_overrides' => 'array',
+            'unit_mix' => 'array',
             'monthly_amount' => 'decimal:2',
             'current_period_starts_at' => 'datetime',
             'current_period_ends_at' => 'datetime',
