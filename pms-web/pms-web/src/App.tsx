@@ -15,7 +15,6 @@ import ManagerUnitsPage from "./pages/manager/ManagerUnitsPage";
 import ManagerLeasesPage from "./pages/manager/ManagerLeasesPage";
 import ManagerPaymentsPage from "./pages/manager/ManagerPaymentsPage";
 import PaymentReconciliationPage from "./pages/manager/PaymentReconciliationPage";
-import ManagerExpensesPage from "./pages/manager/ManagerExpensesPage";
 import ManagerMaintenancePage from "./pages/manager/ManagerMaintenancePage";
 import ManagerSettingsPage from "./pages/manager/ManagerSettingsPage";
 import TeamPage from "./pages/manager/TeamPage";
