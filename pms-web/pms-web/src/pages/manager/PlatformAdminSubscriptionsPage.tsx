@@ -40,17 +40,18 @@ export default function PlatformAdminSubscriptionsPage() {
       ]);
       setPayments(paymentPayload.data ?? []);
       setOrganizations(organizationPayload.data ?? []);
-      if (!organizationId && organizationPayload.data?.length) {
-        const first = organizationPayload.data[0];
-        setOrganizationId(String(first.id));
-        setPricingJson(JSON.stringify(first.platform_subscription?.pricing_overrides ?? {}, null, 2));
-      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load pending subscription payments.");
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { if (isPlatformAdmin) void load(); else setLoading(false); }, [isPlatformAdmin, load]);
+  useEffect(() => {
+    if (!organizationId && organizations.length) {
+      setOrganizationId(String(organizations[0].id));
+      setPricingJson(JSON.stringify(organizations[0].platform_subscription?.pricing_overrides ?? {}, null, 2));
+    }
+  }, [organizations, organizationId]);
 
   async function review(payment: Payment, approved: boolean) {
     setBusyId(payment.id); setError(""); setNotice("");
