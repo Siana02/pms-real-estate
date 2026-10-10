@@ -47,7 +47,8 @@ function portalForRole(role: string): Portal { if (TENANT_ROLES.includes(role)) 
 function homePath(): string { return portalForRole(getRole()) === "tenant" ? "/tenant/dashboard" : "/manager/dashboard"; }
 function RequireAuth({ children }: { children: ReactNode }) { return getToken() ? <>{children}</> : <Navigate to="/login" replace />; }
 function RequirePortal({ portal, children, allowUnsubscribed = false }: { portal: Portal; children: ReactNode; allowUnsubscribed?: boolean }) {
- const [subscriptionAccess, setSubscriptionAccess] = useState<"checking" | "active" | "required" | "error">(allowUnsubscribed ? "active" : "checking");
+ const [subscriptionAccess, setSubscriptionAccess] = useState<"checking" | "active" | "required" | "feature_blocked" | "error">(allowUnsubscribed ? "active" : "checking");
+ const currentPath = window.location.pathname;
  useEffect(() => {
   if (allowUnsubscribed || !getToken()) return;
   let cancelled = false;
@@ -55,21 +56,27 @@ function RequirePortal({ portal, children, allowUnsubscribed = false }: { portal
   fetch(API_BASE + "/platform-subscription/status", { headers: { Accept: "application/json", Authorization: "Bearer " + token } })
    .then(async response => {
     if (!response.ok) throw new Error("Unable to verify the organization subscription.");
-    return response.json() as Promise<{ subscription?: { status?: string; current_period_ends_at?: string | null } | null }>;
+    return response.json() as Promise<{ subscription?: { status?: string; current_period_ends_at?: string | null } | null; features?: string[] }>;
    })
    .then(payload => {
     const subscription = payload.subscription;
     const active = subscription?.status === "active" && !!subscription.current_period_ends_at && new Date(subscription.current_period_ends_at).getTime() > Date.now();
-    if (!cancelled) setSubscriptionAccess(active ? "active" : "required");
+    const requiredFeature = portal === "tenant" ? "tenant_portal" :
+      currentPath === "/manager/guest-payment-links" ? "tenant_payment_links" :
+      currentPath === "/manager/payments" ? "payment_ledger" :
+      ["/manager/expenses", "/manager/maintenance", "/manager/requests", "/manager/settings/team", "/manager/audit-log"].includes(currentPath) ? "premium_operations" : null;
+    const hasFeature = !requiredFeature || (payload.features ?? []).includes(requiredFeature);
+    if (!cancelled) setSubscriptionAccess(!active ? "required" : hasFeature ? "active" : "feature_blocked");
    })
    .catch(() => { if (!cancelled) setSubscriptionAccess("error"); });
   return () => { cancelled = true; };
- }, [portal, allowUnsubscribed]);
+ }, [portal, allowUnsubscribed, currentPath]);
  if (!getToken()) return <Navigate to="/login" replace />;
  if (portalForRole(getRole()) !== portal) return <Navigate to={homePath()} replace />;
  if (mustChangePassword()) return <Navigate to="/password-setup" replace />;
  if (portal === "manager" && allowUnsubscribed) return <>{children}</>;
  if (subscriptionAccess === "checking") return <div style={{minHeight:"50vh",display:"grid",placeItems:"center",padding:24,color:"var(--pms-text,#fff)"}}>Checking organization subscription…</div>;
+ if (subscriptionAccess === "feature_blocked") return <div style={{maxWidth:640,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h1>This feature is not in your current plan</h1><p>Your organization can keep using the features included in its active subscription. Contact platform support to discuss a tier change or a negotiated rate. Tenants do not pay for platform subscriptions.</p><a href="/manager/subscription" style={{display:"inline-block",marginTop:10,padding:"10px 14px",borderRadius:10,background:"var(--pms-accent,#3b82f6)",color:"#fff",textDecoration:"none",fontWeight:800}}>View subscription</a></div>;
  if (subscriptionAccess === "error") return <div style={{maxWidth:620,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h2>Subscription status unavailable</h2><p>We could not verify the organization’s subscription, so this page is temporarily locked. Check your connection and try again.</p><button type="button" onClick={()=>window.location.reload()}>Try again</button></div>;
  if (subscriptionAccess === "required") {
   if (portal === "manager") return <Navigate to="/manager/subscription" replace />;
