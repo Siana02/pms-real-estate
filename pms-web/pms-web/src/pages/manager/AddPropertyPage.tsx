@@ -1644,15 +1644,22 @@ function AddProperties() {
                       <div className="ap-unit__fields">
                         <div>
                           <label className="ap-unit__label" htmlFor={`inventory-type-${index}`}>Unit type</label>
-                          <input
-                            id={`inventory-type-${index}`}
+                          <select
+                            id={unit.id + "-type"}
                             className="ap-input"
-                            value={item.unit_type}
-                            onChange={(event) => setInventory((current) => current.map((row, rowIndex) =>
-                              rowIndex === index ? { ...row, unit_type: event.target.value } : row
-                            ))}
-                            placeholder="e.g. One Bedroom"
-                          />
+                            required
+                            value={unit.unit_type}
+                            onChange={(event) => updateUnit(unit.id, { unit_type: event.target.value })}
+                          >
+                            <option value="">Choose unit type</option>
+                            <option value="Bedsitter">Bedsitter</option><option value="Studio">Studio</option>
+                            <option value="1 bedroom">1 bedroom</option><option value="2 bedroom">2 bedroom</option>
+                            <option value="3 bedroom">3 bedroom</option><option value="4 bedroom">4 bedroom</option>
+                            <option value="5 bedroom">5 bedroom</option><option value="6 bedroom">6 bedroom</option>
+                            <option value="7 bedroom">7 bedroom</option><option value="8 bedroom">8 bedroom</option>
+                            <option value="9 bedroom">9 bedroom</option><option value="10 bedroom">10 bedroom</option>
+                            <option value="Commercial / other">Commercial / other</option>
+                          </select>
                         </div>
                         <div>
                           <label className="ap-unit__label" htmlFor={`inventory-quantity-${index}`}>Quantity</label>
