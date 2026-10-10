@@ -444,7 +444,7 @@ function Sidebar() {
           <ShieldCheck />
           Privacy policy
         </NavLink>
-        <NavLink to="/settings" className={linkClass}>
+        <NavLink to="/settings" className={linkClass} data-tour="/manager/settings">
           <Settings />
           Settings
         </NavLink>
