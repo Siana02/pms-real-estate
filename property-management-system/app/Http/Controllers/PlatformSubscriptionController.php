@@ -167,6 +167,15 @@ class PlatformSubscriptionController extends Controller
         return response()->json(['message' => 'Payment reference submitted for verification. Access will activate after the payment is confirmed.', 'payment' => $payment], 201);
     }
 
+    public function adminOrganizations(Request $request)
+    {
+        abort_unless($request->user()->role === 'platform_admin', 403, 'Platform administrator access is required.');
+        return response()->json([
+            'data' => Organization::with('platformSubscription:id,organization_id,plan_code,status,billable_units,monthly_amount,pricing_overrides')
+                ->orderBy('name')->get(['id', 'name', 'email']),
+        ]);
+    }
+
     public function pendingPayments(Request $request)
     {
         abort_unless($request->user()->role === 'platform_admin', 403, 'Platform administrator access is required.');
