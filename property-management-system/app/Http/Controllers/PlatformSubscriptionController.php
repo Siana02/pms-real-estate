@@ -16,13 +16,13 @@ class PlatformSubscriptionController extends Controller
         return [
             'basic' => [
                 'code' => 'basic', 'name' => 'Basic', 'price_model' => 'flat',
-                'base_rate' => 100, 'description' => 'Essential property and unit records with database payment matching.',
-                'features' => ['Property, unit, tenancy and lease records', 'Incoming payment matching to the organization database', 'Monthly reconciliation and payment status overview', 'Core reporting and exports', 'No tenant portal or tenant payment links'],
+                'base_rate' => 100, 'description' => 'A lean recordkeeping plan focused on matching incoming payments to your property database.',
+                'features' => ['Property, unit and tenancy reference records required for matching', 'Incoming payment matching against the organization database', 'Basic matched and unmatched payment status', 'No tenant portal, tenant registration, payment links, full ledger or premium operations'],
             ],
             'standard' => [
                 'code' => 'standard', 'name' => 'Standard', 'price_model' => 'flat',
                 'base_rate' => 125, 'description' => 'Payment matching plus shareable tenant payment links, without tenant portal accounts.',
-                'features' => ['Everything in Basic', 'Shareable tenant payment links', 'Payment destination instructions for tenants', 'Database matching and reconciliation ledger', 'No tenant portal registration or self-service tenant dashboard'],
+                'features' => ['Everything in Basic', 'Shareable tenant payment links', 'Payment destination instructions for tenants', 'Payment matching and basic reconciliation status', 'No tenant portal registration, full payment ledger or premium operations'],
             ],
             'premium' => [
                 'code' => 'premium', 'name' => 'Premium', 'price_model' => 'unit_type',
@@ -48,6 +48,7 @@ class PlatformSubscriptionController extends Controller
 
         if ($plan === 'basic') return 100;
         if ($plan === 'standard') return 125;
+        if (str_contains($normalized, '20+ bedroom')) return 1100;
         if (str_contains($normalized, 'bed-sit') || str_contains($normalized, 'bedsitter') || str_contains($normalized, 'studio')) return 100;
         if (preg_match('/(\d+)\s*[- ]?\s*(?:bed|bedroom)/', $normalized, $matches)) {
             $bedrooms = max(1, (int) $matches[1]);
