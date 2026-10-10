@@ -22,16 +22,16 @@ const styles = `
   justify-content: space-between;
   height: 4rem;
   padding: 0 1rem;
-  background: #ffffff;
-  border-bottom: 1px solid #e1e4e7;
+  background: var(--pms-rail, #ffffff);
+  border-bottom: 1px solid var(--pms-border, #e1e4e7);
 }
 .dl-brand { display:flex; align-items:center; gap:.625rem; }
-.dl-brand__mark { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; border-radius:.75rem; background:#0a192f; color:#fff; }
+.dl-brand__mark { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; border-radius:.75rem; background:var(--pms-accent, #0a192f); color:#fff; }
 .dl-brand__mark svg { width:1.125rem; height:1.125rem; }
-.dl-brand__name { font-size:1.0625rem; font-weight:600; color:#18202a; white-space:nowrap; }
-.dl-brand__name span { color:#315f8a; }
+.dl-brand__name { font-size:1.0625rem; font-weight:600; color:var(--pms-heading, #18202a); white-space:nowrap; }
+.dl-brand__name span { color:var(--pms-accent, #315f8a); }
 .dl-topbar__actions { display:flex; gap:.5rem; }
-.dl-iconbtn { display:inline-flex; align-items:center; justify-content:center; width:2.5rem; height:2.5rem; border:1px solid #e1e5e8; border-radius:.75rem; background:#fff; color:#52606f; cursor:pointer; }
+.dl-iconbtn { display:inline-flex; align-items:center; justify-content:center; width:2.5rem; height:2.5rem; border:1px solid #e1e5e8; border-radius:.75rem; background:var(--pms-surface, #fff); color:var(--pms-text, #52606f); border-color:var(--pms-border, #e1e5e8); cursor:pointer; }
 .dl-iconbtn svg { width:1.125rem; height:1.125rem; }
 
 .dl-rail {
@@ -44,8 +44,8 @@ const styles = `
   width: 17rem;
   flex-direction: column;
   overflow-y: auto;
-  background: #ffffff;
-  border-right: 1px solid #e1e4e7;
+  background: var(--pms-rail, #ffffff);
+  border-right: 1px solid var(--pms-border, #e1e4e7);
   transform: translateX(-100%);
 }
 .dl-rail--open { transform: translateX(0); }
@@ -79,6 +79,19 @@ interface DashboardLayoutProps {
 function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const openForTour = () => {
+      if (window.innerWidth < 1024) setMobileOpen(true);
+    };
+    const closeForTour = () => setMobileOpen(false);
+    window.addEventListener("pms:open-manager-nav", openForTour);
+    window.addEventListener("pms:close-manager-nav", closeForTour);
+    return () => {
+      window.removeEventListener("pms:open-manager-nav", openForTour);
+      window.removeEventListener("pms:close-manager-nav", closeForTour);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return;
