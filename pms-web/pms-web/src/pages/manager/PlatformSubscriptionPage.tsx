@@ -66,10 +66,6 @@ function readCanManage(): boolean {
     return false;
   }
 }
-function statusLabel(status: string): string {
-  return status.replaceAll("_", " ");
-}
-
 const UNIT_TYPES = ["Bedsitter", "Studio", "1 bedroom", "2 bedroom", "3 bedroom", "4 bedroom", "5 bedroom", "6 bedroom", "7 bedroom", "8 bedroom", "9 bedroom", "10 bedroom", "11 bedroom", "12 bedroom", "13 bedroom", "14 bedroom", "15 bedroom", "16 bedroom", "17 bedroom", "18 bedroom", "19 bedroom", "20 bedroom", "20+ bedroom", "Commercial / other"];
 const EMPTY_MIX = Object.fromEntries(UNIT_TYPES.map((type) => [type, 0])) as Record<string, number>;
 
