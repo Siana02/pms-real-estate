@@ -13,10 +13,14 @@ class PlatformSubscriptionController extends Controller
 {
     private function plans(): array
     {
-        $premiumUnitRates = ['Bedsitter' => 100, 'Studio' => 100, '1 bedroom' => 150, 'Commercial / other' => 150, '20+ bedroom' => 200];
-        for ($bedrooms = 2; $bedrooms <= 20; $bedrooms++) {
-            $premiumUnitRates[$bedrooms . ' bedroom'] = 200;
-        }
+        $premiumUnitRates = [
+            'Bedsitter' => 100,
+            'Studio' => 100,
+            '1 bedroom' => 150,
+            '2 bedroom' => 200,
+            '3+ bedrooms' => 200,
+            'Commercial / other' => 150,
+        ];
 
         return [
             'basic' => [
@@ -53,8 +57,11 @@ class PlatformSubscriptionController extends Controller
 
         if ($plan === 'basic') return 100;
         if ($plan === 'standard') return 125;
+        // The estimator's generic portfolio fallback uses a neutral rate until
+        // registered unit types are available; real properties are priced by unit_type.
+        if (str_contains($normalized, 'portfolio units')) return 150;
         // Premium pricing is flat for every unit with two or more bedrooms.
-        if (str_contains($normalized, '20+ bedroom')) return 200;
+        if (str_contains($normalized, '3+ bedroom') || str_contains($normalized, '20+ bedroom')) return 200;
         if (str_contains($normalized, 'bed-sit') || str_contains($normalized, 'bedsitter') || str_contains($normalized, 'studio')) return 100;
         if (preg_match('/(\d+)\s*[- ]?\s*(?:bed|bedroom)/', $normalized, $matches)) {
             $bedrooms = max(1, (int) $matches[1]);
