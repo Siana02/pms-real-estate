@@ -73,14 +73,6 @@ function readCanManage(): boolean {
 function statusLabel(status: string): string {
   return status.replaceAll("_", " ");
 }
-function premiumRate(type: string): number {
-  const normalized = type.toLowerCase();
-  if (normalized.includes("bedsitter") || normalized === "studio") return 100;
-  if (normalized.includes("commercial")) return 150;
-  const bedrooms = Number.parseInt(normalized, 10);
-  if (!Number.isFinite(bedrooms)) return 150;
-  return bedrooms === 1 ? 150 : 200;
-}
 
 export default function PlatformSubscriptionPage() {
   const [data, setData] = useState<Payload | null>(null);
