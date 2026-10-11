@@ -15,17 +15,22 @@ return new class extends Migration
             return;
         }
 
-        $indexes = DB::select(
-            'SELECT INDEX_NAME, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR \,\') AS columns_list
+        $indexRows = DB::select(
+            'SELECT INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX
              FROM information_schema.STATISTICS
              WHERE TABLE_SCHEMA = DATABASE()
                AND TABLE_NAME = ?
-             GROUP BY INDEX_NAME',
+             ORDER BY INDEX_NAME, SEQ_IN_INDEX',
             ['maintenance_request_updates']
         );
 
-        foreach ($indexes as $index) {
-            if ($index->columns_list === 'maintenance_request_id,created_at') {
+        $indexes = [];
+        foreach ($indexRows as $row) {
+            $indexes[$row->INDEX_NAME][] = $row->COLUMN_NAME;
+        }
+
+        foreach ($indexes as $columns) {
+            if ($columns === ['maintenance_request_id', 'created_at']) {
                 return;
             }
         }
