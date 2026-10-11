@@ -45,14 +45,7 @@ type Payload = {
   features?: string[];
 };
 
-const UNIT_TYPES = [
-  "Bedsitter", "Studio", "1 bedroom", "2 bedroom", "3 bedroom", "4 bedroom",
-  "5 bedroom", "6 bedroom", "7 bedroom", "8 bedroom", "9 bedroom", "10 bedroom",
-  "11 bedroom", "12 bedroom", "13 bedroom", "14 bedroom", "15 bedroom",
-  "16 bedroom", "17 bedroom", "18 bedroom", "19 bedroom", "20 bedroom",
-  "20+ bedroom", "Commercial / other"
-];
-const DEFAULT_MIX = Object.fromEntries(UNIT_TYPES.map((type) => [type, 0])) as Record<string, number>;
+const FALLBACK_UNIT_TYPE = "Portfolio units";
 
 const styles = [
 ".bs-page{--bs-ink:#172033;--bs-muted:#58677d;--bs-line:#dce3ec;--bs-paper:#fff;--bs-soft:#f5f7fb;--bs-brand:#4338ca;--bs-brand2:#312e81;color:var(--bs-ink);background:linear-gradient(180deg,#f8faff 0%,#fff 36rem);min-height:100%;padding:clamp(16px,3vw,34px);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:normal;}",
@@ -99,7 +92,8 @@ export default function PlatformSubscriptionPage() {
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [unitMix, setUnitMix] = useState<Record<string, number>>(DEFAULT_MIX);
+  const [propertyCount, setPropertyCount] = useState(1);
+  const [unitCount, setUnitCount] = useState(1);
   const canManage = useMemo(readCanManage, []);
 
   const load = useCallback(async () => {
@@ -108,9 +102,6 @@ export default function PlatformSubscriptionPage() {
     try {
       const result = await apiRequest("/platform-subscription/status") as Payload;
       setData(result);
-      if (result.subscription?.unit_mix) {
-        setUnitMix((current) => ({ ...DEFAULT_MIX, ...current, ...result.subscription?.unit_mix }));
-      }
       if (result.quote) setAmount(String(result.quote.monthly_amount));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "We could not load your subscription details. Please try again.");
@@ -121,26 +112,27 @@ export default function PlatformSubscriptionPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const estimatedUnits = useMemo(
-    () => Object.values(unitMix).reduce((sum, count) => sum + Math.max(0, Number(count) || 0), 0),
-    [unitMix]
-  );
+  const estimatedUnits = Math.min(100000, Math.max(0, Number(unitCount) || 0));
+  const estimatedProperties = Math.min(10000, Math.max(0, Number(propertyCount) || 0));
   const estimates = useMemo(() => {
-    const totals: Record<string, number> = {};
+    const totals: Record<string, { min: number; max: number }> = {};
     for (const plan of data?.plans ?? []) {
-      totals[plan.code] = Object.entries(unitMix).reduce((sum, [type, rawCount]) => {
-        const count = Math.max(0, Number(rawCount) || 0);
-        const override = data?.subscription?.pricing_overrides?.[type];
-        const rate = typeof override === "number" ? override : plan.code === "premium" ? (plan.unit_rates?.[type] ?? premiumRate(type)) : (plan.base_rate ?? (plan.code === "basic" ? 100 : 125));
-        return sum + count * rate;
-      }, 0);
+      if (plan.code === "premium") {
+        const rates = Object.values(plan.unit_rates ?? { bedsitter: 100, studio: 100, oneBedroom: 150, twoBedroom: 200, threePlusBedrooms: 200 });
+        const minRate = rates.length ? Math.min(...rates) : 100;
+        const maxRate = rates.length ? Math.max(...rates) : 200;
+        totals[plan.code] = { min: estimatedUnits * minRate, max: estimatedUnits * maxRate };
+      } else {
+        const rate = plan.base_rate ?? (plan.code === "basic" ? 100 : 125);
+        totals[plan.code] = { min: estimatedUnits * rate, max: estimatedUnits * rate };
+      }
     }
     return totals;
-  }, [data?.plans, unitMix]);
+  }, [data?.plans, estimatedUnits]);
 
   const currentPlan = data?.plans.find((plan) => plan.code === data.subscription?.plan_code);
   const hasActiveSubscription = data?.subscription?.status === "active";
-  const canChoosePlan = !hasActiveSubscription && estimatedUnits > 0 && canManage;
+  const canChoosePlan = !hasActiveSubscription && estimatedUnits > 0 && estimatedProperties > 0 && canManage;
 
   async function choosePlan(planCode: string) {
     setBusyPlan(planCode);
@@ -149,7 +141,7 @@ export default function PlatformSubscriptionPage() {
     try {
       const result = await apiRequest("/platform-subscription/select", {
         method: "POST",
-        body: JSON.stringify({ plan_code: planCode, unit_mix: unitMix })
+        body: JSON.stringify({ plan_code: planCode, unit_mix: { [FALLBACK_UNIT_TYPE]: estimatedUnits } })
       }) as { message?: string };
       setNotice(result.message ?? "Your plan has been saved. Continue to payment below.");
       await load();
@@ -225,24 +217,29 @@ export default function PlatformSubscriptionPage() {
           <section className="bs-estimator" aria-labelledby="bs-estimator-title">
             <div className="bs-estimator-head">
               <div className="bs-icon-box"><CreditCard size={21} /></div>
-              <div><h3 id="bs-estimator-title">Estimate your monthly cost</h3><p>Enter how many units you expect to manage. This is an estimate for comparing plans; your actual fee is based on the units recorded for your organization.</p></div>
+              <div><h3 id="bs-estimator-title">Estimate your portfolio</h3><p>Just enter the number of properties and total units you expect to manage. No need to count each bedroom type individually.</p></div>
             </div>
             <div className="bs-mix">
-              {UNIT_TYPES.map((type) => <label className="bs-field" key={type}>{type}
-                <input type="number" inputMode="numeric" min="0" step="1" value={unitMix[type] ?? 0}
-                  onChange={(event) => setUnitMix((current) => ({ ...current, [type]: Math.min(100000, Math.max(0, Number.parseInt(event.target.value, 10) || 0)) }))}
-                  aria-label={"Number of " + type + " units"} />
-              </label>)}
+              <label className="bs-field">Number of properties
+                <input type="number" inputMode="numeric" min="1" max="10000" step="1" value={propertyCount}
+                  onChange={(event) => setPropertyCount(Math.min(10000, Math.max(0, Number.parseInt(event.target.value, 10) || 0)))}
+                  aria-label="Number of properties" />
+              </label>
+              <label className="bs-field">Total units across all properties
+                <input type="number" inputMode="numeric" min="1" max="100000" step="1" value={unitCount}
+                  onChange={(event) => setUnitCount(Math.min(100000, Math.max(0, Number.parseInt(event.target.value, 10) || 0)))}
+                  aria-label="Total units across all properties" />
+              </label>
             </div>
-            <div className="bs-estimator-foot"><CircleHelp size={16} /><span>Premium rates: bedsitter/studio KES 100; 1-bedroom KES 150; 2-bedroom and larger, including 20+, KES 200 per unit. Basic and Standard have flat unit rates. Any negotiated rate set for your organization takes precedence on the final quote.</span></div>
-            <div className="bs-total"><strong>{estimatedUnits.toLocaleString()} estimated units</strong><div><span>Monthly estimate for each plan</span></div></div>
+            <div className="bs-estimator-foot"><CircleHelp size={16} /><span>Basic and Standard have a fixed rate per unit. Premium ranges from KES 100–200 per unit depending on unit type: bedsitter/studio, 1 bedroom, 2 bedrooms, or 3+ bedrooms. This estimate is for comparison; your actual subscription quote uses your organization's registered units and any negotiated rates.</span></div>
+            <div className="bs-total"><strong>{estimatedProperties.toLocaleString()} {estimatedProperties === 1 ? "property" : "properties"} · {estimatedUnits.toLocaleString()} {estimatedUnits === 1 ? "unit" : "units"}</strong><div><span>Estimated monthly subscription cost</span></div></div>
           </section>
 
           <div className="bs-plans">
             {(data?.plans ?? []).map((plan) => {
               const selected = data?.subscription?.plan_code === plan.code;
               const featured = plan.code === "premium";
-              const estimate = estimates[plan.code] ?? 0;
+              const estimate = estimates[plan.code] ?? { min: 0, max: 0 };
               const premiumRates = Object.values(plan.unit_rates ?? { studio: 100, oneBedroom: 150, twoBedroom: 200 });
               const headlinePrice = plan.price_model === "flat" ? "KES " + (plan.base_rate ?? 0) : "KES " + Math.min(...premiumRates) + "–" + Math.max(...premiumRates);
               const priceSuffix = "per unit / month";
@@ -259,12 +256,12 @@ export default function PlatformSubscriptionPage() {
                 <ul className="bs-features">{planFeatures.map((feature) => <li key={feature}><CheckCircle2 size={16} /> <span>{feature}</span></li>)}</ul>
                 <div className="bs-plan-actions">
                   <div style={{ borderRadius: 12, background: featured ? "#ede9fe" : "#f8fafc", padding: "12px 13px", marginBottom: 3 }}>
-                    <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Your estimate · {estimatedUnits} units</span>
-                    <strong style={{ display: "block", color: "#1e1b4b", fontSize: 20 }}>{formatMoney(estimate, "KES")}<span style={{ fontSize: 11, fontWeight: 650, color: "#64748b" }}> / month</span></strong>
+                    <span style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4 }}>Estimate · {estimatedUnits} units</span>
+                    <strong style={{ display: "block", color: "#1e1b4b", fontSize: 20 }}>{estimate.min === estimate.max ? formatMoney(estimate.min, "KES") : formatMoney(estimate.min, "KES") + "–" + formatMoney(estimate.max, "KES")}<span style={{ fontSize: 11, fontWeight: 650, color: "#64748b" }}> / month</span></strong>
                   </div>
                   <button className="bs-choose" type="button" disabled={!canChoosePlan || !!busyPlan || selected}
                     onClick={() => void choosePlan(plan.code)}>
-                    {busyPlan === plan.code ? "Saving your selection…" : selected ? <><Check size={17} /> {hasActiveSubscription ? "Your active plan" : "Selected plan"}</> : hasActiveSubscription ? "Contact support to change" : !canManage ? "Owner / admin only" : estimatedUnits < 1 ? "Add your unit count above" : <>Choose {plan.name} <ArrowRight size={16} /></>}
+                    {busyPlan === plan.code ? "Saving your selection…" : selected ? <><Check size={17} /> {hasActiveSubscription ? "Your active plan" : "Selected plan"}</> : hasActiveSubscription ? "Contact support to change" : !canManage ? "Owner / admin only" : estimatedProperties < 1 ? "Add your property count above" : estimatedUnits < 1 ? "Add your total unit count above" : <>Choose {plan.name} <ArrowRight size={16} /></>}
                   </button>
                   <p className="bs-plan-caption">{selected ? "Your selection is saved." : "No payment is taken when you select a plan."}</p>
                 </div>
@@ -279,7 +276,7 @@ export default function PlatformSubscriptionPage() {
             <thead><tr><th>Capability</th>{(data?.plans ?? []).map((plan) => <th key={plan.code}>{plan.name}</th>)}</tr></thead>
             <tbody>
               {[
-                { label: "Monthly rate", values: (data?.plans ?? []).map((plan) => plan.price_model === "flat" ? "KES " + (plan.base_rate ?? 0) + " per unit" : "KES " + Math.min(...Object.values(plan.unit_rates ?? { studio: 100, oneBedroom: 150, twoBedroom: 200 })) + "–" + Math.max(...Object.values(plan.unit_rates ?? { studio: 100, oneBedroom: 150, twoBedroom: 200 })) + " by unit type") },
+                { label: "Monthly rate", values: (data?.plans ?? []).map((plan) => plan.price_model === "flat" ? "KES " + (plan.base_rate ?? 0) + " per unit" : "KES " + Math.min(...Object.values(plan.unit_rates ?? { bedsitter: 100, studio: 100, oneBedroom: 150, twoBedroom: 200, threePlusBedrooms: 200 })) + "–" + Math.max(...Object.values(plan.unit_rates ?? { bedsitter: 100, studio: 100, oneBedroom: 150, twoBedroom: 200, threePlusBedrooms: 200 })) + " by unit type") },
                 { label: "Payment matching to property records", values: ["Included", "Included", "Included"] },
                 { label: "Shareable tenant payment links", values: ["—", "Included", "Included"] },
                 { label: "Tenant portal and self-service", values: ["—", "—", "Included"] },
@@ -345,7 +342,7 @@ export default function PlatformSubscriptionPage() {
           <div className="bs-faq">
             <article className="bs-faq-item"><h4><CircleHelp size={16} /> When does my subscription become active?</h4><p>After you select a plan, pay to the official platform Till and submit the receipt code, our platform team verifies the payment. Your subscription activates after confirmation.</p></article>
             <article className="bs-faq-item"><h4><CircleHelp size={16} /> Does a tenant need to pay this subscription?</h4><p>No. The organization/property owner pays the platform subscription. Tenants do not pay MARSWebz for access to a property manager's account.</p></article>
-            <article className="bs-faq-item"><h4><CircleHelp size={16} /> How is my monthly fee calculated?</h4><p>Basic is KES 100 per unit and Standard is KES 125 per unit. Premium is KES 100 for bedsitters/studios, KES 150 for one-bedroom units, and KES 200 for every unit with two or more bedrooms, including 20+. Negotiated organization rates may apply.</p></article>
+            <article className="bs-faq-item"><h4><CircleHelp size={16} /> How is my monthly fee calculated?</h4><p>Basic is KES 100 per unit and Standard is KES 125 per unit. Premium is KES 100 for bedsitters/studios, KES 150 for one-bedroom units, and KES 200 for two-bedroom and 3+ bedroom units. Negotiated organization rates may apply.</p></article>
             <article className="bs-faq-item"><h4><CircleHelp size={16} /> Can I change a plan after activating it?</h4><p>To avoid unexpected billing changes, an active plan cannot currently be switched from this screen. Contact platform support to discuss a plan change or a negotiated quote.</p></article>
           </div>
         </section>
