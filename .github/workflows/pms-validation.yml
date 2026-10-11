@@ -68,18 +68,17 @@ jobs:
           extensions: mbstring, pdo_mysql, bcmath, gd, intl, zip
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - name: Check changed PHP files
-        run: |
-          php -l app/Http/Controllers/AuthController.php
-          php -l app/Http/Controllers/PlatformSubscriptionController.php
-          php -l app/Http/Controllers/GuestTenantPaymentLinkController.php
-          php -l app/Http/Controllers/PropertyController.php
-          php -l app/Http/Controllers/UnitController.php
-          php -l app/Http/Middleware/EnsureActivePlatformSubscription.php
-          php -l app/Http/Middleware/EnsureSubscriptionFeature.php
-          php -l app/Models/PlatformSubscription.php
-          php -l app/Models/PlatformSubscriptionPayment.php
-          php -l database/migrations/2026_10_10_000001_create_platform_subscriptions_table.php
-          php -l database/migrations/2026_10_11_000001_add_portfolio_estimates_to_platform_subscriptions.php
-          php -l config/services.php
-      - run: php artisan test
+      - name: Check all backend PHP syntax
+        run: find app database/migrations tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Test 1 - fresh MySQL migrations
+        run: php artisan migrate:fresh --force
+      - name: Test 2 - database relationship integrity
+        run: php artisan test tests/Feature/DatabaseRelationshipIntegrityTest.php
+      - name: Test 3 - tenant and lease lifecycle
+        run: php artisan test tests/Feature/PropertyTenantWorkflowTest.php
+      - name: Test 4 - rent/payment and reconciliation integrations
+        run: php artisan test tests/Feature/DarajaC2bRoutingSafetyTest.php tests/Unit/PaymentDestinationDarajaConfigurationTest.php
+      - name: Test 5 - team and organization access
+        run: php artisan test tests/Feature/TeamManagementTest.php tests/Feature/OrganizationOwnershipTest.php
+      - name: Full Laravel regression suite
+        run: php artisan test
