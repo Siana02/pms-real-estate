@@ -223,6 +223,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->withToken($token)->postJson('/api/units', [
             'property_id' => $foreignProperty->id,
             'unit_number' => 'X02',
+            'unit_type' => 'Studio',
             'monthly_rent' => 10000,
             'status' => 'vacant',
         ])->assertForbidden();
