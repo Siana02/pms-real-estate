@@ -290,11 +290,13 @@ class PropertyTenantWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('user.must_change_password', true);
         $tenantToken = $tenantLogin->json('token');
 
-        $this->withToken($tenantToken)->postJson('/api/change-password', [
+        $changePasswordResponse = $this->withToken($tenantToken)->postJson('/api/change-password', [
             'current_password' => $temporaryPassword,
             'password' => 'PermanentPass123!',
             'password_confirmation' => 'PermanentPass123!',
-        ])->assertOk()->assertJsonPath('user.must_change_password', false);
+        ]);
+        $changePasswordResponse->dump();
+        $changePasswordResponse->assertOk()->assertJsonPath('user.must_change_password', false);
 
         $this->postJson('/api/login', [
             'login' => $response->json('account.username'),
@@ -448,9 +450,9 @@ class PropertyTenantWorkflowTest extends TestCase
             'tenant_terms' => 'Tenant accepts the current lease terms.',
         ]);
 
-        $this->withToken($managerToken)
-            ->getJson('/api/leases')
-            ->assertOk()
+        $managerLeasesResponse = $this->withToken($managerToken)->getJson('/api/leases');
+        $managerLeasesResponse->dump();
+        $managerLeasesResponse->assertOk()
             ->assertJsonPath('0.tenant_terms', 'Tenant accepts the current lease terms.');
 
         $this->withToken($tenantToken)
@@ -550,9 +552,9 @@ class PropertyTenantWorkflowTest extends TestCase
         $tenantToken = $tenantUser->createToken('deposit-tenant')->plainTextToken;
         $leaseId = $tenant->leases()->value('id');
 
-        $this->withToken($tenantToken)
-            ->postJson('/api/tenant/deposit/mark-paid')
-            ->assertOk();
+        $markDepositPaidResponse = $this->withToken($tenantToken)->postJson('/api/tenant/deposit/mark-paid');
+        $markDepositPaidResponse->dump();
+        $markDepositPaidResponse->assertOk();
 
         $this->withToken($managerToken)
             ->patchJson('/api/leases/' . $leaseId . '/deposit', [
