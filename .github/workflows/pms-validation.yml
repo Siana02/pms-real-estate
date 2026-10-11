@@ -77,7 +77,7 @@ jobs:
       - name: Test 3 - tenant and lease lifecycle
         run: php artisan test tests/Feature/PropertyTenantWorkflowTest.php
       - name: Test 4 - rent/payment and reconciliation integrations
-        run: php artisan test tests/Feature/DarajaC2bRoutingSafetyTest.php tests/Unit/PaymentDestinationDarajaConfigurationTest.php
+        run: php artisan test tests/Feature/RentLedgerIntegrityTest.php tests/Feature/DarajaC2bRoutingSafetyTest.php tests/Unit/PaymentDestinationDarajaConfigurationTest.php
       - name: Test 5 - team and organization access
         run: php artisan test tests/Feature/TeamManagementTest.php tests/Feature/OrganizationOwnershipTest.php
       - name: Full Laravel regression suite
