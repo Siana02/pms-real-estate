@@ -11,6 +11,7 @@ class PlatformSubscription extends Model
     protected $fillable = [
         'organization_id', 'plan_code', 'status', 'billing_cycle',
         'billable_units', 'monthly_amount', 'pricing_overrides', 'unit_mix',
+        'estimated_properties_count', 'estimated_units_count',
         'current_period_starts_at', 'current_period_ends_at',
         'last_payment_at', 'selected_by',
     ];
