@@ -30,9 +30,19 @@ class Unit extends Model
         return $this->hasMany(Lease::class);
     }
 
+    /**
+     * Payments are recorded against leases, not directly against units.
+     */
     public function payments()
     {
-        return $this->hasMany(Payment::class);
+        return $this->hasManyThrough(
+            Payment::class,
+            Lease::class,
+            'unit_id',
+            'lease_id',
+            'id',
+            'id'
+        );
     }
 
     public function tenants()
