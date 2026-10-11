@@ -5,30 +5,28 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * `users.role` already exists, so the only missing link is the one between a
- * login and the tenancy record it represents.
+ * Add the tenant link to logins. The tenants table is created later in the
+ * migration sequence, so its foreign key is added by a subsequent migration.
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            if (! Schema::hasColumn('users', 'tenant_id')) {
-                $table->foreignId('tenant_id')
-                    ->nullable()
-                    ->after('organization_id')
-                    ->constrained('tenants')
-                    ->nullOnDelete();
-            }
-        });
+        if (! Schema::hasColumn('users', 'tenant_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->unsignedBigInteger('tenant_id')->nullable()->after('organization_id');
+                $table->index('tenant_id', 'users_tenant_id_foreign');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            if (Schema::hasColumn('users', 'tenant_id')) {
-                $table->dropConstrainedForeignId('tenant_id');
-            }
-        });
+        if (Schema::hasColumn('users', 'tenant_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropIndex('users_tenant_id_foreign');
+                $table->dropColumn('tenant_id');
+            });
+        }
     }
 };
