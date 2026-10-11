@@ -1645,11 +1645,13 @@ function AddProperties() {
                         <div>
                           <label className="ap-unit__label" htmlFor={`inventory-type-${index}`}>Unit type</label>
                           <select
-                            id={unit.id + "-type"}
+                            id={`inventory-type-${index}`}
                             className="ap-input"
                             required
-                            value={unit.unit_type}
-                            onChange={(event) => updateUnit(unit.id, { unit_type: event.target.value })}
+                            value={item.unit_type}
+                            onChange={(event) => setInventory((current) => current.map((row, rowIndex) =>
+                              rowIndex === index ? { ...row, unit_type: event.target.value } : row
+                            ))}
                           >
                             <option value="">Choose unit type</option>
                             <option value="Bedsitter">Bedsitter</option><option value="Studio">Studio</option>
