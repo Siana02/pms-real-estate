@@ -121,8 +121,11 @@ class PlatformSubscriptionController extends Controller
     public function select(Request $request)
     {
         abort_unless(in_array($request->user()->role, ['admin', 'owner'], true), 403, 'Only the organization owner or primary administrator can manage the platform subscription.');
-        $validated = $request->validate(['plan_code' => ['required', Rule::in(array_keys($this->plans()))], 'unit_mix' => ['required', 'array'], 'unit_mix.*' => ['required', 'integer', 'min:0', 'max:100000']]);
-        abort_if(array_sum($validated['unit_mix']) < 1, 422, 'Enter at least one expected unit before choosing a plan.');
+        $validated = $request->validate([
+            'plan_code' => ['required', Rule::in(array_keys($this->plans()))],
+            'property_count' => ['required', 'integer', 'min:1', 'max:100000'],
+            'unit_count' => ['required', 'integer', 'min:1', 'max:100000'],
+        ]);
         $organization = $request->user()->organization;
         abort_if(!$organization, 422, 'No organization is associated with this account.');
 
@@ -139,8 +142,10 @@ class PlatformSubscriptionController extends Controller
                 'current_period_starts_at' => null,
                 'current_period_ends_at' => null,
             ]);
-            $subscription->unit_mix = $validated['unit_mix'];
-            $quote = $this->quote($organization, $validated['plan_code'], $subscription->pricing_overrides ?? [], $validated['unit_mix']);
+            $subscription->estimated_properties_count = $validated['property_count'];
+            $subscription->estimated_units_count = $validated['unit_count'];
+            $subscription->unit_mix = ['Portfolio units' => $validated['unit_count']];
+            $quote = $this->quote($organization, $validated['plan_code'], $subscription->pricing_overrides ?? [], $subscription->unit_mix);
             $subscription->billable_units = $quote['billable_units'];
             $subscription->monthly_amount = $quote['monthly_amount'];
             $subscription->save();
