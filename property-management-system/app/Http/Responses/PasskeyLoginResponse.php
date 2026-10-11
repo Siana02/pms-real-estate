@@ -3,10 +3,9 @@
 namespace App\Http\Responses;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Laravel\Passkeys\Contracts\PasskeyLoginResponse;
+use Laravel\Passkeys\Contracts\PasskeyLoginResponse as PasskeyLoginResponseContract;
 
-class PasskeyLoginResponse implements PasskeyLoginResponse
+class PasskeyLoginResponse implements PasskeyLoginResponseContract
 {
     public function toResponse($request): JsonResponse
     {
