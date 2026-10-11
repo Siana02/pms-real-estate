@@ -62,5 +62,6 @@ jobs:
           php -l app/Models/PlatformSubscription.php
           php -l app/Models/PlatformSubscriptionPayment.php
           php -l database/migrations/2026_10_10_000001_create_platform_subscriptions_table.php
+          php -l database/migrations/2026_10_11_000001_add_portfolio_estimates_to_platform_subscriptions.php
           php -l config/services.php
       - run: php artisan test
