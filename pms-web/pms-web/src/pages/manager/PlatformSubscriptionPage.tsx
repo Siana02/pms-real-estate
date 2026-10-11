@@ -5,10 +5,41 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
 import { formatMoney } from "../../services/format";
 
-type Plan = { code: string; name: string; price_model: "flat" | "unit_type"; base_rate: number | null; description: string; features: string[] };
-type Subscription = { id: number; plan_code: string; status: string; monthly_amount: string | number; billable_units: number; current_period_ends_at: string | null };
-type Payment = { id: number; amount: string | number; reference: string | null; status: string; created_at: string };
-type Payload = { plans: Plan[]; subscription: Subscription | null; quote: { billable_units: number; monthly_amount: number } | null; till_number: string | null; payment_setup_ready: boolean; payments: Payment[] };
+type Plan = {
+  code: string;
+  name: string;
+  price_model: "flat" | "unit_type";
+  base_rate: number | null;
+  unit_rates?: Record<string, number>;
+  description: string;
+  features: string[];
+};
+type Subscription = {
+  id: number;
+  plan_code: string;
+  status: string;
+  monthly_amount: string | number;
+  billable_units: number;
+  current_period_ends_at: string | null;
+  unit_mix?: Record<string, number>;
+  pricing_overrides?: Record<string, number>;
+};
+type Payment = {
+  id: number;
+  amount: string | number;
+  reference: string | null;
+  status: string;
+  created_at: string;
+};
+type Payload = {
+  plans: Plan[];
+  subscription: Subscription | null;
+  quote: { billable_units: number; monthly_amount: number } | null;
+  till_number: string | null;
+  payment_setup_ready: boolean;
+  payments: Payment[];
+  features?: string[];
+};
 
 const UNIT_TYPES = ["Bedsitter", "Studio", "1 bedroom", "2 bedroom", "3 bedroom", "4 bedroom", "5 bedroom", "6 bedroom", "7 bedroom", "8 bedroom", "9 bedroom", "10 bedroom", "11 bedroom", "12 bedroom", "13 bedroom", "14 bedroom", "15 bedroom", "16 bedroom", "17 bedroom", "18 bedroom", "19 bedroom", "20 bedroom", "20+ bedroom", "Commercial / other"];
 const EMPTY_MIX = Object.fromEntries(UNIT_TYPES.map((type) => [type, 0])) as Record<string, number>;
@@ -48,7 +79,8 @@ export default function PlatformSubscriptionPage() {
   const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
     try {
       const result = await apiRequest("/platform-subscription/status") as Payload;
       setData(result);
@@ -57,6 +89,7 @@ export default function PlatformSubscriptionPage() {
       setError(caught instanceof Error ? caught.message : "We could not load subscription details. Please retry.");
     } finally { setLoading(false); }
   }, []);
+
   useEffect(() => { void load(); }, [load]);
 
   const canManage = useMemo(() => {

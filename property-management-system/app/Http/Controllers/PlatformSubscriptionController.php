@@ -13,6 +13,15 @@ class PlatformSubscriptionController extends Controller
 {
     private function plans(): array
     {
+        $premiumUnitRates = [
+            'Bedsitter' => 100,
+            'Studio' => 100,
+            '1 bedroom' => 150,
+            '2 bedroom' => 200,
+            '3+ bedrooms' => 200,
+            'Commercial / other' => 150,
+        ];
+
         return [
             'basic' => [
                 'code' => 'basic', 'name' => 'Basic', 'price_model' => 'flat',
@@ -26,7 +35,7 @@ class PlatformSubscriptionController extends Controller
             ],
             'premium' => [
                 'code' => 'premium', 'name' => 'Premium', 'price_model' => 'unit_type',
-                'base_rate' => null, 'description' => 'Full tenant-facing experience and the complete management toolkit, priced by unit type.',
+                'base_rate' => null, 'unit_rates' => $premiumUnitRates, 'description' => 'Full tenant-facing experience and the complete management toolkit, priced by unit type.',
                 'features' => ['Everything in Standard', 'Tenant portal registration and onboarding', 'Tenant dashboard, lease and payment views', 'Tenant payment links', 'Full payment matching, reconciliation and ledger', 'Maintenance requests, notifications and tenant self-service', 'Expanded reporting, audit history and management workflows'],
             ],
         ];
@@ -48,8 +57,11 @@ class PlatformSubscriptionController extends Controller
 
         if ($plan === 'basic') return 100;
         if ($plan === 'standard') return 125;
+        // The estimator's generic portfolio fallback uses a neutral rate until
+        // registered unit types are available; real properties are priced by unit_type.
+        if (str_contains($normalized, 'portfolio units')) return 150;
         // Premium pricing is flat for every unit with two or more bedrooms.
-        if (str_contains($normalized, '20+ bedroom')) return 200;
+        if (str_contains($normalized, '3+ bedroom') || str_contains($normalized, '20+ bedroom')) return 200;
         if (str_contains($normalized, 'bed-sit') || str_contains($normalized, 'bedsitter') || str_contains($normalized, 'studio')) return 100;
         if (preg_match('/(\d+)\s*[- ]?\s*(?:bed|bedroom)/', $normalized, $matches)) {
             $bedrooms = max(1, (int) $matches[1]);
