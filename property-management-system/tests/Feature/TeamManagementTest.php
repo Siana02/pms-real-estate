@@ -40,7 +40,7 @@ class TeamManagementTest extends TestCase
 
         $ownerToken = $owner->createToken('test')->plainTextToken;
 
-        $invite = $this->withToken($ownerToken)->postJson('/api/team/invite', [
+        $invite = $this->withFreshToken($ownerToken)->postJson('/api/team/invite', [
             'name' => 'Jane Wanjiku',
             'email' => 'jane@example.com',
             'role' => 'property_manager',
@@ -79,7 +79,7 @@ class TeamManagementTest extends TestCase
         $this->assertSame('active', $employee->status);
         $this->assertTrue(Hash::check('EmployeePass123!', $employee->password));
 
-        $deactivate = $this->withToken($ownerToken)
+        $deactivate = $this->withFreshToken($ownerToken)
             ->patchJson('/api/team/' . $employee->id . '/deactivate');
 
         $deactivate->assertOk()
@@ -91,7 +91,7 @@ class TeamManagementTest extends TestCase
             'status' => 'deactivated',
         ]);
 
-        $reactivate = $this->withToken($ownerToken)
+        $reactivate = $this->withFreshToken($ownerToken)
             ->patchJson('/api/team/' . $employee->id . '/reactivate');
 
         $reactivate->assertOk()
@@ -125,10 +125,17 @@ class TeamManagementTest extends TestCase
 
         $token = $employee->createToken('test')->plainTextToken;
 
-        $this->withToken($token)
+        $this->withFreshToken($token)
             ->getJson('/api/team')
             ->assertForbidden();
     }
+    private function withFreshToken(string $token)
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->withToken($token);
+    }
+
     private function activateSubscription(Organization $organization): void
     {
         PlatformSubscription::create([
