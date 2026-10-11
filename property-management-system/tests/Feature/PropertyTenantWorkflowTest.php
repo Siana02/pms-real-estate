@@ -503,7 +503,7 @@ class PropertyTenantWorkflowTest extends TestCase
                 'manager_signature' => 'AM',
             ])
             ->assertOk()
-            ->assertJsonPath('data.agreement_finalized', true);
+            ->assertJsonPath('lease.agreement_finalized', true);
 
         $this->withFreshToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
