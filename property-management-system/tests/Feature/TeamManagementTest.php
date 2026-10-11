@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Organization;
+use App\Models\PlatformSubscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +24,8 @@ class TeamManagementTest extends TestCase
             'email' => 'owner@example.com',
             'country' => 'Kenya',
         ]);
+
+        $this->activateSubscription($organization);
 
         $owner = User::create([
             'organization_id' => $organization->id,
@@ -109,6 +112,8 @@ class TeamManagementTest extends TestCase
             'country' => 'Kenya',
         ]);
 
+        $this->activateSubscription($organization);
+
         $employee = User::create([
             'organization_id' => $organization->id,
             'name' => 'Staff User',
@@ -124,4 +129,17 @@ class TeamManagementTest extends TestCase
             ->getJson('/api/team')
             ->assertForbidden();
     }
+    private function activateSubscription(Organization $organization): void
+    {
+        PlatformSubscription::create([
+            'organization_id' => $organization->id,
+            'plan_code' => 'premium',
+            'status' => 'active',
+            'billable_units' => 1,
+            'monthly_amount' => 150,
+            'current_period_starts_at' => now()->subDay(),
+            'current_period_ends_at' => now()->addMonth(),
+        ]);
+    }
+
 }
