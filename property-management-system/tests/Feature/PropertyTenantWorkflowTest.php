@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Organization;
+use App\Models\PlatformSubscription;
 use App\Models\Property;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -674,11 +675,55 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame('reserved', $unit->fresh()->status);
     }
 
+    public function test_manager_cannot_assign_a_tenant_to_another_organizations_property(): void
+    {
+        [$organization] = $this->createPropertyInventory();
+
+        $otherOrganization = Organization::create([
+            'name' => 'Other Organization',
+            'email' => 'other-organization@example.test',
+        ]);
+        $otherProperty = Property::create([
+            'organization_id' => $otherOrganization->id,
+            'name' => 'Other Organization Property',
+        ]);
+
+        $manager = User::create([
+            'organization_id' => $organization->id,
+            'name' => 'Tenant Manager',
+            'username' => 'tenant-manager',
+            'email' => 'tenant-manager@example.test',
+            'password' => Hash::make('ManagerPass123!'),
+            'role' => 'admin',
+        ]);
+
+        $this->withToken($manager->createToken('tenant-scope')->plainTextToken)
+            ->postJson('/api/tenants', [
+                'first_name' => 'Cross',
+                'last_name' => 'Organization',
+                'phone' => '+254700000199',
+                'property_id' => $otherProperty->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['property_id']);
+
+        $this->assertDatabaseCount('tenants', 0);
+    }
+
     private function createPropertyInventory(): array
     {
         $organization = Organization::create([
             'name' => 'Biscuit Properties',
             'email' => 'biscuit@example.test',
+        ]);
+        PlatformSubscription::create([
+            'organization_id' => $organization->id,
+            'plan_code' => 'premium',
+            'status' => 'active',
+            'billable_units' => 1,
+            'monthly_amount' => 150,
+            'current_period_starts_at' => now()->subDay(),
+            'current_period_ends_at' => now()->addMonth(),
         ]);
         $property = Property::create([
             'organization_id' => $organization->id,
