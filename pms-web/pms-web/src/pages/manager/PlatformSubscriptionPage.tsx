@@ -77,7 +77,6 @@ function premiumRate(type: string): number {
   const normalized = type.toLowerCase();
   if (normalized.includes("bedsitter") || normalized === "studio") return 100;
   if (normalized.includes("commercial")) return 150;
-  if (normalized.includes("20+ bedroom")) return 200;
   const bedrooms = Number.parseInt(normalized, 10);
   if (!Number.isFinite(bedrooms)) return 150;
   return bedrooms === 1 ? 150 : 200;
