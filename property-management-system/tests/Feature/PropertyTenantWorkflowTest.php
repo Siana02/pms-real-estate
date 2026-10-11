@@ -81,7 +81,7 @@ class PropertyTenantWorkflowTest extends TestCase
 
         $token = $registration->json('token');
 
-        $this->withToken($token)
+        $this->withFreshToken($token)
             ->getJson('/api/tenant/lease-agreement')
             ->assertOk()
             ->assertJsonPath('data.organization.id', $organization->id)
@@ -156,7 +156,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $response = $this->withToken($manager->createToken('inventory-manager')->plainTextToken)
+        $response = $this->withFreshToken($manager->createToken('inventory-manager')->plainTextToken)
             ->postJson('/api/properties', [
                 'name' => 'ABC Plaza',
                 'property_type' => 'residential',
@@ -213,14 +213,14 @@ class PropertyTenantWorkflowTest extends TestCase
         ]);
         $token = $manager->createToken('scoped-manager')->plainTextToken;
 
-        $this->withToken($token)->getJson('/api/properties')
+        $this->withFreshToken($token)->getJson('/api/properties')
             ->assertOk()
             ->assertJsonMissing(['id' => $foreignProperty->id, 'name' => $foreignProperty->name]);
 
-        $this->withToken($token)->getJson("/api/properties/{$foreignProperty->id}")
+        $this->withFreshToken($token)->getJson("/api/properties/{$foreignProperty->id}")
             ->assertForbidden();
 
-        $this->withToken($token)->postJson('/api/units', [
+        $this->withFreshToken($token)->postJson('/api/units', [
             'property_id' => $foreignProperty->id,
             'unit_number' => 'X02',
             'unit_type' => 'Studio',
@@ -249,7 +249,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $leaseStart = now()->addMonthsNoOverflow(2)->toDateString();
         $depositDate = now()->subMonth()->toDateString();
 
-        $response = $this->withToken($managerToken)->postJson('/api/tenants', [
+        $response = $this->withFreshToken($managerToken)->postJson('/api/tenants', [
             'first_name' => 'Amina',
             'last_name' => 'Wanjiru',
             'email' => 'amina@example.test',
@@ -276,7 +276,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame('25000.00', $lease->deposit->amount_required);
         $this->assertSame('reserved', $unit->fresh()->status);
 
-        $this->withToken($managerToken)->postJson('/api/leases', [
+        $this->withFreshToken($managerToken)->postJson('/api/leases', [
             'property_id' => $property->id,
             'unit_id' => $unit->id,
             'tenant_id' => $tenant->id,
@@ -290,20 +290,18 @@ class PropertyTenantWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('user.must_change_password', true);
         $tenantToken = $tenantLogin->json('token');
 
-        $changePasswordResponse = $this->withToken($tenantToken)->postJson('/api/change-password', [
+        $this->withFreshToken($tenantToken)->postJson('/api/change-password', [
             'current_password' => $temporaryPassword,
             'password' => 'PermanentPass123!',
             'password_confirmation' => 'PermanentPass123!',
-        ]);
-        $changePasswordResponse->dump();
-        $changePasswordResponse->assertOk()->assertJsonPath('user.must_change_password', false);
+        ])->assertOk()->assertJsonPath('user.must_change_password', false);
 
         $this->postJson('/api/login', [
             'login' => $response->json('account.username'),
             'password' => 'PermanentPass123!',
         ])->assertOk()->assertJsonPath('user.role', 'tenant');
 
-        $this->withToken($tenantToken)->getJson('/api/tenant/overview')
+        $this->withFreshToken($tenantToken)->getJson('/api/tenant/overview')
             ->assertOk()
             ->assertJsonPath('data.home.property_name', $property->name)
             ->assertJsonPath('data.home.unit_number', $unit->unit_number);
@@ -363,7 +361,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $managerToken = $manager->createToken('reservation-manager')->plainTextToken;
         $handoverDate = now()->addDays(20)->toDateString();
 
-        $this->withToken($managerToken)->postJson('/api/tenants', [
+        $this->withFreshToken($managerToken)->postJson('/api/tenants', [
             'first_name' => 'Current',
             'last_name' => 'Tenant',
             'email' => 'current@example.test',
@@ -430,7 +428,7 @@ class PropertyTenantWorkflowTest extends TestCase
         ]);
         $managerToken = $manager->createToken('agreement-manager')->plainTextToken;
 
-        $tenantAgreement = $this->withToken($tenantToken)
+        $tenantAgreement = $this->withFreshToken($tenantToken)
             ->getJson('/api/tenant/lease-agreement')
             ->assertOk();
 
@@ -438,7 +436,7 @@ class PropertyTenantWorkflowTest extends TestCase
         $this->assertSame($property->name, $tenantAgreement->json('data.property.name'));
         $this->assertSame($unit->unit_number, $tenantAgreement->json('data.unit.unit_number'));
 
-        $this->withToken($tenantToken)
+        $this->withFreshToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
                 'tenant_terms' => 'Tenant accepts the current lease terms.',
             ])
@@ -450,12 +448,12 @@ class PropertyTenantWorkflowTest extends TestCase
             'tenant_terms' => 'Tenant accepts the current lease terms.',
         ]);
 
-        $managerLeasesResponse = $this->withToken($managerToken)->getJson('/api/leases');
-        $managerLeasesResponse->dump();
-        $managerLeasesResponse->assertOk()
+        $this->withFreshToken($managerToken)
+            ->getJson('/api/leases')
+            ->assertOk()
             ->assertJsonPath('0.tenant_terms', 'Tenant accepts the current lease terms.');
 
-        $this->withToken($tenantToken)
+        $this->withFreshToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
                 'requested_move_in_date' => now()->addMonths(2)->toDateString(),
                 'requested_move_out_date' => now()->addMonths(14)->toDateString(),
@@ -470,14 +468,14 @@ class PropertyTenantWorkflowTest extends TestCase
             'requested_move_out_date' => now()->addMonths(14)->toDateString(),
         ]);
 
-        $this->withToken($tenantToken)
+        $this->withFreshToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
                 'tenant_signature' => 'AT',
             ])
             ->assertOk()
             ->assertJsonPath('data.agreement_status', 'awaiting_manager_signature');
 
-        $this->withToken($managerToken)
+        $this->withFreshToken($managerToken)
             ->patchJson('/api/leases/' . $leaseId, [
                 'start_date' => now()->addMonth()->toDateString(),
                 'end_date' => now()->addYear()->toDateString(),
@@ -494,26 +492,26 @@ class PropertyTenantWorkflowTest extends TestCase
             'tenant_signature' => null,
         ]);
 
-        $this->withToken($tenantToken)
+        $this->withFreshToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
                 'tenant_signature' => 'AT',
             ])
             ->assertOk();
 
-        $this->withToken($managerToken)
+        $this->withFreshToken($managerToken)
             ->patchJson('/api/leases/' . $leaseId, [
                 'manager_signature' => 'AM',
             ])
             ->assertOk()
             ->assertJsonPath('data.agreement_finalized', true);
 
-        $this->withToken($tenantToken)
+        $this->withFreshToken($tenantToken)
             ->patchJson('/api/tenant/lease-agreement', [
                 'tenant_terms' => 'Attempted post-signature edit.',
             ])
             ->assertUnprocessable();
 
-        $this->withToken($managerToken)
+        $this->withFreshToken($managerToken)
             ->patchJson('/api/leases/' . $leaseId, [
                 'monthly_rent' => 28000,
             ])
@@ -534,7 +532,7 @@ class PropertyTenantWorkflowTest extends TestCase
         ]);
         $managerToken = $manager->createToken('deposit-manager')->plainTextToken;
 
-        $tenantResponse = $this->withToken($managerToken)->postJson('/api/tenants', [
+        $tenantResponse = $this->withFreshToken($managerToken)->postJson('/api/tenants', [
             'first_name' => 'Deposit',
             'last_name' => 'Tenant',
             'email' => 'deposit@example.test',
@@ -552,18 +550,18 @@ class PropertyTenantWorkflowTest extends TestCase
         $tenantToken = $tenantUser->createToken('deposit-tenant')->plainTextToken;
         $leaseId = $tenant->leases()->value('id');
 
-        $markDepositPaidResponse = $this->withToken($tenantToken)->postJson('/api/tenant/deposit/mark-paid');
-        $markDepositPaidResponse->dump();
-        $markDepositPaidResponse->assertOk();
+        $this->withFreshToken($tenantToken)
+            ->postJson('/api/tenant/deposit/mark-paid')
+            ->assertOk();
 
-        $this->withToken($managerToken)
+        $this->withFreshToken($managerToken)
             ->patchJson('/api/leases/' . $leaseId . '/deposit', [
                 'amount_paid' => 20000,
                 'payment_date' => now()->toDateString(),
             ])
             ->assertOk();
 
-        $this->withToken($tenantToken)
+        $this->withFreshToken($tenantToken)
             ->getJson('/api/tenant/lease-agreement')
             ->assertOk()
             ->assertJsonPath('data.deposit.status', 'paid')
@@ -615,7 +613,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $this->withToken($manager->createToken('lease-register')->plainTextToken)
+        $this->withFreshToken($manager->createToken('lease-register')->plainTextToken)
             ->getJson('/api/leases')
             ->assertOk()
             ->assertJsonFragment([
@@ -651,7 +649,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $this->withToken($manager->createToken('pending-manager')->plainTextToken)
+        $this->withFreshToken($manager->createToken('pending-manager')->plainTextToken)
             ->postJson('/api/tenants', [
                 'first_name' => 'Pending',
                 'last_name' => 'Tenant',
@@ -700,7 +698,7 @@ class PropertyTenantWorkflowTest extends TestCase
             'role' => 'admin',
         ]);
 
-        $this->withToken($manager->createToken('tenant-scope')->plainTextToken)
+        $this->withFreshToken($manager->createToken('tenant-scope')->plainTextToken)
             ->postJson('/api/tenants', [
                 'first_name' => 'Cross',
                 'last_name' => 'Organization',
@@ -711,6 +709,13 @@ class PropertyTenantWorkflowTest extends TestCase
             ->assertJsonValidationErrors(['property_id']);
 
         $this->assertDatabaseCount('tenants', 0);
+    }
+
+    private function withFreshToken(string $token)
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->withToken($token);
     }
 
     private function createPropertyInventory(): array
