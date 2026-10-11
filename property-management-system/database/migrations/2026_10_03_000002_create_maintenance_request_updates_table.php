@@ -22,7 +22,7 @@ return new class extends Migration
                 $table->timestamp('tenant_read_at')->nullable();
                 $table->timestamps();
 
-                $table->index(['maintenance_request_id', 'created_at']);
+                $table->index(['maintenance_request_id', 'created_at'], 'maintenance_updates_request_created_idx');
             });
         }
 
