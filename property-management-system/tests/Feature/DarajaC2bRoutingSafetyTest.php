@@ -6,6 +6,7 @@ use App\Models\DarajaC2bRegistration;
 use App\Models\DarajaC2bEvent;
 use App\Models\PaymentTransaction;
 use App\Models\Payment;
+use App\Models\RentPaymentCredit;
 use App\Services\DarajaC2bRoutingService;
 use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
@@ -268,6 +269,54 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertSame(1, Payment::where('organization_id', $created['organization_id'])->count());
         $this->assertSame(1, DB::table('payment_allocations')->count());
         $this->assertSame('reconciled', $transaction->status);
+    }
+
+    public function test_paid_claim_without_complete_ledger_representation_is_not_marked_reconciled(): void
+    {
+        $created = $this->createDestinationAndLease('Incomplete Paid Claim Properties', 'incomplete-paid-claim@example.test', '51683/{unit}');
+        $receipt = 'PAIDCLAIM001';
+
+        // Simulate a tenant payment that was marked paid before a rent obligation
+        // existed, so it has no allocation, no rent credit and no linked obligation.
+        $claim = Payment::create([
+            'organization_id' => $created['organization_id'],
+            'lease_id' => $created['lease_id'],
+            'payment_destination_id' => $created['destination_id'],
+            'amount' => 25000,
+            'payment_date' => '2026-10-09',
+            'payment_method' => 'mpesa',
+            'payment_type' => 'rent',
+            'status' => 'paid',
+            'reference' => $receipt,
+        ]);
+
+        $registration = DarajaC2bRegistration::create([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'callback_token_hash' => hash('sha256', 'incomplete-paid-claim-token'),
+            'callback_token' => 'incomplete-paid-claim-token',
+            'status' => 'registered',
+            'registered_at' => now(),
+        ]);
+
+        $event = app(DarajaC2bRoutingService::class)->receive($registration, [
+            'BusinessShortCode' => '123456',
+            'TransID' => $receipt,
+            'TransAmount' => '25000.00',
+            'MSISDN' => '254712345678',
+            'BillRefNumber' => '51683/18',
+            'TransTime' => '20261009120000',
+        ], app(PaymentReconciliationService::class));
+
+        $transaction = PaymentTransaction::where('external_transaction_id', $receipt)->firstOrFail();
+
+        $this->assertSame('needs_review', $event->status);
+        $this->assertSame('needs_review', $transaction->status);
+        $this->assertSame($claim->id, $transaction->payment_id);
+        $this->assertStringContainsString('ledger amounts are incomplete', $transaction->reconciliation_note);
+        $this->assertSame(0, DB::table('payment_allocations')->count());
+        $this->assertSame(0, RentPaymentCredit::count());
+        $this->assertSame('paid', $claim->fresh()->status);
     }
 
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
