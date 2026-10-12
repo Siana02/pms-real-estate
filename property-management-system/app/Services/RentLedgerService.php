@@ -128,6 +128,117 @@ class RentLedgerService
         }, 3);
     }
 
+    /**
+     * Allocate a confirmed rent payment across the lease's oldest outstanding
+     * rent periods. Any remainder is retained as an explicit rent credit.
+     *
+     * This is the confirmed-payment path for manager-recorded, tenant-recorded,
+     * and verified online payments. Pending submissions should only be attached
+     * to an expected period; they must not reduce rent balances before confirmation.
+     */
+    public function allocateConfirmedPayment(Payment $payment): ?RentObligation
+    {
+        if ($payment->payment_type !== 'rent' || !$payment->lease_id || $payment->status !== 'paid') {
+            return null;
+        }
+
+        return DB::transaction(function () use ($payment) {
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+
+            if ($payment->payment_type !== 'rent' || !$payment->lease_id || $payment->status !== 'paid') {
+                return null;
+            }
+
+            // Do not repeat or silently repair an existing ledger representation.
+            // Existing inconsistencies should go through an audited review workflow.
+            if ($payment->allocations()->exists() || $payment->rentPaymentCredits()->exists()) {
+                return $payment->rentObligation()->first();
+            }
+
+            $lease = Leases::query()
+                ->where('organization_id', $payment->organization_id)
+                ->findOrFail($payment->lease_id);
+
+            $amountCents = (int) round((float) $payment->amount * 100);
+            if ($amountCents <= 0) {
+                throw new \\InvalidArgumentException('A confirmed rent payment must have a positive amount.');
+            }
+
+            $paidAt = CarbonImmutable::parse($payment->payment_date ?: now());
+            $through = $paidAt->startOfMonth();
+
+            // Remove the old single-month legacy pointer before calculating balances.
+            // Otherwise this payment would count against its own obligation before the
+            // explicit allocations are created.
+            if ($payment->rent_obligation_id !== null) {
+                $payment->forceFill(['rent_obligation_id' => null])->saveQuietly();
+            }
+
+            $period = CarbonImmutable::parse($lease->start_date)->startOfMonth();
+            while ($period->lessThanOrEqualTo($through)) {
+                $this->ensureForPeriod($period);
+                $period = $period->addMonth();
+            }
+
+            $obligations = RentObligation::query()
+                ->where('lease_id', $lease->id)
+                ->whereDate('period', '<=', $through->toDateString())
+                ->orderBy('due_date')
+                ->lockForUpdate()
+                ->get()
+                ->filter(fn (RentObligation $obligation) => (float) $obligation->balance > 0)
+                ->values();
+
+            $remainingCents = $amountCents;
+            $firstObligationId = null;
+            $allocationCount = 0;
+
+            foreach ($obligations as $obligation) {
+                if ($remainingCents <= 0) {
+                    break;
+                }
+
+                $balanceCents = (int) round((float) $obligation->balance * 100);
+                if ($balanceCents <= 0) {
+                    continue;
+                }
+
+                $allocatedCents = min($remainingCents, $balanceCents);
+                PaymentAllocation::create([
+                    'payment_id' => $payment->id,
+                    'rent_obligation_id' => $obligation->id,
+                    'amount' => $allocatedCents / 100,
+                ]);
+
+                $firstObligationId ??= $obligation->id;
+                $allocationCount++;
+                $remainingCents -= $allocatedCents;
+                $obligation->refresh();
+            }
+
+            if ($remainingCents > 0) {
+                RentPaymentCredit::create([
+                    'organization_id' => $payment->organization_id,
+                    'tenant_id' => $lease->tenant_id,
+                    'lease_id' => $lease->id,
+                    'source_payment_id' => $payment->id,
+                    'amount' => $remainingCents / 100,
+                    'remaining_amount' => $remainingCents / 100,
+                    'status' => 'available',
+                    'notes' => 'Rent overpayment retained for future rent after confirmed payment allocation.',
+                ]);
+            }
+
+            $payment->forceFill([
+                'rent_obligation_id' => $allocationCount === 1 ? $firstObligationId : null,
+            ])->saveQuietly();
+
+            return $firstObligationId
+                ? RentObligation::find($firstObligationId)
+                : null;
+        }, 3);
+    }
+
     public function attachPayment(Payment $payment): ?RentObligation
     {
         if ($payment->payment_type !== 'rent' || !$payment->lease_id) {
