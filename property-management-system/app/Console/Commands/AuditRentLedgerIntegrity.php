@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Leases;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\PaymentTransaction;
