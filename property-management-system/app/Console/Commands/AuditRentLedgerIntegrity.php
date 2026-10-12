@@ -1,13 +1,13 @@
 <?php
 
-namespace App\\Console\\Commands;
+namespace App\Console\Commands;
 
-use App\\Models\\Payment;
-use App\\Models\\PaymentAllocation;
-use App\\Models\\PaymentTransaction;
-use App\\Models\\RentLedgerReviewFlag;
-use App\\Models\\RentObligation;
-use Illuminate\\Console\\Command;
+use App\Models\Payment;
+use App\Models\PaymentAllocation;
+use App\Models\PaymentTransaction;
+use App\Models\RentLedgerReviewFlag;
+use App\Models\RentObligation;
+use Illuminate\Console\Command;
 
 class AuditRentLedgerIntegrity extends Command
 {
