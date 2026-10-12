@@ -23,6 +23,9 @@ class DarajaCallbackMonitoringEvent extends Model
         'error_code',
         'error_message',
         'recovery_notes',
+        'reviewed_by',
+        'reviewed_at',
+        'resolution_notes',
         'statement_fingerprint',
         'recorded_by',
     ];
@@ -30,6 +33,7 @@ class DarajaCallbackMonitoringEvent extends Model
     protected $casts = [
         'transaction_at' => 'datetime',
         'received_at' => 'datetime',
+        'reviewed_at' => 'datetime',
         'is_delayed' => 'boolean',
     ];
 }
