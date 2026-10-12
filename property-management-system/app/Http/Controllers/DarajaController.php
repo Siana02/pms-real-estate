@@ -330,10 +330,20 @@ class DarajaController extends Controller
                 $transactionAt = strlen($rawTime) === 14
                     ? CarbonImmutable::createFromFormat('!YmdHis', $rawTime)
                     : null;
+                $matchingDestinations = PaymentDestination::query()
+                    ->where(function ($query) use ($registration) {
+                        $query->where(fn ($q) => $q->where('method', 'mpesa_paybill')->where('details->paybill', $registration->shortcode))
+                            ->orWhere(fn ($q) => $q->where('method', 'mpesa_till')->where('details->till', $registration->shortcode));
+                    })->get();
+                $matchingOrganizations = $matchingDestinations->pluck('organization_id')->unique()->values();
+                $monitorOrganizationId = $matchingOrganizations->count() === 1 ? (int) $matchingOrganizations->first() : null;
+                $monitorDestinationId = $matchingDestinations->count() === 1 ? (int) $matchingDestinations->first()->id : null;
                 DarajaCallbackMonitoringEvent::create([
                     'environment' => $registration->environment,
                     'shortcode' => $registration->shortcode,
                     'receipt' => trim((string) ($payload['TransID'] ?? '')) ?: null,
+                    'organization_id' => $monitorOrganizationId,
+                    'payment_destination_id' => $monitorDestinationId,
                     'source' => 'c2b_confirmation',
                     'delivery_status' => 'failed',
                     'processing_status' => 'failed',
