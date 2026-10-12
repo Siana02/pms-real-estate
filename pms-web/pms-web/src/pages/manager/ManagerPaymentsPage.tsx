@@ -512,7 +512,7 @@ function ManagerPaymentsPage() {
               <p className="mg-subtitle">
                 Every payment and tenant payment submission across your organization. Confirmed
                 payments are separated from submissions awaiting verification — rent, deposits and utilities
-                are separated so your rent collection stays honest.
+                are separated so your rent collection stays honest. Confirmed rent payments are allocated to the oldest outstanding months first; any remainder is shown as rent credit.
               </p>
             </div>
 
