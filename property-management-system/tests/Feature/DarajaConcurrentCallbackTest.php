@@ -8,7 +8,6 @@ use App\Models\Payment;
 use App\Models\PaymentTransaction;
 use App\Services\DarajaC2bRoutingService;
 use App\Services\PaymentReconciliationService;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -16,8 +15,6 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('parallel-mpesa')]
 class DarajaConcurrentCallbackTest extends TestCase
 {
-    use DatabaseMigrations;
-
     public function test_concurrent_duplicate_c2b_callbacks_create_one_event_payment_and_allocation(): void
     {
         if (!function_exists('pcntl_fork') || !function_exists('stream_socket_pair')) {
