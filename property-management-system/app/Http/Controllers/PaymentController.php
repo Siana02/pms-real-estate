@@ -15,7 +15,15 @@ class PaymentController extends Controller
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $payments = Payment::where('organization_id', $request->user()->organization_id)
-            ->with(['lease.tenant', 'lease.property', 'lease.unit', 'paymentDestination'])
+            ->with([
+                'lease.tenant',
+                'lease.property',
+                'lease.unit',
+                'paymentDestination',
+                'rentObligation:id,period,due_date,amount_due',
+                'allocations.rentObligation:id,period,due_date,amount_due',
+                'rentPaymentCredits.allocations.rentObligation:id,period,due_date,amount_due',
+            ])
             ->latest('payment_date')
             ->get();
 
