@@ -9,6 +9,7 @@ use App\Models\PaymentTransaction;
 use App\Models\RentLedgerReviewFlag;
 use App\Models\RentObligation;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class AuditRentLedgerIntegrity extends Command
 {
@@ -18,6 +19,18 @@ class AuditRentLedgerIntegrity extends Command
 
     public function handle(): int
     {
+        $connection = DB::connection();
+        $driver = $connection->getDriverName();
+        $database = $connection->getDatabaseName();
+        $this->line('Audit target: driver=' . $driver . '; database=' . ($database ?: '(not reported)'));
+
+        // Fail closed before reading or writing review flags if the configured
+        // application database is not MySQL. This command never repairs ledger rows.
+        if ($driver !== 'mysql') {
+            $this->error('Refusing to run rent:ledger-audit: expected MySQL, got ' . $driver . '. No records were read or changed.');
+            return self::FAILURE;
+        }
+
         $findings = [];
         $flag = function (string $type, int $id, string $issue, string $details) use (&$findings): void {
             $findings[] = [$type, $id, $issue, $details];
