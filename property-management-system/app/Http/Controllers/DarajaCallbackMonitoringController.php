@@ -67,7 +67,7 @@ class DarajaCallbackMonitoringController extends Controller
                 'delayed' => $events->where('is_delayed', true)->count(),
                 'failed' => $events->where('delivery_status', 'failed')->count(),
                 'needs_review' => $events->where('processing_status', 'needs_review')->count(),
-                'recovered' => $events->where('source', 'statement_recovery')->count(),
+                'recovered' => $events->where('source', 'statement_recovery')->where('processing_status', 'routed')->count(),
             ],
         ]);
     }
@@ -182,7 +182,7 @@ class DarajaCallbackMonitoringController extends Controller
                     'c2b_event_id' => $event->id,
                     'source' => 'statement_recovery',
                     'delivery_status' => 'recovered',
-                    'processing_status' => $status,
+                    'processing_status' => $event->status === 'routed' ? 'routed' : 'needs_review',
                     'transaction_at' => $at,
                     'received_at' => $receivedAt,
                     'latency_seconds' => $latency,
