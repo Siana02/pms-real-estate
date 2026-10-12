@@ -314,15 +314,49 @@ class PaymentReconciliationService
                 return $transaction->fresh();
             }
 
-            // A previously paid claim is already represented in the rent ledger.
-            // Link the bank callback to it without allocating the receipt a second time.
+            // A previously paid claim should already be represented in the ledger.
+            // Verify that before declaring the provider receipt reconciled: tenant
+            // verification can precede obligation creation, leaving a paid claim with
+            // no allocation/credit. Never silently treat that missing ledger entry as
+            // a successful reconciliation, and never blindly allocate it twice.
             if ($existingPayment->status === 'paid') {
+                $allocationCents = (int) round(
+                    (float) $existingPayment->allocations()->sum('amount') * 100
+                );
+                $creditCents = (int) round(
+                    (float) $existingPayment->rentPaymentCredits()->sum('amount') * 100
+                );
+                $legacyObligationCents = $allocationCents === 0
+                    && $creditCents === 0
+                    && $existingPayment->rent_obligation_id !== null
+                    ? (int) round((float) $existingPayment->amount * 100)
+                    : 0;
+                $representedCents = $allocationCents + $creditCents + $legacyObligationCents;
+                $paymentCents = (int) round((float) $existingPayment->amount * 100);
+
+                if ($representedCents !== $paymentCents) {
+                    $transaction->update([
+                        'status' => 'needs_review',
+                        'matched_lease_id' => $lease->id,
+                        'payment_id' => $existingPayment->id,
+                        'reconciliation_note' => 'A paid payment with this receipt exists, but its rent allocations and excess-payment credits do not account for the full payment amount. No duplicate allocation was created; review the existing ledger entry before reconciling.',
+                    ]);
+
+                    return $transaction->fresh([
+                        'matchedLease.tenant',
+                        'matchedLease.property',
+                        'matchedLease.unit',
+                        'matchedRentObligation',
+                        'payment.allocations.rentObligation',
+                    ]);
+                }
+
                 $transaction->update([
                     'status' => 'reconciled',
                     'matched_lease_id' => $lease->id,
                     'matched_rent_obligation_id' => $existingPayment->rent_obligation_id,
                     'payment_id' => $existingPayment->id,
-                    'reconciliation_note' => 'M-PESA callback matched an already-paid tenant payment by receipt, lease and amount. Existing ledger entry reused; no duplicate allocation created.',
+                    'reconciliation_note' => 'M-PESA callback matched an already-paid tenant payment by receipt, lease and amount. Existing ledger entry verified and reused; no duplicate allocation created.',
                 ]);
 
                 return $transaction->fresh([
