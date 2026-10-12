@@ -258,7 +258,7 @@ class RentLedgerService
             // representation and ownership before treating a retry as successful.
             if ($payment->allocations()->exists() || $payment->rentPaymentCredits()->exists()) {
                 $allocations = $payment->allocations()->with('rentObligation')->get();
-                $credits = $payment->rentPaymentCredits()->get();
+                $credits = $payment->rentPaymentCredits()->with('allocations.rentObligation')->get();
                 $allocatedCents = (int) round((float) $allocations->sum('amount') * 100);
                 $creditCents = (int) round((float) $credits->sum('amount') * 100);
                 $paymentCents = (int) round((float) $payment->amount * 100);
@@ -281,7 +281,19 @@ class RentLedgerService
                     || (int) $credit->source_payment_id !== (int) $payment->id
                     || (float) $credit->amount <= 0
                     || (float) $credit->remaining_amount < 0
-                    || (float) $credit->remaining_amount > (float) $credit->amount);
+                    || (float) $credit->remaining_amount > (float) $credit->amount
+                    || $credit->allocations->contains(function (PaymentAllocation $allocation) use ($lease) {
+                        $obligation = $allocation->rentObligation;
+                        return $allocation->payment_id !== null
+                            || (float) $allocation->amount <= 0
+                            || !$obligation
+                            || (int) $obligation->lease_id !== (int) $lease->id
+                            || (int) $obligation->organization_id !== (int) $lease->organization_id
+                            || (int) $obligation->property_id !== (int) $lease->property_id
+                            || (int) $obligation->unit_id !== (int) $lease->unit_id
+                            || (int) $obligation->tenant_id !== (int) $lease->tenant_id
+                            || (float) $obligation->amount_paid > (float) $obligation->amount_due;
+                    }));
 
                 if ($allocatedCents + $creditCents !== $paymentCents
                     || $paymentCents <= 0
