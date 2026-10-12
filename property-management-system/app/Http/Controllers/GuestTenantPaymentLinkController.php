@@ -7,6 +7,7 @@ use App\Models\GuestTenantPaymentLink;
 use App\Models\Leases;
 use App\Models\PaymentDestination;
 use App\Services\DarajaService;
+use App\Services\DarajaC2bRoutingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -130,14 +131,19 @@ class GuestTenantPaymentLinkController extends Controller
     {
         $link = $this->findValidLink($token);
         $lease = $link->lease()->with(['organization:id,name,logo_path', 'property:id,name,address,city,country,organization_id', 'unit:id,unit_number,property_id'])->firstOrFail();
+        $referenceRenderer = app(DarajaC2bRoutingService::class);
         $destinations = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)->where('is_active', true)
             ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->get()
-            ->filter(fn (PaymentDestination $destination) => $destination->stkPushReady())
             ->map(fn (PaymentDestination $destination) => [
                 'id' => $destination->id,
                 'label' => $destination->label ?: ($destination->method === 'mpesa_till' ? 'M-PESA Till' : 'M-PESA PayBill'),
                 'method' => $destination->method,
+                // Only expose public payment instructions, never gateway credentials.
+                'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['paybill', 'till', 'account', 'account_name', 'business_name'])),
+                'account_reference' => $referenceRenderer->renderAccountReference($destination, $lease)
+                    ?: $lease->tenant_payment_reference,
+                'stk_push_available' => $destination->stkPushReady(),
             ])->values();
 
         return response()->json([

@@ -378,6 +378,8 @@ interface PaymentDestination {
   method: "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank";
   label: string | null;
   details: Record<string, string | null>;
+  account_reference?: string | null;
+  daraja?: { authorization_status?: string | null; stk_push_available?: boolean };
 }
 
 interface PaymentOptions {
@@ -463,10 +465,17 @@ function destinationLabel(destination: PaymentDestination): string {
 
 function destinationDetail(destination: PaymentDestination): string {
   const details = destination.details;
-  if (destination.method === "mpesa_number") return `Send to ${details.number ?? "—"}`;
-  if (destination.method === "mpesa_till") return `Till ${details.till ?? "—"}`;
-  if (destination.method === "mpesa_paybill") return `PayBill ${details.paybill ?? "—"} · Account ${details.account ?? "—"}`;
-  return [details.bank_name, details.account_name, details.account_number ? `Account ••••${details.account_number.slice(-4)}` : null, details.branch].filter(Boolean).join(" · ");
+  let detail = "";
+  if (destination.method === "mpesa_number") detail = `Send to ${details.number ?? "—"}`;
+  else if (destination.method === "mpesa_till") detail = `Till ${details.till ?? "—"}`;
+  else if (destination.method === "mpesa_paybill") detail = `PayBill ${details.paybill ?? "—"}`;
+  else detail = [details.bank_name, details.account_name, details.account_number ? `Account ••••${details.account_number.slice(-4)}` : null, details.branch].filter(Boolean).join(" · ");
+  if (destination.method.startsWith("mpesa") && destination.account_reference) {
+    detail = [detail, `Account/reference ${destination.account_reference}`].filter(Boolean).join(" · ");
+  } else if (destination.method === "mpesa_paybill" && details.account) {
+    detail = [detail, `Account/reference ${details.account}`].filter(Boolean).join(" · ");
+  }
+  return detail;
 }
  
 const STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -807,7 +816,7 @@ function TenantPaymentsPage() {
             <div>
               <h2 className="tp-section__title">Payment options</h2>
               <p className="tp-section__sub">Choose how you want to pay. Your property manager's payment destinations are shown here before you confirm a manual payment.</p>
-              {paymentOptions.tenant_payment_reference && (
+              {paymentOptions.tenant_payment_reference && paymentOptions.destinations.some((item) => item.method === "mpesa_paybill" || item.method === "mpesa_till") && !paymentOptions.destinations.some((item) => Boolean(item.account_reference)) && (
                 <p className="tp-section__sub" style={{ marginTop: ".5rem" }}>
                   Paying directly through M-PESA PayBill? Use this as the account/reference for automatic matching: <strong><code>{paymentOptions.tenant_payment_reference}</code></strong>
                 </p>
