@@ -6,7 +6,7 @@ use App\\Models\\Payment;
 use App\\Models\\PaymentAllocation;
 use App\\Models\\PaymentTransaction;
 use App\\Models\\RentObligation;
-use App\\Console\\Command;
+use Illuminate\\Console\\Command;
 
 class AuditRentLedgerIntegrity extends Command
 {
