@@ -102,6 +102,11 @@ class RentLedgerIntegrityTest extends TestCase
             'amount' => 5000,
         ]);
 
+        // Re-running the pending-payment attachment helper must not invent a
+        // legacy month link on a confirmed payment already represented by allocations.
+        $this->assertNull($ledger->attachPayment($payment->fresh()));
+        $this->assertNull($payment->fresh()->rent_obligation_id);
+
         $obligation->refresh();
         $this->assertSame(5000.0, $obligation->amount_paid);
         $this->assertSame(10000.0, $obligation->balance);
