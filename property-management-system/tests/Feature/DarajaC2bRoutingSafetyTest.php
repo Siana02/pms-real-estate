@@ -399,7 +399,7 @@ class DarajaC2bRoutingSafetyTest extends TestCase
             'TransAmount' => '30000.00',
             'MSISDN' => '254712345678',
             'BillRefNumber' => 'LEASE-' . $created['organization_id'],
-            'TransTime' => '20261009120000',
+            'TransTime' => '20260109120000',
         ];
 
         $routing = app(DarajaC2bRoutingService::class);
