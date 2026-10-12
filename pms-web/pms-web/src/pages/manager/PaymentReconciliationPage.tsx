@@ -5,6 +5,7 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import { apiRequest } from "../../services/api";
 import { managerStyles } from "../../styles/managerUI";
 import RentLedgerReviewPanel from "./RentLedgerReviewPanel";
+import DarajaCallbackMonitoringPanel from "./DarajaCallbackMonitoringPanel";
 import { formatDate, formatMoney, rows, asNumber, asString, toRecord } from "../../services/format";
 
 type ReconciliationStatus = "pending" | "reconciled" | "reconciled_with_credit" | "needs_review" | "unmatched";
@@ -124,6 +125,7 @@ function ReconciliationPage(){
   <header className="mg-header"><div><span className="mg-eyebrow"><WalletCards/> Reconciliation</span><h1 className="mg-title">Payment Reconciliation</h1><p className="mg-subtitle">External money received by the organization, matched against tenants and rent obligations. Confirmed rent is allocated to the oldest outstanding months first; any remainder is shown as rent credit. Nothing ambiguous is silently applied.</p></div><button className="mg-btn mg-btn--subtle" onClick={()=>void load()} disabled={loading}><RefreshCw className={loading?"mg-spin":undefined}/>Refresh</button></header>
   {error&&<div className="mg-alert"><AlertCircle/><span>{error}</span></div>}
   <section className="mg-stats"><article className="mg-stat"><p className="mg-stat__label">Transactions</p><p className="mg-stat__value">{summary.total}</p></article><article className="mg-stat"><p className="mg-stat__label">Needs review</p><p className="mg-stat__value">{summary.review}</p></article><article className="mg-stat"><p className="mg-stat__label">Unmatched</p><p className="mg-stat__value">{summary.unmatched}</p></article><article className="mg-stat"><p className="mg-stat__label">Reconciled</p><p className="mg-stat__value">{summary.reconciled}</p></article></section>
+  <DarajaCallbackMonitoringPanel />
   <RentLedgerReviewPanel />
   <div className="mg-toolbar"><div className="mg-search"><Search/><input className="mg-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search transaction, tenant, phone, reference or unit…"/></div><div className="mg-chips">{STATUS.map(s=><button key={s.id} className={`mg-chip${filter===s.id?" mg-chip--on":""}`} onClick={()=>setFilter(s.id)}>{s.label}</button>)}</div></div>
   <section className="mg-panel"><div className="mg-panel__head"><h2 className="mg-panel__title"><WalletCards/> Incoming transactions</h2><span className="mg-panel__meta">{visible.length} shown</span></div>
