@@ -388,6 +388,24 @@ class RentLedgerService
             return null;
         }
 
+        // This is only a pending-payment convenience link, never a way to repair a
+        // confirmed payment's history. Confirmed rent payments must use explicit
+        // allocations; legacy paid rows are left for the read-only integrity audit.
+        if ($payment->status !== 'pending') {
+            return $payment->rentObligation()->first();
+        }
+
+        $paymentLease = Leases::query()
+            ->where('organization_id', $payment->organization_id)
+            ->find($payment->lease_id);
+        if (!$paymentLease || $this->leaseScopeIssue($paymentLease)) {
+            Log::warning('Skipped attaching pending payment to a rent obligation because lease ownership is inconsistent.', [
+                'payment_id' => $payment->id,
+                'lease_id' => $payment->lease_id,
+            ]);
+            return null;
+        }
+
         $paymentDate = CarbonImmutable::parse($payment->payment_date ?: now());
         $period = $paymentDate->startOfMonth();
 
@@ -409,6 +427,7 @@ class RentLedgerService
     public function syncExistingPayments(CarbonImmutable $period): void
     {
         $payments = Payment::where('payment_type', 'rent')
+            ->where('status', 'pending')
             ->whereBetween('payment_date', [
                 $period->startOfMonth()->toDateString(),
                 $period->endOfMonth()->toDateString(),
