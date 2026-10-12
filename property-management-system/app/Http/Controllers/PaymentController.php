@@ -81,6 +81,9 @@ class PaymentController extends Controller
         abort_if($payment->status !== 'pending', 422, 'Only payments awaiting verification can be confirmed.');
 
         $payment = DB::transaction(function () use ($payment) {
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+            abort_if($payment->status !== 'pending', 422, 'This payment was already processed by another request.');
+
             $payment->update([
                 'status' => 'paid',
                 'payment_date' => $payment->payment_date ?: now()->toDateString(),
