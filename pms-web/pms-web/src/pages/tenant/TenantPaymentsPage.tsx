@@ -816,7 +816,7 @@ function TenantPaymentsPage() {
             <div>
               <h2 className="tp-section__title">Payment options</h2>
               <p className="tp-section__sub">Choose how you want to pay. Your property manager's payment destinations are shown here before you confirm a manual payment.</p>
-              {paymentOptions.tenant_payment_reference && !paymentOptions.destinations.some((item) => Boolean(item.account_reference)) && (
+              {paymentOptions.tenant_payment_reference && paymentOptions.destinations.some((item) => item.method === "mpesa_paybill" || item.method === "mpesa_till") && !paymentOptions.destinations.some((item) => Boolean(item.account_reference)) && (
                 <p className="tp-section__sub" style={{ marginTop: ".5rem" }}>
                   Paying directly through M-PESA PayBill? Use this as the account/reference for automatic matching: <strong><code>{paymentOptions.tenant_payment_reference}</code></strong>
                 </p>
