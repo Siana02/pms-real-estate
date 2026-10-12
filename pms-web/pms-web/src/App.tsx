@@ -56,11 +56,11 @@ function RequirePortal({ portal, children, allowUnsubscribed = false }: { portal
   fetch(API_BASE + "/platform-subscription/status", { headers: { Accept: "application/json", Authorization: "Bearer " + token } })
    .then(async response => {
     if (!response.ok) throw new Error("Unable to verify the organization subscription.");
-    return response.json() as Promise<{ subscription?: { status?: string; current_period_ends_at?: string | null } | null; features?: string[] }>;
+    return response.json() as Promise<{ subscription?: { status?: string; current_period_ends_at?: string | null } | null; features?: string[]; access_override?: boolean }>;
    })
    .then(payload => {
     const subscription = payload.subscription;
-    const active = subscription?.status === "active" && !!subscription.current_period_ends_at && new Date(subscription.current_period_ends_at).getTime() > Date.now();
+    const active = payload.access_override === true || (subscription?.status === "active" && !!subscription.current_period_ends_at && new Date(subscription.current_period_ends_at).getTime() > Date.now());
     const requiredFeature = portal === "tenant" ? "tenant_portal" :
       currentPath === "/manager/guest-payment-links" ? "tenant_payment_links" :
       currentPath === "/manager/payments" ? "payment_ledger" :
