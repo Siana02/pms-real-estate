@@ -19,7 +19,7 @@ class PaymentReconciliationController extends Controller
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $transactions=PaymentTransaction::where('organization_id',$request->user()->organization_id)
-            ->with(['paymentDestination.property:id,name','matchedLease.tenant','matchedLease.property','matchedLease.unit','matchedRentObligation','payment.allocations.rentObligation','payment.rentPaymentCredits'])
+            ->with(['paymentDestination.property:id,name','matchedLease.tenant','matchedLease.property','matchedLease.unit','matchedRentObligation','payment.allocations.rentObligation','payment.rentPaymentCredits.allocations.rentObligation'])
             ->latest('transaction_at')->get();
         return response()->json(['data'=>$transactions]);
     }
