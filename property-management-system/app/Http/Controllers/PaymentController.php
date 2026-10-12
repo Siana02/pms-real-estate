@@ -122,13 +122,22 @@ class PaymentController extends Controller
         $this->authorizeOrganization($request, $payment);
 
         $validated = $request->validate([
-            'amount' => 'sometimes|required|numeric|min:0',
+            'amount' => 'sometimes|required|numeric|gt:0',
             'payment_date' => 'sometimes|required|date',
             'payment_method' => 'sometimes|required|in:cash,mpesa,bank_transfer,card,other',
             'reference' => 'nullable|string|max:255',
             'payment_type' => 'nullable|in:rent,deposit,utility,other',
             'notes' => 'nullable|string',
         ]);
+
+        // A confirmed payment is part of the financial audit trail. Changing its
+        // amount/date/type after allocation can make the payment record disagree
+        // with rent-period allocations and overpayment credits. Corrections must
+        // use a dedicated audited reversal/adjustment flow instead.
+        $immutableFinancialFields = ['amount', 'payment_date', 'payment_type'];
+        if ($payment->status === 'paid' && array_intersect($immutableFinancialFields, array_keys($validated))) {
+            abort(422, 'Confirmed payments cannot have their amount, date or type edited. Use an audited correction workflow.');
+        }
 
         $payment->update($validated);
         app(RentLedgerService::class)->attachPayment($payment->fresh());
@@ -143,6 +152,14 @@ class PaymentController extends Controller
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.void'), 403, 'Payment voiding requires owner approval.');
         $this->authorizeOrganization($request, $payment);
+
+        // Deleting a payment cascades to its allocations and may also delete
+        // rent credits sourced from it. Never erase a confirmed financial record.
+        if ($payment->status === 'paid'
+            || $payment->allocations()->exists()
+            || $payment->rentPaymentCredits()->exists()) {
+            abort(422, 'This payment affects the rent ledger and cannot be deleted. Use an audited void/reversal workflow.');
+        }
 
         $payment->delete();
 
