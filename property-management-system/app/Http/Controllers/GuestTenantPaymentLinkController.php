@@ -139,7 +139,7 @@ class GuestTenantPaymentLinkController extends Controller
                 'id' => $destination->id,
                 'label' => $destination->label ?: ($destination->method === 'mpesa_till' ? 'M-PESA Till' : 'M-PESA PayBill'),
                 'method' => $destination->method,
-                'details' => $destination->details ?? [],
+                'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['paybill', 'till', 'account', 'account_name', 'business_name'])),
                 'account_reference' => $referenceRenderer->renderAccountReference($destination, $lease)
                     ?: ($lease->tenant_payment_reference ?: ('LEASE' . $lease->id)),
                 'stk_push_available' => $destination->stkPushReady(),
