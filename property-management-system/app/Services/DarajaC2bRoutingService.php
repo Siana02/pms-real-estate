@@ -8,6 +8,7 @@ use App\Models\Leases;
 use App\Models\PaymentDestination;
 use App\Models\PaymentTransaction;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -27,7 +28,8 @@ class DarajaC2bRoutingService
             throw new RuntimeException('C2B callback shortcode, receipt or amount is invalid.');
         }
 
-        return DB::transaction(function () use ($registration, $payload, $shortcode, $receipt, $amount, $reference, $transactionAt, $reconciliation) {
+        try {
+            return DB::transaction(function () use ($registration, $payload, $shortcode, $receipt, $amount, $reference, $transactionAt, $reconciliation) {
             $event = DarajaC2bEvent::firstOrCreate(
                 [
                     'environment' => $registration->environment,
@@ -258,7 +260,31 @@ class DarajaC2bRoutingService
             ]);
 
             return $event->fresh();
-        }, 3);
+            }, 3);
+        } catch (UniqueConstraintViolationException $exception) {
+            // Under MySQL REPEATABLE READ, a concurrent firstOrCreate can lose a
+            // unique-key race and fail to see the winner inside its original snapshot.
+            // Let the failed transaction roll back, then retry only known idempotency
+            // key collisions in a fresh transaction so normal conflict checks still run.
+            $message = $exception->getMessage();
+            $knownReceiptRace = str_contains($message, 'daraja_c2b_env_receipt_unique')
+                || str_contains($message, 'payment_transactions_org_provider_external_id_unique');
+
+            if (!$knownReceiptRace) {
+                throw $exception;
+            }
+
+            $existingEvent = DarajaC2bEvent::query()
+                ->where('environment', $registration->environment)
+                ->where('receipt', $receipt)
+                ->exists();
+
+            if (!$existingEvent) {
+                throw $exception;
+            }
+
+            return $this->receive($registration, $payload, $reconciliation);
+        }
     }
 
     public function findMatches(string $shortcode, ?string $reference, CarbonImmutable $at): array
