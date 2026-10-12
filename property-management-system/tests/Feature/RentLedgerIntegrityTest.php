@@ -16,6 +16,7 @@ use App\Services\PaymentReconciliationService;
 use App\Services\RentLedgerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class RentLedgerIntegrityTest extends TestCase
