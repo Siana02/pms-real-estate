@@ -473,13 +473,7 @@ class PaymentReconciliationService
 
     private function ensureLeaseObligationsThrough(Leases $lease, CarbonImmutable $through): void
     {
-        $start = CarbonImmutable::parse($lease->start_date)->startOfMonth();
-        $period = $start;
-
-        while ($period->lessThanOrEqualTo($through->startOfMonth())) {
-            app(RentLedgerService::class)->ensureForPeriod($period);
-            $period = $period->addMonth();
-        }
+        app(RentLedgerService::class)->ensureForLeaseThrough($lease, $through);
     }
 
     private function paymentMethod(string $provider): string
