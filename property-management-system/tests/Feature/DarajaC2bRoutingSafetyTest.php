@@ -384,6 +384,73 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         );
     }
 
+
+    public function test_statement_recovery_uses_the_same_idempotent_routing_and_ledger_path(): void
+    {
+        $created = $this->createDestinationAndLease('Statement Recovery Properties', 'statement-recovery@example.test', '51683/{unit}');
+        $registration = new DarajaC2bRegistration([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'status' => 'registered',
+        ]);
+        $payload = [
+            'BusinessShortCode' => '123456',
+            'TransID' => 'STATEMENT123',
+            'TransAmount' => '30000.00',
+            'MSISDN' => '254712345678',
+            'BillRefNumber' => 'LEASE-' . $created['organization_id'],
+            'TransTime' => '20261009120000',
+        ];
+
+        $routing = app(DarajaC2bRoutingService::class);
+        $first = $routing->receive($registration, $payload, app(PaymentReconciliationService::class), 'statement_recovery');
+        $retry = $routing->receive($registration, $payload, app(PaymentReconciliationService::class), 'statement_recovery');
+
+        $transaction = PaymentTransaction::where('external_transaction_id', 'STATEMENT123')->firstOrFail();
+        $this->assertSame('routed', $first->status);
+        $this->assertSame($first->id, $retry->id);
+        $this->assertSame('reconciled_with_credit', $transaction->status);
+        $this->assertSame('statement_recovery', data_get($transaction->raw_payload, 'source'));
+        $this->assertSame(1, DarajaC2bEvent::where('receipt', 'STATEMENT123')->count());
+        $this->assertSame(1, PaymentTransaction::where('external_transaction_id', 'STATEMENT123')->count());
+        $this->assertSame(1, Payment::where('provider_transaction_id', 'STATEMENT123')->count());
+        $this->assertSame(1, DB::table('payment_allocations')->whereNotNull('payment_id')->count());
+        $this->assertSame(1, RentPaymentCredit::whereHas('sourcePayment', fn ($query) => $query->where('provider_transaction_id', 'STATEMENT123'))->count());
+    }
+
+    public function test_callback_monitoring_records_are_additive_and_can_be_reviewed_by_organization(): void
+    {
+        $created = $this->createDestinationAndLease('Callback Monitor Properties', 'callback-monitor@example.test', '51683/{unit}');
+
+        $record = DarajaCallbackMonitoringEvent::create([
+            'environment' => 'sandbox',
+            'shortcode' => '123456',
+            'receipt' => 'MONITOR123',
+            'organization_id' => $created['organization_id'],
+            'payment_destination_id' => $created['destination_id'],
+            'source' => 'statement_recovery',
+            'delivery_status' => 'recovered',
+            'processing_status' => 'needs_review',
+            'transaction_at' => '2026-10-09 12:00:00',
+            'received_at' => now(),
+            'latency_seconds' => 3600,
+            'is_delayed' => true,
+            'statement_fingerprint' => str_repeat('a', 64),
+            'recorded_by' => 1,
+            'recovery_notes' => 'Compared against the official merchant statement.',
+            'error_message' => 'Reference did not match a unique lease.',
+        ]);
+
+        $this->assertDatabaseHas('daraja_callback_monitoring_events', [
+            'id' => $record->id,
+            'organization_id' => $created['organization_id'],
+            'receipt' => 'MONITOR123',
+            'processing_status' => 'needs_review',
+            'is_delayed' => 1,
+        ]);
+        $this->assertSame('Compared against the official merchant statement.', $record->fresh()->recovery_notes);
+    }
+
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
     {
         $now = now();
