@@ -313,7 +313,7 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertSame('needs_review', $event->status);
         $this->assertSame('needs_review', $transaction->status);
         $this->assertSame($claim->id, $transaction->payment_id);
-        $this->assertStringContainsString('do not account for the full payment amount', $transaction->reconciliation_note);
+        $this->assertStringContainsString('ledger amounts are incomplete', $transaction->reconciliation_note);
         $this->assertSame(0, DB::table('payment_allocations')->count());
         $this->assertSame(0, RentPaymentCredit::count());
         $this->assertSame('paid', $claim->fresh()->status);
