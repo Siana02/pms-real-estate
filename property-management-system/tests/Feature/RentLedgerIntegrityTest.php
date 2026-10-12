@@ -281,4 +281,95 @@ class RentLedgerIntegrityTest extends TestCase
         $this->assertSame(1, RentPaymentCredit::where('source_payment_id', $payment->id)->count());
     }
 
+    public function test_inconsistent_historical_payment_allocation_is_held_for_review_without_rewriting_it(): void
+    {
+        $period = CarbonImmutable::now()->startOfMonth();
+
+        $organization = Organization::create([
+            'name' => 'Historical Review Organization',
+            'email' => 'historical-review@example.test',
+        ]);
+
+        $property = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Lease Property',
+        ]);
+        $otherProperty = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Mismatched Historical Property',
+        ]);
+
+        $unit = Unit::create([
+            'property_id' => $property->id,
+            'unit_number' => 'HR-01',
+            'monthly_rent' => 10000,
+        ]);
+        $otherUnit = Unit::create([
+            'property_id' => $otherProperty->id,
+            'unit_number' => 'HR-02',
+            'monthly_rent' => 10000,
+        ]);
+
+        $tenant = Tenant::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'first_name' => 'Historical',
+            'last_name' => 'Review',
+            'phone' => '+254700000304',
+        ]);
+
+        $lease = Leases::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'start_date' => $period->toDateString(),
+            'monthly_rent' => 10000,
+            'status' => 'active',
+        ]);
+
+        $obligation = RentObligation::create([
+            'organization_id' => $organization->id,
+            'property_id' => $otherProperty->id,
+            'unit_id' => $otherUnit->id,
+            'tenant_id' => $tenant->id,
+            'lease_id' => $lease->id,
+            'period' => $period->toDateString(),
+            'due_date' => $period->addDays(4)->toDateString(),
+            'amount_due' => 10000,
+        ]);
+
+        $payment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 10000,
+            'payment_date' => $period->addDays(3)->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'paid',
+            'payment_type' => 'rent',
+            'reference' => 'HISTORICAL-SCOPE-001',
+        ]);
+
+        $allocation = PaymentAllocation::create([
+            'payment_id' => $payment->id,
+            'rent_obligation_id' => $obligation->id,
+            'amount' => 10000,
+        ]);
+
+        try {
+            app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+            $this->fail('An inconsistent historical allocation must not be silently accepted.');
+        } catch (\\RuntimeException $exception) {
+            $this->assertStringContainsString('requires review', $exception->getMessage());
+        }
+
+        // Review is non-destructive: the original records remain exactly as found.
+        $this->assertSame($otherProperty->id, $obligation->fresh()->property_id);
+        $this->assertSame($otherUnit->id, $obligation->fresh()->unit_id);
+        $this->assertSame(10000.0, (float) $allocation->fresh()->amount);
+        $this->assertSame(1, PaymentAllocation::where('payment_id', $payment->id)->count());
+        $this->assertSame(0, RentPaymentCredit::where('source_payment_id', $payment->id)->count());
+    }
+
 }
