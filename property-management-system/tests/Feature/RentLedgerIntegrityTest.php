@@ -96,4 +96,94 @@ class RentLedgerIntegrityTest extends TestCase
         $this->assertSame(10000.0, $obligation->balance);
         $this->assertSame('partial', $obligation->status);
     }
+
+    public function test_reapplying_credit_extends_an_existing_partial_allocation_without_losing_credit(): void
+    {
+        $period = CarbonImmutable::now()->startOfMonth();
+
+        $organization = Organization::create([
+            'name' => 'Credit Retry Properties',
+            'email' => 'credit-retry@example.test',
+        ]);
+
+        $property = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Credit Retry Building',
+        ]);
+
+        $unit = Unit::create([
+            'property_id' => $property->id,
+            'unit_number' => 'CR-01',
+            'monthly_rent' => 10000,
+        ]);
+
+        $tenant = Tenant::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'first_name' => 'Credit',
+            'last_name' => 'Retry',
+            'phone' => '+254700000302',
+        ]);
+
+        $lease = Leases::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'start_date' => $period->toDateString(),
+            'monthly_rent' => 10000,
+            'status' => 'active',
+        ]);
+
+        $obligation = RentObligation::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'lease_id' => $lease->id,
+            'period' => $period->toDateString(),
+            'due_date' => $period->addDays(4)->toDateString(),
+            'amount_due' => 10000,
+        ]);
+
+        $sourcePayment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 10000,
+            'payment_date' => $period->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'paid',
+            'payment_type' => 'rent',
+        ]);
+
+        $credit = RentPaymentCredit::create([
+            'organization_id' => $organization->id,
+            'tenant_id' => $tenant->id,
+            'lease_id' => $lease->id,
+            'source_payment_id' => $sourcePayment->id,
+            'amount' => 10000,
+            'remaining_amount' => 5000,
+            'status' => 'available',
+            'notes' => 'Fixture for retrying a partial allocation.',
+        ]);
+
+        $allocation = PaymentAllocation::create([
+            'payment_id' => null,
+            'rent_payment_credit_id' => $credit->id,
+            'rent_obligation_id' => $obligation->id,
+            'amount' => 5000,
+        ]);
+
+        app(RentLedgerService::class)->applyAvailableCredits($lease, $period);
+
+        $this->assertSame(10000.0, (float) $allocation->fresh()->amount);
+        $this->assertSame(0.0, (float) $credit->fresh()->remaining_amount);
+        $this->assertSame('consumed', $credit->fresh()->status);
+        $this->assertSame(0.0, $obligation->fresh()->balance);
+        $this->assertSame(1, PaymentAllocation::where('rent_payment_credit_id', $credit->id)
+            ->where('rent_obligation_id', $obligation->id)
+            ->count());
+    }
+
 }
