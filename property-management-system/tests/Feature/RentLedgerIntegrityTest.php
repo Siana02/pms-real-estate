@@ -158,6 +158,25 @@ class RentLedgerIntegrityTest extends TestCase
             'payment_type' => 'rent',
         ]);
 
+        $sourceObligation = RentObligation::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'lease_id' => $lease->id,
+            'period' => $period->subMonth()->toDateString(),
+            'due_date' => $period->subMonth()->addDays(4)->toDateString(),
+            'amount_due' => 10000,
+        ]);
+
+        // Mark the source payment as allocated elsewhere so it is not counted
+        // as an unallocated legacy payment against the obligation under test.
+        PaymentAllocation::create([
+            'payment_id' => $sourcePayment->id,
+            'rent_obligation_id' => $sourceObligation->id,
+            'amount' => 10000,
+        ]);
+
         $credit = RentPaymentCredit::create([
             'organization_id' => $organization->id,
             'tenant_id' => $tenant->id,
