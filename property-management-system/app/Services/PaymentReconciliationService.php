@@ -6,8 +6,11 @@ use App\Models\Leases;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\PaymentTransaction;
+use App\Models\Property;
 use App\Models\RentObligation;
 use App\Models\RentPaymentCredit;
+use App\Models\Tenant;
+use App\Models\Unit;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -125,7 +128,28 @@ class PaymentReconciliationService
 
             /** @var Leases $lease */
             $lease = $candidates->first();
+
+            if ($scopeIssue = $this->leaseScopeIssue($lease)) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'matched_lease_id' => $lease->id,
+                    'reconciliation_note' => $scopeIssue . ' No allocation was created; review the lease/property/unit/tenant relationships.',
+                ]);
+
+                return $transaction->fresh();
+            }
+
             $this->ensureLeaseObligationsThrough($lease, $at);
+
+            if ($scopeIssue = $this->obligationScopeIssue($lease, $at)) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'matched_lease_id' => $lease->id,
+                    'reconciliation_note' => $scopeIssue . ' No allocation was created; review the historical rent-obligation record.',
+                ]);
+
+                return $transaction->fresh();
+            }
 
             $obligations = $this->outstandingObligations($lease, $at);
 
@@ -205,7 +229,27 @@ class PaymentReconciliationService
 
             $at = CarbonImmutable::parse($transaction->transaction_at);
 
+            if ($scopeIssue = $this->leaseScopeIssue($lease)) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'matched_lease_id' => $lease->id,
+                    'reconciliation_note' => $scopeIssue . ' No allocation was created; review the lease/property/unit/tenant relationships.',
+                ]);
+
+                return $transaction->fresh();
+            }
+
             $this->ensureLeaseObligationsThrough($lease, $at);
+
+            if ($scopeIssue = $this->obligationScopeIssue($lease, $at)) {
+                $transaction->update([
+                    'status' => 'needs_review',
+                    'matched_lease_id' => $lease->id,
+                    'reconciliation_note' => $scopeIssue . ' No allocation was created; review the historical rent-obligation record.',
+                ]);
+
+                return $transaction->fresh();
+            }
 
             $obligations = $this->outstandingObligations($lease, $at);
             $amount = (float) $transaction->amount;
@@ -300,12 +344,14 @@ class PaymentReconciliationService
         if ($existingPayment) {
             $sameLease = (int) $existingPayment->lease_id === (int) $lease->id;
             $sameAmount = abs(round((float) $existingPayment->amount, 2) - $totalAmount) < 0.001;
-            $sameDestination = !$existingPayment->payment_destination_id
-                || !$transaction->payment_destination_id
-                || (int) $existingPayment->payment_destination_id === (int) $transaction->payment_destination_id;
+            $sameDestination = (int) $existingPayment->payment_destination_id === (int) $transaction->payment_destination_id
+                || ($existingPayment->status === 'pending' && !$existingPayment->payment_destination_id);
+            $sameProviderReceipt = !$existingPayment->provider_transaction_id
+                || (string) $existingPayment->provider_transaction_id === (string) $transaction->external_transaction_id;
+            $sameMethod = $existingPayment->payment_method === $this->paymentMethod($transaction->provider);
             $isRent = $existingPayment->payment_type === 'rent';
 
-            if (!$sameLease || !$sameAmount || !$sameDestination || !$isRent) {
+            if (!$sameLease || !$sameAmount || !$sameDestination || !$sameProviderReceipt || !$sameMethod || !$isRent) {
                 $transaction->update([
                     'status' => 'needs_review',
                     'reconciliation_note' => 'A payment with this receipt/reference already exists, but its lease, amount, destination or payment type conflicts with the callback. No duplicate payment was created.',
@@ -330,8 +376,12 @@ class PaymentReconciliationService
                     ->where('payment_id', $existingPayment->id)
                     ->whereHas('rentObligation', fn ($query) => $query
                         ->where('lease_id', '!=', $lease->id)
-                        ->orWhere('organization_id', '!=', $lease->organization_id))
+                        ->orWhere('organization_id', '!=', $lease->organization_id)
+                        ->orWhere('property_id', '!=', $lease->property_id)
+                        ->orWhere('unit_id', '!=', $lease->unit_id)
+                        ->orWhere('tenant_id', '!=', $lease->tenant_id))
                     ->exists();
+                $creditIds = $existingPayment->rentPaymentCredits()->pluck('id');
                 $hasMismatchedCredit = RentPaymentCredit::query()
                     ->where('source_payment_id', $existingPayment->id)
                     ->where(fn ($query) => $query
@@ -339,6 +389,40 @@ class PaymentReconciliationService
                         ->orWhere('organization_id', '!=', $lease->organization_id)
                         ->orWhere('tenant_id', '!=', $lease->tenant_id))
                     ->exists();
+                $hasInvalidAllocationSource = PaymentAllocation::query()
+                    ->where('payment_id', $existingPayment->id)
+                    ->whereNotNull('rent_payment_credit_id')
+                    ->exists();
+                $hasCrossScopeCreditAllocation = $creditIds->isNotEmpty() && PaymentAllocation::query()
+                    ->whereIn('rent_payment_credit_id', $creditIds)
+                    ->where(fn ($query) => $query
+                        ->whereNotNull('payment_id')
+                        ->orWhereHas('rentObligation', fn ($obligation) => $obligation
+                            ->where('lease_id', '!=', $lease->id)
+                            ->orWhere('organization_id', '!=', $lease->organization_id)
+                            ->orWhere('property_id', '!=', $lease->property_id)
+                            ->orWhere('unit_id', '!=', $lease->unit_id)
+                            ->orWhere('tenant_id', '!=', $lease->tenant_id)))
+                    ->exists();
+                $hasInvalidLegacyObligation = $allocationCents === 0
+                    && $creditCents === 0
+                    && $existingPayment->rent_obligation_id !== null
+                    && RentObligation::query()
+                        ->whereKey($existingPayment->rent_obligation_id)
+                        ->where(fn ($query) => $query
+                            ->where('lease_id', '!=', $lease->id)
+                            ->orWhere('organization_id', '!=', $lease->organization_id)
+                            ->orWhere('property_id', '!=', $lease->property_id)
+                            ->orWhere('unit_id', '!=', $lease->unit_id)
+                            ->orWhere('tenant_id', '!=', $lease->tenant_id))
+                        ->exists();
+                $directAllocations = $existingPayment->allocations()->with('rentObligation')->get();
+                $creditAllocations = $creditIds->isEmpty()
+                    ? collect()
+                    : PaymentAllocation::query()->whereIn('rent_payment_credit_id', $creditIds)->with('rentObligation')->get();
+                $hasOverallocatedObligation = $directAllocations->concat($creditAllocations)
+                    ->contains(fn (PaymentAllocation $allocation) => $allocation->rentObligation
+                        && (float) $allocation->rentObligation->amount_paid > (float) $allocation->rentObligation->amount_due);
                 $legacyObligationCents = $allocationCents === 0
                     && $creditCents === 0
                     && $existingPayment->rent_obligation_id !== null
@@ -347,7 +431,7 @@ class PaymentReconciliationService
                 $representedCents = $allocationCents + $creditCents + $legacyObligationCents;
                 $paymentCents = (int) round((float) $existingPayment->amount * 100);
 
-                if ($representedCents !== $paymentCents || $hasCrossLeaseAllocation || $hasMismatchedCredit) {
+                if ($representedCents !== $paymentCents || $hasCrossLeaseAllocation || $hasMismatchedCredit || $hasInvalidAllocationSource || $hasCrossScopeCreditAllocation || $hasInvalidLegacyObligation || $hasOverallocatedObligation) {
                     $transaction->update([
                         'status' => 'needs_review',
                         'matched_lease_id' => $lease->id,
@@ -473,13 +557,53 @@ class PaymentReconciliationService
 
     private function ensureLeaseObligationsThrough(Leases $lease, CarbonImmutable $through): void
     {
-        $start = CarbonImmutable::parse($lease->start_date)->startOfMonth();
-        $period = $start;
+        app(RentLedgerService::class)->ensureForLeaseThrough($lease, $through);
+    }
 
-        while ($period->lessThanOrEqualTo($through->startOfMonth())) {
-            app(RentLedgerService::class)->ensureForPeriod($period);
-            $period = $period->addMonth();
+    /**
+     * Reject inconsistent ownership chains before a callback can create ledger rows.
+     * Tenant current property/unit fields are deliberately not compared: historical
+     * leases remain authoritative if a tenant profile is later updated.
+     */
+    private function leaseScopeIssue(Leases $lease): ?string
+    {
+        $property = Property::query()->find($lease->property_id);
+        if (!$property || (int) $property->organization_id !== (int) $lease->organization_id) {
+            return 'The matched lease property is missing or belongs to a different organization.';
         }
+
+        $unit = Unit::query()->find($lease->unit_id);
+        if (!$unit || (int) $unit->property_id !== (int) $lease->property_id) {
+            return 'The matched lease unit is missing or belongs to a different property.';
+        }
+
+        $tenant = Tenant::query()->find($lease->tenant_id);
+        if (!$tenant || (int) $tenant->organization_id !== (int) $lease->organization_id) {
+            return 'The matched lease tenant is missing or belongs to a different organization.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Existing obligations are historical ledger records: detect mismatched scope
+     * and hold the transaction for review instead of rewriting their ownership fields.
+     */
+    private function obligationScopeIssue(Leases $lease, CarbonImmutable $through): ?string
+    {
+        $hasMismatch = RentObligation::query()
+            ->where('lease_id', $lease->id)
+            ->whereDate('period', '<=', $through->startOfMonth()->toDateString())
+            ->where(fn ($query) => $query
+                ->where('organization_id', '!=', $lease->organization_id)
+                ->orWhere('property_id', '!=', $lease->property_id)
+                ->orWhere('unit_id', '!=', $lease->unit_id)
+                ->orWhere('tenant_id', '!=', $lease->tenant_id))
+            ->exists();
+
+        return $hasMismatch
+            ? 'One or more rent obligations for the matched lease contain mismatched organization, property, unit or tenant ownership.'
+            : null;
     }
 
     private function paymentMethod(string $provider): string

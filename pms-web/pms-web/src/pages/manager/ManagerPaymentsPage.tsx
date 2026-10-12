@@ -27,6 +27,20 @@ import {
   toRecord,
 } from "../../services/format";
 
+interface RentPeriodAllocation {
+  id: number;
+  amount: number;
+  rent_obligation: { id: number; period: string; due_date: string; amount_due: number } | null;
+}
+
+interface RentCreditRecord {
+  id: number;
+  amount: number;
+  remaining_amount: number;
+  status: string;
+  allocations: RentPeriodAllocation[];
+}
+
 interface PaymentRecord {
   id: number;
   lease_id: number;
@@ -40,6 +54,9 @@ interface PaymentRecord {
   reference: string | null;
   notes: string | null;
   status: "paid" | "pending" | "failed" | "partial" | "overdue";
+  rent_obligation: { id: number; period: string; due_date: string; amount_due: number } | null;
+  allocations: RentPeriodAllocation[];
+  rent_payment_credits: RentCreditRecord[];
 }
 
 interface LeaseOption {
@@ -80,8 +97,30 @@ function parsePayments(payload: unknown): PaymentRecord[] {
       reference: asString(record.reference) || null,
       notes: asString(record.notes) || null,
       status: (["paid", "pending", "failed", "partial", "overdue"].includes(asString(record.status)) ? asString(record.status) : "paid") as PaymentRecord["status"],
+      rent_obligation: (() => { const obligation = toRecord(record.rent_obligation); return obligation.id ? { id: asNumber(obligation.id), period: asString(obligation.period), due_date: asString(obligation.due_date), amount_due: asNumber(obligation.amount_due) } : null; })(),
+      allocations: rows(record.allocations).map((allocation) => {
+        const obligation = toRecord(allocation.rent_obligation);
+        return { id: asNumber(allocation.id), amount: asNumber(allocation.amount), rent_obligation: obligation.id ? { id: asNumber(obligation.id), period: asString(obligation.period), due_date: asString(obligation.due_date), amount_due: asNumber(obligation.amount_due) } : null };
+      }),
+      rent_payment_credits: rows(record.rent_payment_credits).map((credit) => ({
+        id: asNumber(credit.id),
+        amount: asNumber(credit.amount),
+        remaining_amount: asNumber(credit.remaining_amount),
+        status: asString(credit.status),
+        allocations: rows(credit.allocations).map((allocation) => {
+          const obligation = toRecord(allocation.rent_obligation);
+          return { id: asNumber(allocation.id), amount: asNumber(allocation.amount), rent_obligation: obligation.id ? { id: asNumber(obligation.id), period: asString(obligation.period), due_date: asString(obligation.due_date), amount_due: asNumber(obligation.amount_due) } : null };
+        }),
+      })),
     };
   });
+}
+
+function formatRentPeriod(period: string | null | undefined): string {
+  if (!period) return "Rent period not recorded";
+  const [year, month] = period.slice(0, 10).split("-").map(Number);
+  if (!year || !month) return period;
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
 function parseLeaseOptions(payload: unknown): LeaseOption[] {
@@ -473,7 +512,7 @@ function ManagerPaymentsPage() {
               <p className="mg-subtitle">
                 Every payment and tenant payment submission across your organization. Confirmed
                 payments are separated from submissions awaiting verification — rent, deposits and utilities
-                are separated so your rent collection stays honest.
+                are separated so your rent collection stays honest. Confirmed rent payments are allocated to the oldest outstanding months first; any remainder is shown as rent credit.
               </p>
             </div>
 
@@ -642,6 +681,7 @@ function ManagerPaymentsPage() {
                       <th scope="col">Unit</th>
                       <th scope="col">Method</th>
                       <th scope="col">Type</th>
+                      <th scope="col">Rent month(s) covered</th>
                       <th scope="col" className="mg-num">
                         Amount
                       </th>
@@ -688,6 +728,21 @@ function ManagerPaymentsPage() {
                           >
                             {titleCase(payment.payment_type)}
                           </span>
+                        </td>
+                        <td data-label="Rent month(s) covered">
+                          {payment.payment_type !== "rent" ? <span className="mg-sub">Not rent</span> : (() => {
+                            const direct = payment.allocations.filter((allocation) => allocation.rent_obligation);
+                            const creditAllocations = payment.rent_payment_credits.flatMap((credit) => credit.allocations.filter((allocation) => allocation.rent_obligation).map((allocation) => ({ ...allocation, creditId: credit.id })));
+                            const hasLedgerAllocations = direct.length > 0 || creditAllocations.length > 0;
+                            const legacyObligation = payment.status === "paid" && direct.length === 0 && creditAllocations.length === 0 ? payment.rent_obligation : null;
+                            return <div style={{ minWidth: "12rem", display: "grid", gap: ".3rem" }}>
+                              {direct.map((allocation) => <span key={`direct-${allocation.id}`} className="mg-sub">{formatRentPeriod(allocation.rent_obligation?.period)} · {formatMoney(allocation.amount, currency)}</span>)}
+                              {creditAllocations.map((allocation) => <span key={`credit-${allocation.creditId}-${allocation.id}`} className="mg-sub">{formatRentPeriod(allocation.rent_obligation?.period)} · {formatMoney(allocation.amount, currency)} from excess</span>)}
+                              {legacyObligation && <span className="mg-sub">Legacy month link: {formatRentPeriod(legacyObligation.period)} · explicit month-by-month allocation was not recorded</span>}
+                              {!hasLedgerAllocations && !legacyObligation && <span className="mg-sub">{payment.status === "pending" ? "Not allocated until confirmed" : payment.status === "paid" ? "No rent allocation recorded" : "Not allocated"}</span>}
+                              {payment.rent_payment_credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <span key={`credit-remaining-${credit.id}`} className="mg-badge mg-badge--info">{formatMoney(credit.remaining_amount, currency)} still available for rent</span>)}
+                            </div>;
+                          })()}
                         </td>
                         <td data-label="Amount" className="mg-num">
                           <span className="mg-strong">

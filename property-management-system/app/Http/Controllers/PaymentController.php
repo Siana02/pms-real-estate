@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Leases;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Services\PermissionService;
 use App\Services\AuditLogService;
 use App\Services\RentLedgerService;
@@ -15,7 +16,15 @@ class PaymentController extends Controller
     {
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $payments = Payment::where('organization_id', $request->user()->organization_id)
-            ->with(['lease.tenant', 'lease.property', 'lease.unit', 'paymentDestination'])
+            ->with([
+                'lease.tenant',
+                'lease.property',
+                'lease.unit',
+                'paymentDestination',
+                'rentObligation:id,period,due_date,amount_due',
+                'allocations.rentObligation:id,period,due_date,amount_due',
+                'rentPaymentCredits.allocations.rentObligation:id,period,due_date,amount_due',
+            ])
             ->latest('payment_date')
             ->get();
 
@@ -27,7 +36,7 @@ class PaymentController extends Controller
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.record'), 403);
         $validated = $request->validate([
             'lease_id' => 'required|exists:leases,id',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|gt:0',
             'payment_date' => 'required|date',
             'payment_method' => 'required|in:cash,mpesa,bank_transfer,card,other',
             'reference' => 'nullable|string|max:255',
@@ -41,18 +50,27 @@ class PaymentController extends Controller
             abort(403, 'You do not have access to this lease.');
         }
 
-        $payment = Payment::create([
-            ...$validated,
-            'organization_id' => $request->user()->organization_id,
-        ]);
+        $payment = DB::transaction(function () use ($validated, $request) {
+            $payment = Payment::create([
+                ...$validated,
+                'organization_id' => $request->user()->organization_id,
+            ]);
 
-        if ($payment->payment_type === 'rent') {
-            app(RentLedgerService::class)->attachPayment($payment);
-        }
+            if ($payment->payment_type === 'rent') {
+                $ledger = app(RentLedgerService::class);
+                if ($payment->status === 'paid') {
+                    $ledger->allocateConfirmedPayment($payment);
+                } else {
+                    $ledger->attachPayment($payment);
+                }
+            }
+
+            return $payment;
+        });
 
         return response()->json([
             'message' => 'Payment recorded successfully.',
-            'payment' => $payment->load('lease'),
+            'payment' => $payment->fresh()->load('lease'),
         ], 201);
     }
 
@@ -62,11 +80,19 @@ class PaymentController extends Controller
         $this->authorizeOrganization($request, $payment);
         abort_if($payment->status !== 'pending', 422, 'Only payments awaiting verification can be confirmed.');
 
-        $payment->update([
-            'status' => 'paid',
-            'payment_date' => $payment->payment_date ?: now()->toDateString(),
-        ]);
-        app(RentLedgerService::class)->attachPayment($payment->fresh());
+        $payment = DB::transaction(function () use ($payment) {
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+            abort_if($payment->status !== 'pending', 422, 'This payment was already processed by another request.');
+
+            $payment->update([
+                'status' => 'paid',
+                'payment_date' => $payment->payment_date ?: now()->toDateString(),
+            ]);
+            $payment = $payment->fresh();
+            app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+
+            return $payment->fresh();
+        });
 
         app(AuditLogService::class)->record(
             'PAYMENT_VERIFIED',

@@ -6,11 +6,13 @@ use App\Models\Leases;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Models\PaymentTransaction;
 use App\Models\Property;
 use App\Models\RentObligation;
 use App\Models\RentPaymentCredit;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\PaymentReconciliationService;
 use App\Services\RentLedgerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,6 +74,20 @@ class RentLedgerIntegrityTest extends TestCase
         $this->assertSame($tenant->id, $obligation->tenant_id);
         $this->assertSame('15000.00', $obligation->amount_due);
 
+        $pendingPayment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 5000,
+            'payment_date' => $period->addDays(4)->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'pending',
+            'payment_type' => 'rent',
+        ]);
+
+        $attached = $ledger->attachPayment($pendingPayment);
+        $this->assertSame($obligation->id, $attached?->id);
+        $this->assertSame($obligation->id, $pendingPayment->fresh()->rent_obligation_id);
+
         $payment = Payment::create([
             'organization_id' => $organization->id,
             'lease_id' => $lease->id,
@@ -82,15 +98,16 @@ class RentLedgerIntegrityTest extends TestCase
             'payment_type' => 'rent',
         ]);
 
-        $attached = $ledger->attachPayment($payment);
-        $this->assertSame($obligation->id, $attached?->id);
-        $this->assertSame($obligation->id, $payment->fresh()->rent_obligation_id);
-
         PaymentAllocation::create([
             'payment_id' => $payment->id,
             'rent_obligation_id' => $obligation->id,
             'amount' => 5000,
         ]);
+
+        // Re-running the pending-payment attachment helper must not invent a
+        // legacy month link on a confirmed payment already represented by allocations.
+        $this->assertNull($ledger->attachPayment($payment->fresh()));
+        $this->assertNull($payment->fresh()->rent_obligation_id);
 
         $obligation->refresh();
         $this->assertSame(5000.0, $obligation->amount_paid);
@@ -204,6 +221,198 @@ class RentLedgerIntegrityTest extends TestCase
         $this->assertSame(1, PaymentAllocation::where('rent_payment_credit_id', $credit->id)
             ->where('rent_obligation_id', $obligation->id)
             ->count());
+    }
+
+    public function test_confirmed_payment_is_allocated_by_rent_month_and_excess_is_kept_as_credit(): void
+    {
+        $currentPeriod = CarbonImmutable::now()->startOfMonth();
+        $previousPeriod = $currentPeriod->subMonth();
+
+        $organization = Organization::create([
+            'name' => 'Monthly Allocation Properties',
+            'email' => 'monthly-allocation@example.test',
+        ]);
+
+        $property = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Monthly Allocation Building',
+        ]);
+
+        $unit = Unit::create([
+            'property_id' => $property->id,
+            'unit_number' => 'MA-01',
+            'monthly_rent' => 10000,
+        ]);
+
+        $tenant = Tenant::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'first_name' => 'Monthly',
+            'last_name' => 'Tenant',
+            'phone' => '+254700000303',
+        ]);
+
+        $lease = Leases::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'start_date' => $previousPeriod->toDateString(),
+            'monthly_rent' => 10000,
+            'status' => 'active',
+        ]);
+
+        $payment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 25000,
+            'payment_date' => $currentPeriod->addDays(3)->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'paid',
+            'payment_type' => 'rent',
+            'reference' => 'MONTHLY-ALLOC-001',
+        ]);
+
+        app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+
+        $allocations = PaymentAllocation::where('payment_id', $payment->id)
+            ->with('rentObligation')
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $allocations);
+        $this->assertSame($previousPeriod->toDateString(), CarbonImmutable::parse($allocations[0]->rentObligation->period)->toDateString());
+        $this->assertSame($currentPeriod->toDateString(), CarbonImmutable::parse($allocations[1]->rentObligation->period)->toDateString());
+        $this->assertSame(10000.0, (float) $allocations[0]->amount);
+        $this->assertSame(10000.0, (float) $allocations[1]->amount);
+
+        $credit = RentPaymentCredit::where('source_payment_id', $payment->id)->firstOrFail();
+        $this->assertSame(5000.0, (float) $credit->amount);
+        $this->assertSame(5000.0, (float) $credit->remaining_amount);
+        $this->assertSame('available', $credit->status);
+
+        // A retry must not duplicate month allocations or create a second credit.
+        app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());
+        $this->assertSame(2, PaymentAllocation::where('payment_id', $payment->id)->count());
+        $this->assertSame(1, RentPaymentCredit::where('source_payment_id', $payment->id)->count());
+    }
+
+    public function test_inconsistent_historical_payment_allocation_is_held_for_review_without_rewriting_it(): void
+    {
+        $period = CarbonImmutable::now()->startOfMonth();
+
+        $organization = Organization::create([
+            'name' => 'Historical Review Organization',
+            'email' => 'historical-review@example.test',
+        ]);
+
+        $property = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Lease Property',
+        ]);
+        $otherProperty = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Mismatched Historical Property',
+        ]);
+
+        $unit = Unit::create([
+            'property_id' => $property->id,
+            'unit_number' => 'HR-01',
+            'monthly_rent' => 10000,
+        ]);
+        $otherUnit = Unit::create([
+            'property_id' => $otherProperty->id,
+            'unit_number' => 'HR-02',
+            'monthly_rent' => 10000,
+        ]);
+
+        $tenant = Tenant::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'first_name' => 'Historical',
+            'last_name' => 'Review',
+            'phone' => '+254700000304',
+        ]);
+
+        $lease = Leases::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'start_date' => $period->toDateString(),
+            'monthly_rent' => 10000,
+            'status' => 'active',
+        ]);
+
+        $obligation = RentObligation::create([
+            'organization_id' => $organization->id,
+            'property_id' => $otherProperty->id,
+            'unit_id' => $otherUnit->id,
+            'tenant_id' => $tenant->id,
+            'lease_id' => $lease->id,
+            'period' => $period->toDateString(),
+            'due_date' => $period->addDays(4)->toDateString(),
+            'amount_due' => 10000,
+        ]);
+
+        $payment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 10000,
+            'payment_date' => $period->addDays(3)->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'paid',
+            'payment_type' => 'rent',
+            'reference' => 'HISTORICAL-SCOPE-001',
+        ]);
+
+        $allocation = PaymentAllocation::create([
+            'payment_id' => $payment->id,
+            'rent_obligation_id' => $obligation->id,
+            'amount' => 10000,
+        ]);
+
+        try {
+            app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+            $this->fail('An inconsistent historical allocation must not be silently accepted.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('requires review', $exception->getMessage());
+        }
+
+        // Review is non-destructive: the original records remain exactly as found.
+        $this->assertSame($otherProperty->id, $obligation->fresh()->property_id);
+        $this->assertSame($otherUnit->id, $obligation->fresh()->unit_id);
+        $this->assertSame(10000.0, (float) $allocation->fresh()->amount);
+        $this->assertSame(1, PaymentAllocation::where('payment_id', $payment->id)->count());
+        $this->assertSame(0, RentPaymentCredit::where('source_payment_id', $payment->id)->count());
+
+        $transaction = PaymentTransaction::create([
+            'organization_id' => $organization->id,
+            'provider' => 'mpesa_daraja',
+            'external_transaction_id' => 'HISTORICAL-SCOPE-RECEIPT-001',
+            'amount' => 10000,
+            'currency' => 'KES',
+            'payment_reference' => $lease->tenant_payment_reference,
+            'transaction_at' => $period->addDays(3)->toDateTimeString(),
+            'status' => 'pending',
+        ]);
+
+        $resolved = app(PaymentReconciliationService::class)->resolve($transaction, $lease);
+        $this->assertSame('needs_review', $resolved->status);
+        $this->assertNull($resolved->payment_id);
+        $this->assertSame(1, Payment::where('reference', 'HISTORICAL-SCOPE-001')->count());
+
+        // The ledger scan persists a review flag but leaves payment and allocation
+        // records untouched.
+        $this->artisan('rent:ledger-audit')->assertExitCode(1);
+        $this->assertDatabaseHas('rent_ledger_review_flags', [
+            'record_type' => 'payment_allocation',
+            'record_id' => $allocation->id,
+            'issue_code' => 'allocation_scope_or_source',
+            'status' => 'open',
+        ]);
     }
 
 }
