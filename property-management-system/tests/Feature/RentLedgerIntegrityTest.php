@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\Property;
 use App\Models\RentObligation;
+use App\Models\RentPaymentCredit;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\RentLedgerService;
