@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FlutterwaveIntegration;
 use App\Models\Organization;
 use App\Services\AuditLogService;
+use App\Services\RentLedgerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -211,6 +212,10 @@ class FlutterwaveController extends Controller
             'receipt_url' => $tx['receipt_url'] ?? null,
             'payment_date' => now()->toDateString(),
         ]);
+
+        if ($payment->payment_type === 'rent') {
+            app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());
+        }
 
         return ['status' => 'paid', 'payment_id' => $payment->id];
     }
