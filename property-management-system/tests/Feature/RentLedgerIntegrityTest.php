@@ -386,8 +386,24 @@ class RentLedgerIntegrityTest extends TestCase
         $this->assertSame(1, PaymentAllocation::where('payment_id', $payment->id)->count());
         $this->assertSame(0, RentPaymentCredit::where('source_payment_id', $payment->id)->count());
 
-        // The read-only ledger scan persists a review flag but leaves payment
-        // and allocation records untouched.
+        $transaction = PaymentTransaction::create([
+            'organization_id' => $organization->id,
+            'provider' => 'mpesa_daraja',
+            'external_transaction_id' => 'HISTORICAL-SCOPE-RECEIPT-001',
+            'amount' => 10000,
+            'currency' => 'KES',
+            'payment_reference' => $lease->tenant_payment_reference,
+            'transaction_at' => $period->addDays(3)->toDateTimeString(),
+            'status' => 'pending',
+        ]);
+
+        $resolved = app(PaymentReconciliationService::class)->resolve($transaction, $lease);
+        $this->assertSame('needs_review', $resolved->status);
+        $this->assertNull($resolved->payment_id);
+        $this->assertSame(1, Payment::where('reference', 'HISTORICAL-SCOPE-001')->count());
+
+        // The ledger scan persists a review flag but leaves payment and allocation
+        // records untouched.
         $this->artisan('rent:ledger-audit')->assertExitCode(1);
         $this->assertDatabaseHas('rent_ledger_review_flags', [
             'record_type' => 'payment_allocation',
