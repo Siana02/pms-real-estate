@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PlatformSubscriptionTestingBypass;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,6 +17,11 @@ class EnsureSubscriptionFeature
 
     public function handle(Request $request, Closure $next, string $feature): Response
     {
+        $user = $request->user();
+        if ($user && PlatformSubscriptionTestingBypass::allows((int) $user->organization_id)) {
+            return $next($request);
+        }
+
         $subscription = $request->user()?->organization?->platformSubscription;
         if (!$subscription || !$subscription->isActive()) {
             return response()->json(['message' => 'An active platform subscription is required.', 'code' => 'PLATFORM_SUBSCRIPTION_REQUIRED'], 402);

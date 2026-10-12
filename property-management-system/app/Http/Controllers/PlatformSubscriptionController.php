@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PlatformSubscription;
 use App\Models\PlatformSubscriptionPayment;
 use App\Models\Organization;
+use App\Support\PlatformSubscriptionTestingBypass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -92,8 +93,9 @@ class PlatformSubscriptionController extends Controller
         $organization = $request->user()->organization;
         if (!$organization) return response()->json(['message' => 'No organization is associated with this account.'], 422);
 
+        $testingAccessOverride = PlatformSubscriptionTestingBypass::allows((int) $organization->id);
         $subscription = $organization->platformSubscription;
-        if ($subscription && $subscription->status === 'active' && (!$subscription->current_period_ends_at || $subscription->current_period_ends_at->isPast())) {
+        if (!$testingAccessOverride && $subscription && $subscription->status === 'active' && (!$subscription->current_period_ends_at || $subscription->current_period_ends_at->isPast())) {
             $subscription->update(['status' => 'past_due']);
         }
         $plans = array_values($this->plans());
@@ -105,11 +107,12 @@ class PlatformSubscriptionController extends Controller
         return response()->json([
             'plans' => $plans,
             'subscription' => $subscription,
+            'access_override' => $testingAccessOverride,
             'quote' => $quote,
             'till_number' => config('services.platform_billing.till_number'),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
             'payments' => $subscription ? $subscription->payments()->latest()->limit(10)->get() : [],
-            'features' => match ($subscription?->plan_code) {
+            'features' => $testingAccessOverride ? ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'] : match ($subscription?->plan_code) {
                 'basic' => ['payment_matching'],
                 'standard' => ['payment_matching', 'tenant_payment_links'],
                 'premium' => ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'],
