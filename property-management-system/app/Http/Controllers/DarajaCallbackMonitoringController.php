@@ -82,29 +82,33 @@ class DarajaCallbackMonitoringController extends Controller
             'resolution_notes' => ['required', 'string', 'min:10', 'max:2000'],
         ]);
 
-        $event = DarajaCallbackMonitoringEvent::query()
-            ->where('organization_id', $request->user()->organization_id)
-            ->lockForUpdate()
-            ->findOrFail($eventId);
+        $event = DB::transaction(function () use ($request, $eventId, $validated) {
+            $event = DarajaCallbackMonitoringEvent::query()
+                ->where('organization_id', $request->user()->organization_id)
+                ->lockForUpdate()
+                ->findOrFail($eventId);
 
-        abort_if($event->processing_status !== 'needs_review', 422, 'Only monitoring events awaiting review can be marked reviewed.');
+            abort_if($event->processing_status !== 'needs_review', 422, 'Only monitoring events awaiting review can be marked reviewed.');
 
-        $event->update([
-            'processing_status' => 'reviewed',
-            'reviewed_by' => $request->user()->id,
-            'reviewed_at' => now(),
-            'resolution_notes' => trim($validated['resolution_notes']),
-        ]);
+            $event->update([
+                'processing_status' => 'reviewed',
+                'reviewed_by' => $request->user()->id,
+                'reviewed_at' => now(),
+                'resolution_notes' => trim($validated['resolution_notes']),
+            ]);
 
-        Log::notice('M-PESA callback monitoring alert marked reviewed; ledger unchanged.', [
-            'monitor_event_id' => $event->id,
-            'organization_id' => $event->organization_id,
-            'reviewed_by' => $request->user()->id,
-        ]);
+            Log::notice('M-PESA callback monitoring alert marked reviewed; ledger unchanged.', [
+                'monitor_event_id' => $event->id,
+                'organization_id' => $event->organization_id,
+                'reviewed_by' => $request->user()->id,
+            ]);
+
+            return $event->fresh();
+        }, 3);
 
         return response()->json([
             'message' => 'Monitoring alert marked reviewed. This records the operator decision only; it does not confirm, allocate, or modify a payment.',
-            'data' => $event->fresh(),
+            'data' => $event,
         ]);
     }
 
