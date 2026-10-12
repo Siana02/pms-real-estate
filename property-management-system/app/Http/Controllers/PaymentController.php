@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Leases;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Services\PermissionService;
 use App\Services\AuditLogService;
 use App\Services\RentLedgerService;
@@ -49,19 +50,23 @@ class PaymentController extends Controller
             abort(403, 'You do not have access to this lease.');
         }
 
-        $payment = Payment::create([
-            ...$validated,
-            'organization_id' => $request->user()->organization_id,
-        ]);
+        $payment = DB::transaction(function () use ($validated, $request) {
+            $payment = Payment::create([
+                ...$validated,
+                'organization_id' => $request->user()->organization_id,
+            ]);
 
-        if ($payment->payment_type === 'rent') {
-            $ledger = app(RentLedgerService::class);
-            if ($payment->status === 'paid') {
-                $ledger->allocateConfirmedPayment($payment);
-            } else {
-                $ledger->attachPayment($payment);
+            if ($payment->payment_type === 'rent') {
+                $ledger = app(RentLedgerService::class);
+                if ($payment->status === 'paid') {
+                    $ledger->allocateConfirmedPayment($payment);
+                } else {
+                    $ledger->attachPayment($payment);
+                }
             }
-        }
+
+            return $payment;
+        });
 
         return response()->json([
             'message' => 'Payment recorded successfully.',
@@ -75,11 +80,16 @@ class PaymentController extends Controller
         $this->authorizeOrganization($request, $payment);
         abort_if($payment->status !== 'pending', 422, 'Only payments awaiting verification can be confirmed.');
 
-        $payment->update([
-            'status' => 'paid',
-            'payment_date' => $payment->payment_date ?: now()->toDateString(),
-        ]);
-        app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());
+        $payment = DB::transaction(function () use ($payment) {
+            $payment->update([
+                'status' => 'paid',
+                'payment_date' => $payment->payment_date ?: now()->toDateString(),
+            ]);
+            $payment = $payment->fresh();
+            app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+
+            return $payment->fresh();
+        });
 
         app(AuditLogService::class)->record(
             'PAYMENT_VERIFIED',
