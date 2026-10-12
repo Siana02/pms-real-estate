@@ -97,7 +97,7 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
     Route::apiResource('leases', LeasesController::class);
     Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
     Route::apiResource('payments', PaymentController::class)->middleware('subscription.feature:payment_ledger');
-    Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
+    Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);\n    Route::get('payment-reconciliation/ledger-review-flags', [RentLedgerReviewController::class, 'index']);\n    Route::patch('payment-reconciliation/ledger-review-flags/{flag}/resolve', [RentLedgerReviewController::class, 'resolve']);
     Route::post('payment-reconciliation/transactions', [PaymentReconciliationController::class, 'ingest']);
     Route::post('payment-reconciliation/transactions/{paymentTransaction}/resolve', [PaymentReconciliationController::class, 'resolve']);
     Route::post('payments/{payment}/verify', [PaymentController::class, 'verify']);
