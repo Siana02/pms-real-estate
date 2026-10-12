@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
-class DarajaConcurrentCallbackTest extends TestCase
+#[Group('parallel-mpesa')]\nclass DarajaConcurrentCallbackTest extends TestCase
 {
     use DatabaseMigrations;
 
