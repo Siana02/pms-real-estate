@@ -70,7 +70,7 @@ class PaymentController extends Controller
 
         return response()->json([
             'message' => 'Payment recorded successfully.',
-            'payment' => $payment->load('lease'),
+            'payment' => $payment->fresh()->load('lease'),
         ], 201);
     }
 
