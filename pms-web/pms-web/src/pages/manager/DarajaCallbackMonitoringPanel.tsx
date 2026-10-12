@@ -15,6 +15,8 @@ interface MonitorEvent {
   latency_seconds: number | null;
   is_delayed: boolean;
   error_message: string | null;
+  reviewed_at: string | null;
+  resolution_notes: string | null;
 }
 interface ShortcodeHealth {
   shortcode: string;
@@ -37,6 +39,8 @@ function parseMonitor(payload: unknown) {
     latency_seconds: r.latency_seconds == null ? null : asNumber(r.latency_seconds),
     is_delayed: Boolean(r.is_delayed),
     error_message: asString(r.error_message) || null,
+    reviewed_at: asString(r.reviewed_at) || null,
+    resolution_notes: asString(r.resolution_notes) || null,
   }));
   const shortcodes = rows(root.shortcodes).map((r): ShortcodeHealth => ({
     shortcode: asString(r.shortcode),
@@ -70,6 +74,8 @@ export default function DarajaCallbackMonitoringPanel() {
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [notes, setNotes] = useState("");
+  const [reviewNotes, setReviewNotes] = useState<Record<number, string>>({});
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +92,30 @@ export default function DarajaCallbackMonitoringPanel() {
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  async function markReviewed(item: MonitorEvent) {
+    const resolution = (reviewNotes[item.id] ?? "").trim();
+    if (resolution.length < 10) {
+      setError("Add at least 10 characters describing what you checked before marking the alert reviewed.");
+      return;
+    }
+    setReviewingId(item.id);
+    setError("");
+    try {
+      await apiRequest(`/payment-reconciliation/callback-monitoring/${item.id}/resolve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolution_notes: resolution }),
+      });
+      setReviewNotes((current) => ({ ...current, [item.id]: "" }));
+      setMessage("Monitoring alert reviewed. This records the decision only; it does not confirm or change the payment ledger.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not record the review decision.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function recover(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,7 +208,15 @@ export default function DarajaCallbackMonitoringPanel() {
             <td>{item.receipt || "Receipt unavailable"}<span className="mg-sub">Shortcode {item.shortcode}</span></td>
             <td>{item.source === "statement_recovery" ? "Official statement recovery" : "Safaricom callback"}</td>
             <td>{item.latency_seconds == null ? "Unknown" : item.latency_seconds < 3600 ? `${Math.floor(item.latency_seconds / 60)}m ${item.latency_seconds % 60}s` : `${Math.floor(item.latency_seconds / 3600)}h ${Math.floor((item.latency_seconds % 3600) / 60)}m`}{item.is_delayed ? <span className="mg-sub">Delayed (&gt; 5 minutes)</span> : null}</td>
-            <td><span className={item.delivery_status === "failed" || item.processing_status === "needs_review" ? "mg-badge mg-badge--warn" : "mg-badge mg-badge--ok"}>{item.delivery_status === "failed" ? "Processing failed" : item.processing_status === "needs_review" ? "Needs review" : item.source === "statement_recovery" ? "Recovered / deduplicated" : "Received"}</span>{item.error_message ? <span className="mg-sub">{item.error_message}</span> : null}</td>
+            <td>
+              <span className={item.delivery_status === "failed" || item.processing_status === "needs_review" ? "mg-badge mg-badge--warn" : "mg-badge mg-badge--ok"}>{item.delivery_status === "failed" ? "Processing failed" : item.processing_status === "needs_review" ? "Needs review" : item.processing_status === "reviewed" ? "Alert reviewed" : item.source === "statement_recovery" ? "Recovered / deduplicated" : "Received"}</span>
+              {item.error_message ? <span className="mg-sub">{item.error_message}</span> : null}
+              {item.processing_status === "needs_review" ? <div style={{ display: "grid", gap: ".35rem", minWidth: "14rem", marginTop: ".5rem" }}>
+                <textarea className="mg-input" rows={2} minLength={10} maxLength={2000} value={reviewNotes[item.id] ?? ""} onChange={(e) => setReviewNotes((current) => ({ ...current, [item.id]: e.target.value }))} placeholder="What did you verify? (10+ characters)" aria-label={`Review notes for receipt ${item.receipt ?? item.id}`} />
+                <button className="mg-btn mg-btn--subtle" disabled={reviewingId === item.id || (reviewNotes[item.id] ?? "").trim().length < 10} onClick={() => void markReviewed(item)}>{reviewingId === item.id ? "Saving…" : "Mark alert reviewed"}</button>
+                <span className="mg-sub">This does not reconcile or change a payment.</span>
+              </div> : item.processing_status === "reviewed" ? <span className="mg-sub">Reviewed {displayDate(item.reviewed_at)}: {item.resolution_notes || "No notes"}</span> : null}
+            </td>
           </tr>)}
         </tbody></table></div>
       }
