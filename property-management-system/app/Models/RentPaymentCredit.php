@@ -44,4 +44,9 @@ class RentPaymentCredit extends Model
     {
         return $this->belongsTo(Payment::class, 'source_payment_id');
     }
+
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class, 'rent_payment_credit_id');
+    }
 }
