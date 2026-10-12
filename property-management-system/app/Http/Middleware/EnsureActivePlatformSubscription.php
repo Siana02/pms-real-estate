@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use App\Support\PlatformSubscriptionTestingBypass;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -11,6 +12,9 @@ class EnsureActivePlatformSubscription
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+        if ($user && PlatformSubscriptionTestingBypass::allows((int) $user->organization_id)) {
+            return $next($request);
+        }
         if (!$user || !$user->organization_id) {
             return response()->json(['message' => 'An active organization subscription is required.'], 402);
         }
