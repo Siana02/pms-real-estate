@@ -56,6 +56,8 @@ class RentLedgerService
         }
 
         if ($this->obligationScopeMismatchExists($lease, $lastPeriod)) {
+            // Callers that reconcile a provider transaction must persist needs_review
+            // on that transaction. Log here, but let the caller make that decision.
             Log::warning('Rent ledger contains historical obligations with mismatched ownership fields.', [
                 'lease_id' => $lease->id,
                 'organization_id' => $lease->organization_id,
@@ -64,7 +66,6 @@ class RentLedgerService
                 'tenant_id' => $lease->tenant_id,
                 'through' => $lastPeriod->toDateString(),
             ]);
-            throw new \RuntimeException('Historical rent obligations have inconsistent ownership fields and require review.');
         }
     }
 
@@ -313,6 +314,14 @@ class RentLedgerService
             }
 
             $this->ensureForLeaseThrough($lease, $through);
+
+            if ($this->obligationScopeMismatchExists($lease, $through)) {
+                Log::warning('Confirmed payment allocation stopped because historical obligations have inconsistent ownership fields.', [
+                    'payment_id' => $payment->id,
+                    'lease_id' => $lease->id,
+                ]);
+                throw new \RuntimeException('Historical rent obligations have inconsistent ownership fields and require review. No allocation was created.');
+            }
 
             $obligations = RentObligation::query()
                 ->where('lease_id', $lease->id)
