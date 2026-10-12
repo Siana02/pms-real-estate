@@ -25,6 +25,7 @@ return new class extends Migration
             $table->boolean('is_delayed')->default(false);
             $table->string('error_code', 100)->nullable();
             $table->text('error_message')->nullable();
+            $table->text('recovery_notes')->nullable();
             $table->string('statement_fingerprint', 64)->nullable()->index();
             $table->unsignedBigInteger('recorded_by')->nullable();
             $table->timestamps();
