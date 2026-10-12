@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
     Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
     Route::get('payment-reconciliation/ledger-review-flags', [RentLedgerReviewController::class, 'index']);
     Route::get('payment-reconciliation/callback-monitoring', [DarajaCallbackMonitoringController::class, 'index']);
+    Route::patch('payment-reconciliation/callback-monitoring/{eventId}/resolve', [DarajaCallbackMonitoringController::class, 'resolveMonitorEvent']);
     Route::post('payment-reconciliation/callback-monitoring/recover', [DarajaCallbackMonitoringController::class, 'recoverFromStatement'])->middleware('throttle:5,1');
     Route::patch('payment-reconciliation/ledger-review-flags/{flag}/resolve', [RentLedgerReviewController::class, 'resolve']);
     Route::post('payment-reconciliation/transactions', [PaymentReconciliationController::class, 'ingest']);
