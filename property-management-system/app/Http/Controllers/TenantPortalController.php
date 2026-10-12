@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use App\Services\LeaseProvisioner;
 use App\Services\RentLedgerService;
+use App\Services\DarajaC2bRoutingService;
 
 /**
  * Read/write endpoints for the tenant portal.
@@ -1370,6 +1371,8 @@ class TenantPortalController extends Controller
             ];
         }
 
+        $lease->loadMissing('unit');
+        $referenceRenderer = app(DarajaC2bRoutingService::class);
         $destinations = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)
             ->where('is_active', true)
@@ -1390,12 +1393,17 @@ class TenantPortalController extends Controller
 
         return [
             'tenant_payment_reference' => $lease->tenant_payment_reference,
-            'destinations' => $destinations->map(function (PaymentDestination $destination) {
+            'destinations' => $destinations->map(function (PaymentDestination $destination) use ($referenceRenderer, $lease) {
                 return [
                     'id' => $destination->id,
                     'method' => $destination->method,
                     'label' => $destination->label,
-                    'details' => $destination->details,
+                    // Only return the public details needed to make a payment.
+                    'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['number', 'paybill', 'till', 'account', 'account_name', 'business_name', 'bank_name', 'account_number', 'branch'])),
+                    'account_reference' => in_array($destination->method, ['mpesa_number', 'mpesa_paybill', 'mpesa_till'], true)
+                        ? ($referenceRenderer->renderAccountReference($destination, $lease)
+                            ?: ($lease->tenant_payment_reference ?: ('LEASE' . $lease->id)))
+                        : null,
                     'daraja' => [
                         'authorization_status' => $destination->daraja_authorization_status,
                         'stk_push_available' => $destination->stkPushReady(),
