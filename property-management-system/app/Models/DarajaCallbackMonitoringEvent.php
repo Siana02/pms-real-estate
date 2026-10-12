@@ -22,6 +22,7 @@ class DarajaCallbackMonitoringEvent extends Model
         'is_delayed',
         'error_code',
         'error_message',
+        'recovery_notes',
         'statement_fingerprint',
         'recorded_by',
     ];
