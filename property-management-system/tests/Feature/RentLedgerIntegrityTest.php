@@ -206,4 +206,79 @@ class RentLedgerIntegrityTest extends TestCase
             ->count());
     }
 
+    public function test_confirmed_payment_is_allocated_by_rent_month_and_excess_is_kept_as_credit(): void
+    {
+        $currentPeriod = CarbonImmutable::now()->startOfMonth();
+        $previousPeriod = $currentPeriod->subMonth();
+
+        $organization = Organization::create([
+            'name' => 'Monthly Allocation Properties',
+            'email' => 'monthly-allocation@example.test',
+        ]);
+
+        $property = Property::create([
+            'organization_id' => $organization->id,
+            'name' => 'Monthly Allocation Building',
+        ]);
+
+        $unit = Unit::create([
+            'property_id' => $property->id,
+            'unit_number' => 'MA-01',
+            'monthly_rent' => 10000,
+        ]);
+
+        $tenant = Tenant::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'first_name' => 'Monthly',
+            'last_name' => 'Tenant',
+            'phone' => '+254700000303',
+        ]);
+
+        $lease = Leases::create([
+            'organization_id' => $organization->id,
+            'property_id' => $property->id,
+            'unit_id' => $unit->id,
+            'tenant_id' => $tenant->id,
+            'start_date' => $previousPeriod->toDateString(),
+            'monthly_rent' => 10000,
+            'status' => 'active',
+        ]);
+
+        $payment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 25000,
+            'payment_date' => $currentPeriod->addDays(3)->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'paid',
+            'payment_type' => 'rent',
+            'reference' => 'MONTHLY-ALLOC-001',
+        ]);
+
+        app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+
+        $allocations = PaymentAllocation::where('payment_id', $payment->id)
+            ->with('rentObligation')
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $allocations);
+        $this->assertSame($previousPeriod->toDateString(), CarbonImmutable::parse($allocations[0]->rentObligation->period)->toDateString());
+        $this->assertSame($currentPeriod->toDateString(), CarbonImmutable::parse($allocations[1]->rentObligation->period)->toDateString());
+        $this->assertSame(10000.0, (float) $allocations[0]->amount);
+        $this->assertSame(10000.0, (float) $allocations[1]->amount);
+
+        $credit = RentPaymentCredit::where('source_payment_id', $payment->id)->firstOrFail();
+        $this->assertSame(5000.0, (float) $credit->amount);
+        $this->assertSame(5000.0, (float) $credit->remaining_amount);
+        $this->assertSame('available', $credit->status);
+
+        // A retry must not duplicate month allocations or create a second credit.
+        app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());
+        $this->assertSame(2, PaymentAllocation::where('payment_id', $payment->id)->count());
+        $this->assertSame(1, RentPaymentCredit::where('source_payment_id', $payment->id)->count());
+    }
+
 }
