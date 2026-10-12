@@ -11,9 +11,8 @@ return new class extends Migration
      * subsequently change an individual lease to a different amount, including
      * zero when they explicitly waive the deposit.
      *
-     * This uses Laravel's query builder rather than MySQL-only UPDATE ... JOIN
-     * syntax so the migration also works with the SQLite database used by the
-     * automated test suite.
+     * Use Laravel's query builder so the backfill remains explicit and
+     * deterministic on the required MySQL database.
      */
     public function up(): void
     {

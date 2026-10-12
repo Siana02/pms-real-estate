@@ -60,7 +60,7 @@ return new class extends Migration
             $table->timestamp('revoked_at')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
-            $table->index(['organization_id', 'property_id', 'unit_id']);
+            $table->index(['organization_id', 'property_id', 'unit_id'], 'guest_pay_links_org_property_unit_idx');
         });
     }
 

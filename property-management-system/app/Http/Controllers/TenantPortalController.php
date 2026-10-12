@@ -626,13 +626,6 @@ class TenantPortalController extends Controller
         if ($updates !== []) {
             $lease->update($updates);
 
-            if (DB::getDriverName() === 'sqlite') {
-                DB::statement(
-                    "UPDATE leases SET requested_move_in_date = substr(requested_move_in_date, 1, 10), requested_move_out_date = substr(requested_move_out_date, 1, 10) WHERE id = ?",
-                    [$lease->id]
-                );
-            }
-
             $lease->refresh();
         }
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Organization;
+use App\Models\PlatformSubscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,8 @@ class TeamManagementTest extends TestCase
             'country' => 'Kenya',
         ]);
 
+        $this->activateSubscription($organization);
+
         $owner = User::create([
             'organization_id' => $organization->id,
             'name' => 'Owner User',
@@ -37,7 +40,7 @@ class TeamManagementTest extends TestCase
 
         $ownerToken = $owner->createToken('test')->plainTextToken;
 
-        $invite = $this->withToken($ownerToken)->postJson('/api/team/invite', [
+        $invite = $this->withFreshToken($ownerToken)->postJson('/api/team/invite', [
             'name' => 'Jane Wanjiku',
             'email' => 'jane@example.com',
             'role' => 'property_manager',
@@ -76,7 +79,7 @@ class TeamManagementTest extends TestCase
         $this->assertSame('active', $employee->status);
         $this->assertTrue(Hash::check('EmployeePass123!', $employee->password));
 
-        $deactivate = $this->withToken($ownerToken)
+        $deactivate = $this->withFreshToken($ownerToken)
             ->patchJson('/api/team/' . $employee->id . '/deactivate');
 
         $deactivate->assertOk()
@@ -88,7 +91,7 @@ class TeamManagementTest extends TestCase
             'status' => 'deactivated',
         ]);
 
-        $reactivate = $this->withToken($ownerToken)
+        $reactivate = $this->withFreshToken($ownerToken)
             ->patchJson('/api/team/' . $employee->id . '/reactivate');
 
         $reactivate->assertOk()
@@ -109,6 +112,8 @@ class TeamManagementTest extends TestCase
             'country' => 'Kenya',
         ]);
 
+        $this->activateSubscription($organization);
+
         $employee = User::create([
             'organization_id' => $organization->id,
             'name' => 'Staff User',
@@ -120,8 +125,28 @@ class TeamManagementTest extends TestCase
 
         $token = $employee->createToken('test')->plainTextToken;
 
-        $this->withToken($token)
+        $this->withFreshToken($token)
             ->getJson('/api/team')
             ->assertForbidden();
     }
+    private function withFreshToken(string $token)
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->withToken($token);
+    }
+
+    private function activateSubscription(Organization $organization): void
+    {
+        PlatformSubscription::create([
+            'organization_id' => $organization->id,
+            'plan_code' => 'premium',
+            'status' => 'active',
+            'billable_units' => 1,
+            'monthly_amount' => 150,
+            'current_period_starts_at' => now()->subDay(),
+            'current_period_ends_at' => now()->addMonth(),
+        ]);
+    }
+
 }

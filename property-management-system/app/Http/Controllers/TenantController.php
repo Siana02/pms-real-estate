@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use App\Models\User;
 use App\Services\LeaseProvisioner;
 use App\Services\AuditLogService;
@@ -78,8 +79,18 @@ public function store(Request $request)
         'status' => 'nullable|in:active,inactive',
         'notes' => 'nullable|string',
         'create_login' => 'nullable|boolean',
-    'property_id' => 'nullable|required_with:unit_id|integer|exists:properties,id',
-    'unit_id' => 'nullable|required_with:property_id|integer|exists:units,id',
+    'property_id' => [
+        'nullable',
+        'required_with:unit_id',
+        'integer',
+        Rule::exists('properties', 'id')->where('organization_id', $request->user()->organization_id),
+    ],
+    'unit_id' => [
+        'nullable',
+        'required_with:property_id',
+        'integer',
+        Rule::exists('units', 'id')->where('property_id', $request->input('property_id')),
+    ],
     'start_date' => 'required_with:unit_id|date',
     'end_date' => 'nullable|date|after_or_equal:start_date',
     'monthly_rent' => 'nullable|numeric|min:0',
