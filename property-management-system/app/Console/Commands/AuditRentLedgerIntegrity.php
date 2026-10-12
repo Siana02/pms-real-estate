@@ -5,6 +5,7 @@ namespace App\\Console\\Commands;
 use App\\Models\\Payment;
 use App\\Models\\PaymentAllocation;
 use App\\Models\\PaymentTransaction;
+use App\\Models\\RentLedgerReviewFlag;
 use App\\Models\\RentObligation;
 use Illuminate\\Console\\Command;
 
@@ -12,7 +13,7 @@ class AuditRentLedgerIntegrity extends Command
 {
     protected $signature = 'rent:ledger-audit';
 
-    protected $description = 'Read-only audit of confirmed rent payments, allocations, credits and rent obligations';
+    protected $description = 'Audit confirmed rent ledger records and persist review flags without modifying the ledger';
 
     public function handle(): int
     {
@@ -158,12 +159,37 @@ class AuditRentLedgerIntegrity extends Command
                 }
             });
 
+        foreach ($findings as [$recordType, $recordId, $issueCode, $details]) {
+            $reviewFlag = RentLedgerReviewFlag::query()->firstOrNew([
+                'record_type' => $recordType,
+                'record_id' => $recordId,
+                'issue_code' => $issueCode,
+            ]);
+
+            $timestamp = now();
+            if (!$reviewFlag->exists) {
+                $reviewFlag->first_flagged_at = $timestamp;
+            }
+            $reviewFlag->details = $details;
+            $reviewFlag->last_flagged_at = $timestamp;
+
+            // If the same problem reappears after being marked resolved, reopen it.
+            if (!$reviewFlag->exists || $reviewFlag->status === 'resolved') {
+                $reviewFlag->status = 'open';
+                $reviewFlag->reviewed_at = null;
+                $reviewFlag->reviewed_by = null;
+                $reviewFlag->resolution_notes = null;
+            }
+
+            $reviewFlag->save();
+        }
+
         if ($findings === []) {
-            $this->info('PASS: no rent-ledger integrity findings were detected.');
+            $this->info('PASS: no current rent-ledger integrity findings were detected. Existing review flags are not auto-resolved.');
             return self::SUCCESS;
         }
 
-        $this->warn('REVIEW REQUIRED: found ' . count($findings) . ' rent-ledger integrity issue(s). No payment, allocation, credit or obligation was changed.');
+        $this->warn('REVIEW REQUIRED: found ' . count($findings) . ' rent-ledger integrity issue(s). Review flags were saved; no payment, allocation, credit or obligation was changed.');
         $this->table(['Record type', 'ID', 'Issue', 'Details'], $findings);
 
         return self::FAILURE;
