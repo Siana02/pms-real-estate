@@ -1400,8 +1400,10 @@ class TenantPortalController extends Controller
                     'method' => $destination->method,
                     'label' => $destination->label,
                     'details' => $destination->details,
-                    'account_reference' => $referenceRenderer->renderAccountReference($destination, $lease)
-                        ?: ($lease->tenant_payment_reference ?: ('LEASE' . $lease->id)),
+                    'account_reference' => in_array($destination->method, ['mpesa_number', 'mpesa_paybill', 'mpesa_till'], true)
+                        ? ($referenceRenderer->renderAccountReference($destination, $lease)
+                            ?: ($lease->tenant_payment_reference ?: ('LEASE' . $lease->id)))
+                        : null,
                     'daraja' => [
                         'authorization_status' => $destination->daraja_authorization_status,
                         'stk_push_available' => $destination->stkPushReady(),
