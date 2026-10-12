@@ -101,16 +101,20 @@ class RentLedgerService
 
                     $allocated = min($remainingCredit, $balance);
 
-                    PaymentAllocation::firstOrCreate(
-                        [
-                            'rent_payment_credit_id' => $credit->id,
-                            'rent_obligation_id' => $obligation->id,
-                        ],
-                        [
-                            'payment_id' => null,
-                            'amount' => round($allocated, 2),
-                        ]
+                    $allocation = PaymentAllocation::query()->firstOrNew([
+                        'rent_payment_credit_id' => $credit->id,
+                        'rent_obligation_id' => $obligation->id,
+                    ]);
+
+                    // A prior attempt may have left a partial allocation for this
+                    // credit/obligation pair. Extend that allocation instead of
+                    // silently ignoring it while consuming the remaining credit.
+                    $allocation->amount = round(
+                        (float) $allocation->amount + $allocated,
+                        2
                     );
+                    $allocation->payment_id = null;
+                    $allocation->save();
 
                     $remainingCredit = round($remainingCredit - $allocated, 2);
                     $obligation->refresh();
