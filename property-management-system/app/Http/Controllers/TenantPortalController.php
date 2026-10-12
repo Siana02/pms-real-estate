@@ -1402,7 +1402,7 @@ class TenantPortalController extends Controller
                     'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['number', 'paybill', 'till', 'account', 'account_name', 'business_name', 'bank_name', 'account_number', 'branch'])),
                     'account_reference' => in_array($destination->method, ['mpesa_number', 'mpesa_paybill', 'mpesa_till'], true)
                         ? ($referenceRenderer->renderAccountReference($destination, $lease)
-                            ?: ($lease->tenant_payment_reference ?: ('LEASE' . $lease->id)))
+                            ?: $lease->tenant_payment_reference)
                         : null,
                     'daraja' => [
                         'authorization_status' => $destination->daraja_authorization_status,
