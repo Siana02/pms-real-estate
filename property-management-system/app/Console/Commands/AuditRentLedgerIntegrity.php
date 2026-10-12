@@ -144,6 +144,25 @@ class AuditRentLedgerIntegrity extends Command
                 }
             });
 
+        $duplicateReceipts = Payment::query()
+            ->select(['organization_id', 'provider', 'provider_transaction_id'])
+            ->whereNotNull('provider_transaction_id')
+            ->groupBy(['organization_id', 'provider', 'provider_transaction_id'])
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        foreach ($duplicateReceipts as $duplicateReceipt) {
+            $duplicates = Payment::query()
+                ->where('organization_id', $duplicateReceipt->organization_id)
+                ->where('provider', $duplicateReceipt->provider)
+                ->where('provider_transaction_id', $duplicateReceipt->provider_transaction_id)
+                ->pluck('id');
+
+            foreach ($duplicates as $duplicatePaymentId) {
+                $flag('payment', (int) $duplicatePaymentId, 'duplicate_provider_receipt', 'More than one payment row uses the same organization/provider receipt ID.');
+            }
+        }
+
         PaymentTransaction::query()
             ->whereIn('status', ['reconciled', 'reconciled_with_credit'])
             ->with(['payment.lease', 'matchedLease'])
