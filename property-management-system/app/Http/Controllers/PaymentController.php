@@ -35,7 +35,7 @@ class PaymentController extends Controller
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.record'), 403);
         $validated = $request->validate([
             'lease_id' => 'required|exists:leases,id',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric|gt:0',
             'payment_date' => 'required|date',
             'payment_method' => 'required|in:cash,mpesa,bank_transfer,card,other',
             'reference' => 'nullable|string|max:255',
