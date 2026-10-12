@@ -379,12 +379,28 @@ class PaymentReconciliationService
                         ->orWhere('unit_id', '!=', $lease->unit_id)
                         ->orWhere('tenant_id', '!=', $lease->tenant_id))
                     ->exists();
+                $creditIds = $existingPayment->rentPaymentCredits()->pluck('id');
                 $hasMismatchedCredit = RentPaymentCredit::query()
                     ->where('source_payment_id', $existingPayment->id)
                     ->where(fn ($query) => $query
                         ->where('lease_id', '!=', $lease->id)
                         ->orWhere('organization_id', '!=', $lease->organization_id)
                         ->orWhere('tenant_id', '!=', $lease->tenant_id))
+                    ->exists();
+                $hasInvalidAllocationSource = PaymentAllocation::query()
+                    ->where('payment_id', $existingPayment->id)
+                    ->whereNotNull('rent_payment_credit_id')
+                    ->exists();
+                $hasCrossScopeCreditAllocation = $creditIds->isNotEmpty() && PaymentAllocation::query()
+                    ->whereIn('rent_payment_credit_id', $creditIds)
+                    ->where(fn ($query) => $query
+                        ->whereNotNull('payment_id')
+                        ->orWhereHas('rentObligation', fn ($obligation) => $obligation
+                            ->where('lease_id', '!=', $lease->id)
+                            ->orWhere('organization_id', '!=', $lease->organization_id)
+                            ->orWhere('property_id', '!=', $lease->property_id)
+                            ->orWhere('unit_id', '!=', $lease->unit_id)
+                            ->orWhere('tenant_id', '!=', $lease->tenant_id)))
                     ->exists();
                 $hasInvalidLegacyObligation = $allocationCents === 0
                     && $creditCents === 0
@@ -398,9 +414,11 @@ class PaymentReconciliationService
                             ->orWhere('unit_id', '!=', $lease->unit_id)
                             ->orWhere('tenant_id', '!=', $lease->tenant_id))
                         ->exists();
-                $hasOverallocatedObligation = $existingPayment->allocations()
-                    ->with('rentObligation')
-                    ->get()
+                $directAllocations = $existingPayment->allocations()->with('rentObligation')->get();
+                $creditAllocations = $creditIds->isEmpty()
+                    ? collect()
+                    : PaymentAllocation::query()->whereIn('rent_payment_credit_id', $creditIds)->with('rentObligation')->get();
+                $hasOverallocatedObligation = $directAllocations->concat($creditAllocations)
                     ->contains(fn (PaymentAllocation $allocation) => $allocation->rentObligation
                         && (float) $allocation->rentObligation->amount_paid > (float) $allocation->rentObligation->amount_due);
                 $legacyObligationCents = $allocationCents === 0
@@ -411,7 +429,7 @@ class PaymentReconciliationService
                 $representedCents = $allocationCents + $creditCents + $legacyObligationCents;
                 $paymentCents = (int) round((float) $existingPayment->amount * 100);
 
-                if ($representedCents !== $paymentCents || $hasCrossLeaseAllocation || $hasMismatchedCredit || $hasInvalidLegacyObligation || $hasOverallocatedObligation) {
+                if ($representedCents !== $paymentCents || $hasCrossLeaseAllocation || $hasMismatchedCredit || $hasInvalidAllocationSource || $hasCrossScopeCreditAllocation || $hasInvalidLegacyObligation || $hasOverallocatedObligation) {
                     $transaction->update([
                         'status' => 'needs_review',
                         'matched_lease_id' => $lease->id,
