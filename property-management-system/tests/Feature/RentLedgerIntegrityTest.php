@@ -72,6 +72,20 @@ class RentLedgerIntegrityTest extends TestCase
         $this->assertSame($tenant->id, $obligation->tenant_id);
         $this->assertSame('15000.00', $obligation->amount_due);
 
+        $pendingPayment = Payment::create([
+            'organization_id' => $organization->id,
+            'lease_id' => $lease->id,
+            'amount' => 5000,
+            'payment_date' => $period->addDays(4)->toDateString(),
+            'payment_method' => 'mpesa',
+            'status' => 'pending',
+            'payment_type' => 'rent',
+        ]);
+
+        $attached = $ledger->attachPayment($pendingPayment);
+        $this->assertSame($obligation->id, $attached?->id);
+        $this->assertSame($obligation->id, $pendingPayment->fresh()->rent_obligation_id);
+
         $payment = Payment::create([
             'organization_id' => $organization->id,
             'lease_id' => $lease->id,
@@ -81,10 +95,6 @@ class RentLedgerIntegrityTest extends TestCase
             'status' => 'paid',
             'payment_type' => 'rent',
         ]);
-
-        $attached = $ledger->attachPayment($payment);
-        $this->assertSame($obligation->id, $attached?->id);
-        $this->assertSame($obligation->id, $payment->fresh()->rent_obligation_id);
 
         PaymentAllocation::create([
             'payment_id' => $payment->id,
