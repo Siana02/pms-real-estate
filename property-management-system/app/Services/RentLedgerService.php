@@ -10,6 +10,7 @@ use App\Models\RentPaymentCredit;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class RentLedgerService
 {
@@ -38,12 +39,32 @@ class RentLedgerService
      */
     public function ensureForLeaseThrough(Leases $lease, CarbonImmutable $through): void
     {
+        if ($issue = $this->leaseScopeIssue($lease)) {
+            Log::warning('Rent ledger obligation generation held for review.', [
+                'lease_id' => $lease->id,
+                'issue' => $issue,
+            ]);
+            throw new \RuntimeException($issue . ' Rent obligations were not generated.');
+        }
+
         $period = CarbonImmutable::parse($lease->start_date)->startOfMonth();
         $lastPeriod = $through->startOfMonth();
 
         while ($period->lessThanOrEqualTo($lastPeriod)) {
             $this->ensureLeaseObligationForPeriod($lease, $period);
             $period = $period->addMonth();
+        }
+
+        if ($this->obligationScopeMismatchExists($lease, $lastPeriod)) {
+            Log::warning('Rent ledger contains historical obligations with mismatched ownership fields.', [
+                'lease_id' => $lease->id,
+                'organization_id' => $lease->organization_id,
+                'property_id' => $lease->property_id,
+                'unit_id' => $lease->unit_id,
+                'tenant_id' => $lease->tenant_id,
+                'through' => $lastPeriod->toDateString(),
+            ]);
+            throw new \RuntimeException('Historical rent obligations have inconsistent ownership fields and require review.');
         }
     }
 
@@ -151,6 +172,39 @@ class RentLedgerService
                 ])->save();
             }
         }, 3);
+    }
+
+    private function leaseScopeIssue(Leases $lease): ?string
+    {
+        $property = $lease->property()->first();
+        if (!$property || (int) $property->organization_id !== (int) $lease->organization_id) {
+            return 'The lease property is missing or belongs to a different organization.';
+        }
+
+        $unit = $lease->unit()->first();
+        if (!$unit || (int) $unit->property_id !== (int) $lease->property_id) {
+            return 'The lease unit is missing or belongs to a different property.';
+        }
+
+        $tenant = $lease->tenant()->first();
+        if (!$tenant || (int) $tenant->organization_id !== (int) $lease->organization_id) {
+            return 'The lease tenant is missing or belongs to a different organization.';
+        }
+
+        return null;
+    }
+
+    private function obligationScopeMismatchExists(Leases $lease, CarbonImmutable $through): bool
+    {
+        return RentObligation::query()
+            ->where('lease_id', $lease->id)
+            ->whereDate('period', '<=', $through->startOfMonth()->toDateString())
+            ->where(fn ($query) => $query
+                ->where('organization_id', '!=', $lease->organization_id)
+                ->orWhere('property_id', '!=', $lease->property_id)
+                ->orWhere('unit_id', '!=', $lease->unit_id)
+                ->orWhere('tenant_id', '!=', $lease->tenant_id))
+            ->exists();
     }
 
     /**
