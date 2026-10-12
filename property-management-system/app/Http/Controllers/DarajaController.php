@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DarajaIntegration;
+use App\Models\DarajaCallbackMonitoringEvent;
 use App\Models\DarajaStkCheckout;
 use App\Models\Leases;
 use App\Models\PaymentDestination;
@@ -291,7 +292,26 @@ class DarajaController extends Controller
         }
 
         try {
+            $receivedAt = now();
             $event = $routing->receive($registration, $payload, $reconciliation);
+            $transactionAt = $event->transaction_at ? CarbonImmutable::parse($event->transaction_at) : null;
+            $latencySeconds = $transactionAt ? max(0, $receivedAt->getTimestamp() - $transactionAt->getTimestamp()) : null;
+            DarajaCallbackMonitoringEvent::create([
+                'environment' => $registration->environment,
+                'shortcode' => $registration->shortcode,
+                'receipt' => trim((string) ($payload['TransID'] ?? '')) ?: null,
+                'organization_id' => $event->organization_id,
+                'payment_destination_id' => $event->payment_destination_id,
+                'c2b_event_id' => $event->id,
+                'source' => 'c2b_confirmation',
+                'delivery_status' => 'received',
+                'processing_status' => $event->status === 'routed' ? 'routed' : 'needs_review',
+                'transaction_at' => $transactionAt,
+                'received_at' => $receivedAt,
+                'latency_seconds' => $latencySeconds,
+                'is_delayed' => $latencySeconds !== null && $latencySeconds > 300,
+                'error_message' => $event->review_reason,
+            ]);
             if ($event->status === 'needs_review') {
                 Log::notice('Daraja C2B accepted into review queue.', [
                     'event_id' => $event->id,
@@ -304,6 +324,32 @@ class DarajaController extends Controller
             // Allocation may be pending review; the callback must not guess an owner.
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         } catch (Throwable $exception) {
+            try {
+                $receivedAt = now();
+                $rawTime = preg_replace('/\\D+/', '', (string) ($payload['TransTime'] ?? ''));
+                $transactionAt = strlen($rawTime) === 14
+                    ? CarbonImmutable::createFromFormat('!YmdHis', $rawTime)
+                    : null;
+                DarajaCallbackMonitoringEvent::create([
+                    'environment' => $registration->environment,
+                    'shortcode' => $registration->shortcode,
+                    'receipt' => trim((string) ($payload['TransID'] ?? '')) ?: null,
+                    'source' => 'c2b_confirmation',
+                    'delivery_status' => 'failed',
+                    'processing_status' => 'failed',
+                    'transaction_at' => $transactionAt,
+                    'received_at' => $receivedAt,
+                    'latency_seconds' => $transactionAt ? max(0, $receivedAt->getTimestamp() - $transactionAt->getTimestamp()) : null,
+                    'is_delayed' => $transactionAt !== null && max(0, $receivedAt->getTimestamp() - $transactionAt->getTimestamp()) > 300,
+                    'error_code' => $exception::class,
+                    'error_message' => mb_substr($exception->getMessage(), 0, 1000),
+                ]);
+            } catch (Throwable $monitorException) {
+                Log::critical('Daraja callback monitoring record could not be persisted.', [
+                    'registration_id' => $registration->id,
+                    'exception' => $monitorException::class,
+                ]);
+            }
             Log::error('Daraja C2B event persistence/routing failed.', [
                 'registration_id' => $registration->id,
                 'exception' => $exception::class,
