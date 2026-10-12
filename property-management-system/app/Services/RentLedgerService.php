@@ -81,6 +81,15 @@ class RentLedgerService
             return;
         }
 
+        if ($issue = $this->leaseScopeIssue($lease)) {
+            Log::warning('Skipped rent-obligation generation for an inconsistent lease.', [
+                'lease_id' => $lease->id,
+                'period' => $monthStart->toDateString(),
+                'issue' => $issue,
+            ]);
+            return;
+        }
+
         $day = min(max((int) ($lease->rent_due_day ?: 5), 1), $monthEnd->day);
         $dueDate = $monthStart->setDay($day);
 
@@ -228,15 +237,65 @@ class RentLedgerService
                 return null;
             }
 
-            // Do not repeat or silently repair an existing ledger representation.
-            // Existing inconsistencies should go through an audited review workflow.
-            if ($payment->allocations()->exists() || $payment->rentPaymentCredits()->exists()) {
-                return $payment->rentObligation()->first();
-            }
-
             $lease = Leases::query()
                 ->where('organization_id', $payment->organization_id)
                 ->findOrFail($payment->lease_id);
+
+            if ($issue = $this->leaseScopeIssue($lease)) {
+                Log::warning('Confirmed payment allocation held for review because lease ownership is inconsistent.', [
+                    'payment_id' => $payment->id,
+                    'lease_id' => $lease->id,
+                    'issue' => $issue,
+                ]);
+                throw new \RuntimeException($issue . ' Confirmed payment was not reallocated.');
+            }
+
+            $paidAt = CarbonImmutable::parse($payment->payment_date ?: now());
+            $through = $paidAt->startOfMonth();
+
+            // Existing rows are immutable evidence until reviewed. Verify their
+            // representation and ownership before treating a retry as successful.
+            if ($payment->allocations()->exists() || $payment->rentPaymentCredits()->exists()) {
+                $allocations = $payment->allocations()->with('rentObligation')->get();
+                $credits = $payment->rentPaymentCredits()->get();
+                $allocatedCents = (int) round((float) $allocations->sum('amount') * 100);
+                $creditCents = (int) round((float) $credits->sum('amount') * 100);
+                $paymentCents = (int) round((float) $payment->amount * 100);
+                $invalidAllocation = $allocations->contains(function (PaymentAllocation $allocation) use ($lease) {
+                    $obligation = $allocation->rentObligation;
+                    return !$obligation
+                        || (int) $obligation->lease_id !== (int) $lease->id
+                        || (int) $obligation->organization_id !== (int) $lease->organization_id
+                        || (int) $obligation->property_id !== (int) $lease->property_id
+                        || (int) $obligation->unit_id !== (int) $lease->unit_id
+                        || (int) $obligation->tenant_id !== (int) $lease->tenant_id
+                        || $allocation->rent_payment_credit_id !== null
+                        || (float) $allocation->amount <= 0
+                        || (float) $obligation->amount_paid > (float) $obligation->amount_due;
+                });
+                $invalidCredit = $credits->contains(fn (RentPaymentCredit $credit) =>
+                    (int) $credit->lease_id !== (int) $lease->id
+                    || (int) $credit->organization_id !== (int) $lease->organization_id
+                    || (int) $credit->tenant_id !== (int) $lease->tenant_id
+                    || (int) $credit->source_payment_id !== (int) $payment->id
+                    || (float) $credit->amount <= 0
+                    || (float) $credit->remaining_amount < 0
+                    || (float) $credit->remaining_amount > (float) $credit->amount);
+
+                if ($allocatedCents + $creditCents !== $paymentCents
+                    || $paymentCents <= 0
+                    || $invalidAllocation
+                    || $invalidCredit
+                    || $this->obligationScopeMismatchExists($lease, $through)) {
+                    Log::warning('Confirmed payment has an inconsistent existing ledger representation; no automatic repair was made.', [
+                        'payment_id' => $payment->id,
+                        'lease_id' => $lease->id,
+                    ]);
+                    throw new \RuntimeException('This confirmed payment has inconsistent ledger records and requires review. No automatic correction was made.');
+                }
+
+                return $payment->rentObligation()->first();
+            }
 
             $amountCents = (int) round((float) $payment->amount * 100);
             if ($amountCents <= 0) {
