@@ -333,7 +333,7 @@ class DarajaC2bRoutingSafetyTest extends TestCase
             'currency' => 'KES',
             'payer_phone' => '254712345678',
             'payment_reference' => 'LEASE-' . $created['organization_id'],
-            'transaction_at' => '2026-10-09 12:00:00',
+            'transaction_at' => '2026-01-09 12:00:00',
             'raw_payload' => ['source' => 'c2b_confirmation', 'environment' => 'sandbox'],
         ];
 
