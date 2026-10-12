@@ -142,7 +142,7 @@ class GuestTenantPaymentLinkController extends Controller
                 // Only expose public payment instructions, never gateway credentials.
                 'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['paybill', 'till', 'account', 'account_name', 'business_name'])),
                 'account_reference' => $referenceRenderer->renderAccountReference($destination, $lease)
-                    ?: ($lease->tenant_payment_reference ?: ('LEASE' . $lease->id)),
+                    ?: $lease->tenant_payment_reference,
                 'stk_push_available' => $destination->stkPushReady(),
             ])->values();
 
