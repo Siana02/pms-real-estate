@@ -738,7 +738,7 @@ function ManagerPaymentsPage() {
                             return <div style={{ minWidth: "12rem", display: "grid", gap: ".3rem" }}>
                               {direct.map((allocation) => <span key={`direct-${allocation.id}`} className="mg-sub">{formatRentPeriod(allocation.rent_obligation?.period)} · {formatMoney(allocation.amount, currency)}</span>)}
                               {creditAllocations.map((allocation) => <span key={`credit-${allocation.creditId}-${allocation.id}`} className="mg-sub">{formatRentPeriod(allocation.rent_obligation?.period)} · {formatMoney(allocation.amount, currency)} from excess</span>)}
-                              {legacyObligation && <span className="mg-sub">{formatRentPeriod(legacyObligation.period)} · {formatMoney(payment.amount, currency)} (legacy allocation)</span>}
+                              {legacyObligation && <span className="mg-sub">Legacy month link: {formatRentPeriod(legacyObligation.period)} · explicit month-by-month allocation was not recorded</span>}
                               {!hasLedgerAllocations && !legacyObligation && <span className="mg-sub">{payment.status === "pending" ? "Not allocated until confirmed" : payment.status === "paid" ? "No rent allocation recorded" : "Not allocated"}</span>}
                               {payment.rent_payment_credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <span key={`credit-remaining-${credit.id}`} className="mg-badge mg-badge--info">{formatMoney(credit.remaining_amount, currency)} still available for rent</span>)}
                             </div>;
