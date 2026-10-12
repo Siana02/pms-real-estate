@@ -55,7 +55,12 @@ class PaymentController extends Controller
         ]);
 
         if ($payment->payment_type === 'rent') {
-            app(RentLedgerService::class)->attachPayment($payment);
+            $ledger = app(RentLedgerService::class);
+            if ($payment->status === 'paid') {
+                $ledger->allocateConfirmedPayment($payment);
+            } else {
+                $ledger->attachPayment($payment);
+            }
         }
 
         return response()->json([
@@ -74,7 +79,7 @@ class PaymentController extends Controller
             'status' => 'paid',
             'payment_date' => $payment->payment_date ?: now()->toDateString(),
         ]);
-        app(RentLedgerService::class)->attachPayment($payment->fresh());
+        app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());
 
         app(AuditLogService::class)->record(
             'PAYMENT_VERIFIED',
