@@ -282,6 +282,9 @@ class RentLedgerService
                     || (float) $credit->amount <= 0
                     || (float) $credit->remaining_amount < 0
                     || (float) $credit->remaining_amount > (float) $credit->amount
+                    || ((int) round((float) $credit->allocations->sum('amount') * 100)
+                        + (int) round((float) $credit->remaining_amount * 100)
+                        !== (int) round((float) $credit->amount * 100))
                     || $credit->allocations->contains(function (PaymentAllocation $allocation) use ($lease) {
                         $obligation = $allocation->rentObligation;
                         return $allocation->payment_id !== null
