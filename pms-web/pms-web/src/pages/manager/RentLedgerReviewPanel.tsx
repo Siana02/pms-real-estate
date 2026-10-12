@@ -29,6 +29,7 @@ const ISSUE_LABELS: Record<string, string> = {
   lease_unit_scope: "Lease unit does not belong to its recorded property",
   lease_tenant_scope: "Lease tenant is missing or belongs to another organization",
   obligation_scope: "Rent obligation ownership does not match its lease",
+  obligation_balance_mismatch: "Rent obligation paid amount or remaining balance does not reconcile",
   obligation_overallocated: "Payments recorded against this rent month exceed the amount due",
   allocation_source_cardinality: "Allocation must belong to exactly one source",
   duplicate_provider_receipt: "More than one payment row uses the same provider receipt",
