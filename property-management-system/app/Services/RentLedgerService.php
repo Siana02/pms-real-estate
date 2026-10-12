@@ -161,7 +161,7 @@ class RentLedgerService
 
             $amountCents = (int) round((float) $payment->amount * 100);
             if ($amountCents <= 0) {
-                throw new \\InvalidArgumentException('A confirmed rent payment must have a positive amount.');
+                throw new \InvalidArgumentException('A confirmed rent payment must have a positive amount.');
             }
 
             $paidAt = CarbonImmutable::parse($payment->payment_date ?: now());
