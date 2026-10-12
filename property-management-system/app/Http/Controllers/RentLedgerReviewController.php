@@ -1,19 +1,19 @@
 <?php
 
-namespace App\\Http\\Controllers;
+namespace App\Http\Controllers;
 
-use App\\Models\\Leases;
-use App\\Models\\Payment;
-use App\\Models\\PaymentAllocation;
-use App\\Models\\PaymentTransaction;
-use App\\Models\\RentLedgerReviewFlag;
-use App\\Models\\RentObligation;
-use App\\Models\\RentPaymentCredit;
-use App\\Services\\AuditLogService;
-use App\\Services\\PermissionService;
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
+use App\Models\Leases;
+use App\Models\Payment;
+use App\Models\PaymentAllocation;
+use App\Models\PaymentTransaction;
+use App\Models\RentLedgerReviewFlag;
+use App\Models\RentObligation;
+use App\Models\RentPaymentCredit;
+use App\Services\AuditLogService;
+use App\Services\PermissionService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RentLedgerReviewController extends Controller
 {
