@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DarajaC2bRegistration;
 use App\Models\DarajaC2bEvent;
+use App\Models\DarajaCallbackMonitoringEvent;
 use App\Models\PaymentTransaction;
 use App\Models\Payment;
 use App\Models\RentPaymentCredit;
