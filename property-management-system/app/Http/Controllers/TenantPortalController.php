@@ -283,21 +283,25 @@ class TenantPortalController extends Controller
             ], 201);
         }
 
-        $payment = Payment::create([
-            'organization_id' => $lease->organization_id,
-            'lease_id' => $lease->id,
-            'amount' => $validated['amount'],
-            'payment_date' => CarbonImmutable::now()->toDateString(),
-            'payment_method' => $validated['payment_method'],
-            'payment_type' => $validated['payment_type'] ?? 'rent',
-            'status' => 'paid',
-            'reference' => $validated['reference'] ?? null,
-            'notes' => $this->paymentNotes($validated),
-        ]);
+        $payment = DB::transaction(function () use ($lease, $validated) {
+            $payment = Payment::create([
+                'organization_id' => $lease->organization_id,
+                'lease_id' => $lease->id,
+                'amount' => $validated['amount'],
+                'payment_date' => CarbonImmutable::now()->toDateString(),
+                'payment_method' => $validated['payment_method'],
+                'payment_type' => $validated['payment_type'] ?? 'rent',
+                'status' => 'paid',
+                'reference' => $validated['reference'] ?? null,
+                'notes' => $this->paymentNotes($validated),
+            ]);
 
-        if (($validated['payment_type'] ?? 'rent') === 'rent') {
-            app(RentLedgerService::class)->allocateConfirmedPayment($payment);
-        }
+            if (($validated['payment_type'] ?? 'rent') === 'rent') {
+                app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+            }
+
+            return $payment->fresh();
+        });
 
         return response()->json([
             'message' => 'Payment recorded against your lease.',
