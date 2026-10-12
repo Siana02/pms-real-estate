@@ -92,8 +92,13 @@ class AuditRentLedgerIntegrity extends Command
                         }
 
                         $creditAllocatedCents = (int) round((float) $credit->allocations->sum('amount') * 100);
-                        if ($creditAllocatedCents > (int) round((float) $credit->amount * 100)) {
+                        $creditAmountCents = (int) round((float) $credit->amount * 100);
+                        $creditRemainingCents = (int) round((float) $credit->remaining_amount * 100);
+                        if ($creditAllocatedCents > $creditAmountCents) {
                             $flag('rent_payment_credit', (int) $credit->id, 'credit_overallocated', 'Credit allocations exceed the credit’s original amount.');
+                        }
+                        if ($creditAllocatedCents + $creditRemainingCents !== $creditAmountCents) {
+                            $flag('rent_payment_credit', (int) $credit->id, 'credit_balance_mismatch', 'Credit allocations plus remaining credit do not equal the original credit amount.');
                         }
 
                         foreach ($credit->allocations as $allocation) {
