@@ -130,10 +130,13 @@ class AuditRentLedgerIntegrity extends Command
         });
 
         PaymentAllocation::query()
-            ->whereNull('payment_id')
-            ->whereNull('rent_payment_credit_id')
-            ->orWhereNotNull('payment_id')
-            ->whereNotNull('rent_payment_credit_id')
+            ->where(function ($query): void {
+                $query->where(function ($source): void {
+                    $source->whereNull('payment_id')->whereNull('rent_payment_credit_id');
+                })->orWhere(function ($source): void {
+                    $source->whereNotNull('payment_id')->whereNotNull('rent_payment_credit_id');
+                });
+            })
             ->chunkById(200, function ($allocations) use ($flag): void {
                 foreach ($allocations as $allocation) {
                     $flag('payment_allocation', (int) $allocation->id, 'allocation_source_cardinality', 'Allocation must belong to exactly one source: a payment or a rent payment credit.');
