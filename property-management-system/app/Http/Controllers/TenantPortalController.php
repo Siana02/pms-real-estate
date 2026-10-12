@@ -296,7 +296,7 @@ class TenantPortalController extends Controller
         ]);
 
         if (($validated['payment_type'] ?? 'rent') === 'rent') {
-            app(RentLedgerService::class)->attachPayment($payment);
+            app(RentLedgerService::class)->allocateConfirmedPayment($payment);
         }
 
         return response()->json([
