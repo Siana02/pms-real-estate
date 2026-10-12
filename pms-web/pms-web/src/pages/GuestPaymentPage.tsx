@@ -14,7 +14,7 @@ type GuestPaymentData = {
   tenant_name: string;
   lease_start: string | null;
   lease_end: string | null;
-  payment_destinations: { id: number; label: string; method: string; details: Record<string, string | null>; account_reference: string; stk_push_available: boolean }[];
+  payment_destinations: { id: number; label: string; method: string; details: Record<string, string | null>; account_reference: string | null; stk_push_available: boolean }[];
 };
 
 const money = (amount: number, currency: string) => new Intl.NumberFormat("en-KE", { style: "currency", currency: currency || "KES", maximumFractionDigits: 0 }).format(amount);
