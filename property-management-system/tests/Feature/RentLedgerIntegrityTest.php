@@ -360,7 +360,7 @@ class RentLedgerIntegrityTest extends TestCase
         try {
             app(RentLedgerService::class)->allocateConfirmedPayment($payment);
             $this->fail('An inconsistent historical allocation must not be silently accepted.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $this->assertStringContainsString('requires review', $exception->getMessage());
         }
 
