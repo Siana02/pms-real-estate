@@ -6,6 +6,7 @@ use App\Models\DarajaC2bRegistration;
 use App\Models\DarajaC2bEvent;
 use App\Models\PaymentTransaction;
 use App\Models\Payment;
+use App\Models\RentPaymentCredit;
 use App\Services\DarajaC2bRoutingService;
 use App\Services\PaymentReconciliationService;
 use Carbon\CarbonImmutable;
