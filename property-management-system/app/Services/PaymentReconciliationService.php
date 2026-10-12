@@ -326,6 +326,19 @@ class PaymentReconciliationService
                 $creditCents = (int) round(
                     (float) $existingPayment->rentPaymentCredits()->sum('amount') * 100
                 );
+                $hasCrossLeaseAllocation = PaymentAllocation::query()
+                    ->where('payment_id', $existingPayment->id)
+                    ->whereHas('rentObligation', fn ($query) => $query
+                        ->where('lease_id', '!=', $lease->id)
+                        ->orWhere('organization_id', '!=', $lease->organization_id))
+                    ->exists();
+                $hasMismatchedCredit = RentPaymentCredit::query()
+                    ->where('source_payment_id', $existingPayment->id)
+                    ->where(fn ($query) => $query
+                        ->where('lease_id', '!=', $lease->id)
+                        ->orWhere('organization_id', '!=', $lease->organization_id)
+                        ->orWhere('tenant_id', '!=', $lease->tenant_id))
+                    ->exists();
                 $legacyObligationCents = $allocationCents === 0
                     && $creditCents === 0
                     && $existingPayment->rent_obligation_id !== null
@@ -334,12 +347,12 @@ class PaymentReconciliationService
                 $representedCents = $allocationCents + $creditCents + $legacyObligationCents;
                 $paymentCents = (int) round((float) $existingPayment->amount * 100);
 
-                if ($representedCents !== $paymentCents) {
+                if ($representedCents !== $paymentCents || $hasCrossLeaseAllocation || $hasMismatchedCredit) {
                     $transaction->update([
                         'status' => 'needs_review',
                         'matched_lease_id' => $lease->id,
                         'payment_id' => $existingPayment->id,
-                        'reconciliation_note' => 'A paid payment with this receipt exists, but its rent allocations and excess-payment credits do not account for the full payment amount. No duplicate allocation was created; review the existing ledger entry before reconciling.',
+                        'reconciliation_note' => 'A paid payment with this receipt exists, but its ledger amounts are incomplete or its allocations/credits belong to a different lease, tenant or organization. No duplicate allocation was created; review the existing ledger entry before reconciling.',
                     ]);
 
                     return $transaction->fresh([
