@@ -25,32 +25,57 @@ class RentLedgerService
             ->get();
 
         foreach ($leases as $lease) {
-            $start = CarbonImmutable::parse($lease->start_date);
-            $end = $lease->end_date ? CarbonImmutable::parse($lease->end_date) : null;
-            if ($start->greaterThan($monthEnd) || ($end && $end->lessThan($monthStart))) {
-                continue;
-            }
-
-            $day = min(max((int) ($lease->rent_due_day ?: 5), 1), $monthEnd->day);
-            $dueDate = $monthStart->setDay($day);
-
-            RentObligation::firstOrCreate(
-                ['lease_id' => $lease->id, 'period' => $monthStart->toDateString()],
-                [
-                    'organization_id' => $lease->organization_id,
-                    'property_id' => $lease->property_id,
-                    'unit_id' => $lease->unit_id,
-                    'tenant_id' => $lease->tenant_id,
-                    'due_date' => $dueDate->toDateString(),
-                    'amount_due' => $lease->monthly_rent,
-                ]
-            );
-
-            $this->applyAvailableCredits($lease, $monthStart);
+            $this->ensureLeaseObligationForPeriod($lease, $monthStart);
         }
 
         return RentObligation::whereBetween('period', [$monthStart->toDateString(), $monthEnd->toDateString()])
             ->get();
+    }
+
+    /**
+     * Generate rent obligations only for the selected lease. This avoids repeatedly
+     * scanning every organization's leases when a single payment is reconciled.
+     */
+    public function ensureForLeaseThrough(Leases $lease, CarbonImmutable $through): void
+    {
+        $period = CarbonImmutable::parse($lease->start_date)->startOfMonth();
+        $lastPeriod = $through->startOfMonth();
+
+        while ($period->lessThanOrEqualTo($lastPeriod)) {
+            $this->ensureLeaseObligationForPeriod($lease, $period);
+            $period = $period->addMonth();
+        }
+    }
+
+    private function ensureLeaseObligationForPeriod(Leases $lease, CarbonImmutable $period): void
+    {
+        $monthStart = $period->startOfMonth();
+        $monthEnd = $period->endOfMonth();
+        $start = CarbonImmutable::parse($lease->start_date);
+        $end = $lease->end_date ? CarbonImmutable::parse($lease->end_date) : null;
+
+        if (in_array($lease->getRawOriginal('status'), ['ended', 'terminated'], true)
+            || $start->greaterThan($monthEnd)
+            || ($end && $end->lessThan($monthStart))) {
+            return;
+        }
+
+        $day = min(max((int) ($lease->rent_due_day ?: 5), 1), $monthEnd->day);
+        $dueDate = $monthStart->setDay($day);
+
+        RentObligation::firstOrCreate(
+            ['lease_id' => $lease->id, 'period' => $monthStart->toDateString()],
+            [
+                'organization_id' => $lease->organization_id,
+                'property_id' => $lease->property_id,
+                'unit_id' => $lease->unit_id,
+                'tenant_id' => $lease->tenant_id,
+                'due_date' => $dueDate->toDateString(),
+                'amount_due' => $lease->monthly_rent,
+            ]
+        );
+
+        $this->applyAvailableCredits($lease, $monthStart);
     }
 
     public function ensureCurrentAndNext(): void
@@ -174,11 +199,7 @@ class RentLedgerService
                 $payment->forceFill(['rent_obligation_id' => null])->saveQuietly();
             }
 
-            $period = CarbonImmutable::parse($lease->start_date)->startOfMonth();
-            while ($period->lessThanOrEqualTo($through)) {
-                $this->ensureForPeriod($period);
-                $period = $period->addMonth();
-            }
+            $this->ensureForLeaseThrough($lease, $through);
 
             $obligations = RentObligation::query()
                 ->where('lease_id', $lease->id)
