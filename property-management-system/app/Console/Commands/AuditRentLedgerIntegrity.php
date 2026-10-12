@@ -118,6 +118,20 @@ class AuditRentLedgerIntegrity extends Command
                 }
             });
 
+        Leases::query()->with(['property', 'unit', 'tenant'])->chunkById(200, function ($leases) use ($flag): void {
+            foreach ($leases as $lease) {
+                if (!$lease->property || (int) $lease->property->organization_id !== (int) $lease->organization_id) {
+                    $flag('lease', (int) $lease->id, 'lease_property_scope', 'Lease property is missing or belongs to a different organization.');
+                }
+                if (!$lease->unit || (int) $lease->unit->property_id !== (int) $lease->property_id) {
+                    $flag('lease', (int) $lease->id, 'lease_unit_scope', 'Lease unit is missing or belongs to a different property.');
+                }
+                if (!$lease->tenant || (int) $lease->tenant->organization_id !== (int) $lease->organization_id) {
+                    $flag('lease', (int) $lease->id, 'lease_tenant_scope', 'Lease tenant is missing or belongs to a different organization.');
+                }
+            }
+        });
+
         RentObligation::query()->with('lease')->chunkById(200, function ($obligations) use ($flag): void {
             foreach ($obligations as $obligation) {
                 $lease = $obligation->lease;
