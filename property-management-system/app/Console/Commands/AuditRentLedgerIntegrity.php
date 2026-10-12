@@ -157,7 +157,33 @@ class AuditRentLedgerIntegrity extends Command
                     $flag('rent_obligation', (int) $obligation->id, 'obligation_scope', 'Rent obligation ownership fields do not match its lease.');
                 }
 
-                if ((float) $obligation->amount_paid > (float) $obligation->amount_due) {
+                // Independently recompute paid amount and balance in integer cents from
+                // allocation rows plus legacy paid payment links, then compare with the
+                // model's ledger values. This is a verification only; it never repairs them.
+                $allocationCents = (int) round((float) PaymentAllocation::query()
+                    ->where('rent_obligation_id', $obligation->id)->sum('amount') * 100);
+                $legacyPaymentCents = (int) round((float) $obligation->payments()
+                    ->where('status', 'paid')
+                    ->whereDoesntHave('allocations')
+                    ->sum('amount') * 100);
+                $expectedPaidCents = $allocationCents + $legacyPaymentCents;
+                $reportedPaidCents = (int) round((float) $obligation->amount_paid * 100);
+                $dueCents = (int) round((float) $obligation->amount_due * 100);
+                $expectedBalanceCents = max($dueCents - $expectedPaidCents, 0);
+                $reportedBalanceCents = (int) round((float) $obligation->balance * 100);
+
+                if ($expectedPaidCents !== $reportedPaidCents || $expectedBalanceCents !== $reportedBalanceCents) {
+                    $flag(
+                        'rent_obligation',
+                        (int) $obligation->id,
+                        'obligation_balance_mismatch',
+                        'Rent obligation paid/balance values do not match the independently recomputed allocation and legacy-payment totals (expected paid cents: '
+                            . $expectedPaidCents . ', reported paid cents: ' . $reportedPaidCents
+                            . ', expected balance cents: ' . $expectedBalanceCents . ', reported balance cents: ' . $reportedBalanceCents . ').'
+                    );
+                }
+
+                if ($reportedPaidCents > $dueCents) {
                     $flag('rent_obligation', (int) $obligation->id, 'obligation_overallocated', 'Recorded payments exceed the rent obligation amount due.');
                 }
             }
