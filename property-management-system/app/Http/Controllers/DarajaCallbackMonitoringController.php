@@ -169,11 +169,11 @@ class DarajaCallbackMonitoringController extends Controller
                     'status' => 'registered',
                 ]);
 
-                $event = DB::transaction(fn () => $routing->receive($registration, $payload, $reconciliation, 'statement_recovery'), 3);
-                $latency = max(0, now()->diffInSeconds($at, false) * -1);
-                $status = $event->status === 'routed' ? 'recovered' : 'needs_review';
-
-                DarajaCallbackMonitoringEvent::create([
+                $receivedAt = now();
+                $event = DB::transaction(function () use ($routing, $registration, $payload, $reconciliation, $fingerprint, $request, $validated, $at, $receivedAt) {
+                    $event = $routing->receive($registration, $payload, $reconciliation, 'statement_recovery');
+                    $latency = max(0, $receivedAt->getTimestamp() - $at->getTimestamp());
+                    DarajaCallbackMonitoringEvent::create([
                     'environment' => $registration->environment,
                     'shortcode' => $payload['BusinessShortCode'],
                     'receipt' => $payload['TransID'],
@@ -184,17 +184,49 @@ class DarajaCallbackMonitoringController extends Controller
                     'delivery_status' => 'recovered',
                     'processing_status' => $status,
                     'transaction_at' => $at,
-                    'received_at' => now(),
+                    'received_at' => $receivedAt,
                     'latency_seconds' => $latency,
                     'is_delayed' => true,
                     'statement_fingerprint' => $fingerprint,
                     'recorded_by' => $request->user()->id,
-                    'error_message' => $status === 'needs_review' ? $event->review_reason : null,
-                ]);
-
+                    'recovery_notes' => $validated['recovery_notes'],
+                    'error_message' => $event->status === 'routed' ? null : $event->review_reason,
+                    ]);
+                    return $event;
+                }, 3);
+                $status = $event->status === 'routed' ? 'recovered' : 'needs_review';
                 $status === 'recovered' ? $recovered++ : $review++;
             } catch (Throwable $exception) {
                 $errors[] = ['line' => $line, 'receipt' => $payload['TransID'] ?? null, 'error' => mb_substr($exception->getMessage(), 0, 400)];
+                if (!empty($payload['BusinessShortCode']) && !empty($payload['TransID'])) {
+                    try {
+                        $receivedAt = now();
+                        $monitorAt = isset($at) && $at instanceof CarbonImmutable ? $at : null;
+                        DarajaCallbackMonitoringEvent::create([
+                            'environment' => config('daraja.environment', 'sandbox'),
+                            'shortcode' => mb_substr($payload['BusinessShortCode'], 0, 32),
+                            'receipt' => mb_substr($payload['TransID'], 0, 100),
+                            'organization_id' => $request->user()->organization_id,
+                            'source' => 'statement_recovery',
+                            'delivery_status' => 'statement_uploaded',
+                            'processing_status' => 'needs_review',
+                            'transaction_at' => $monitorAt,
+                            'received_at' => $receivedAt,
+                            'latency_seconds' => $monitorAt ? max(0, $receivedAt->getTimestamp() - $monitorAt->getTimestamp()) : null,
+                            'is_delayed' => true,
+                            'statement_fingerprint' => $fingerprint,
+                            'recorded_by' => $request->user()->id,
+                            'recovery_notes' => $validated['recovery_notes'],
+                            'error_message' => mb_substr($exception->getMessage(), 0, 1000),
+                        ]);
+                    } catch (Throwable $monitorException) {
+                        Log::critical('Rejected statement row could not be added to the review monitor.', [
+                            'organization_id' => $request->user()->organization_id,
+                            'line' => $line,
+                            'exception' => $monitorException::class,
+                        ]);
+                    }
+                }
                 Log::warning('M-PESA statement recovery row was rejected.', [
                     'organization_id' => $request->user()->organization_id,
                     'line' => $line,
