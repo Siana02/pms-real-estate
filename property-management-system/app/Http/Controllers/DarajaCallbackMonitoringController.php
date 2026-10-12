@@ -125,6 +125,7 @@ class DarajaCallbackMonitoringController extends Controller
                 break;
             }
 
+            $at = null;
             $value = fn (string $key): string => trim((string) ($row[$column[$key]] ?? ''));
             $payload = [
                 'TransID' => $value('transid'),
@@ -181,7 +182,7 @@ class DarajaCallbackMonitoringController extends Controller
                     'payment_destination_id' => $event->payment_destination_id,
                     'c2b_event_id' => $event->id,
                     'source' => 'statement_recovery',
-                    'delivery_status' => 'recovered',
+                    'delivery_status' => $event->status === 'routed' ? 'recovered' : 'statement_uploaded',
                     'processing_status' => $event->status === 'routed' ? 'routed' : 'needs_review',
                     'transaction_at' => $at,
                     'received_at' => $receivedAt,
