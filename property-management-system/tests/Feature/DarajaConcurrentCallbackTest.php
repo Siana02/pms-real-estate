@@ -11,8 +11,10 @@ use App\Services\PaymentReconciliationService;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 
-#[Group('parallel-mpesa')]\nclass DarajaConcurrentCallbackTest extends TestCase
+#[Group('parallel-mpesa')]
+class DarajaConcurrentCallbackTest extends TestCase
 {
     use DatabaseMigrations;
 
