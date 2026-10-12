@@ -41,6 +41,7 @@ class DarajaCallbackMonitoringController extends Controller
         $latestByShortcode = $shortcodes->map(function (string $shortcode) use ($organizationId) {
             $latest = DarajaCallbackMonitoringEvent::query()
                 ->where('organization_id', $organizationId)
+                ->where('source', 'c2b_confirmation')
                 ->where('shortcode', $shortcode)
                 ->latest('received_at')
                 ->first();
@@ -64,11 +65,46 @@ class DarajaCallbackMonitoringController extends Controller
             'data' => $events,
             'shortcodes' => $latestByShortcode,
             'summary' => [
-                'delayed' => $events->where('is_delayed', true)->count(),
-                'failed' => $events->where('delivery_status', 'failed')->count(),
-                'needs_review' => $events->where('processing_status', 'needs_review')->count(),
-                'recovered' => $events->where('source', 'statement_recovery')->where('processing_status', 'routed')->count(),
+                'delayed' => DarajaCallbackMonitoringEvent::where('organization_id', $organizationId)->where('is_delayed', true)->count(),
+                'failed' => DarajaCallbackMonitoringEvent::where('organization_id', $organizationId)->where('delivery_status', 'failed')->count(),
+                'needs_review' => DarajaCallbackMonitoringEvent::where('organization_id', $organizationId)->where('processing_status', 'needs_review')->count(),
+                'recovered' => DarajaCallbackMonitoringEvent::where('organization_id', $organizationId)->where('source', 'statement_recovery')->where('processing_status', 'routed')->count(),
             ],
+        ]);
+    }
+
+    public function resolveMonitorEvent(Request $request, int $eventId): JsonResponse
+    {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.edit'), 403,
+            'Reviewing callback alerts requires payment editing permission.');
+
+        $validated = $request->validate([
+            'resolution_notes' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+
+        $event = DarajaCallbackMonitoringEvent::query()
+            ->where('organization_id', $request->user()->organization_id)
+            ->lockForUpdate()
+            ->findOrFail($eventId);
+
+        abort_if($event->processing_status !== 'needs_review', 422, 'Only monitoring events awaiting review can be marked reviewed.');
+
+        $event->update([
+            'processing_status' => 'reviewed',
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'resolution_notes' => trim($validated['resolution_notes']),
+        ]);
+
+        Log::notice('M-PESA callback monitoring alert marked reviewed; ledger unchanged.', [
+            'monitor_event_id' => $event->id,
+            'organization_id' => $event->organization_id,
+            'reviewed_by' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Monitoring alert marked reviewed. This records the operator decision only; it does not confirm, allocate, or modify a payment.',
+            'data' => $event->fresh(),
         ]);
     }
 
