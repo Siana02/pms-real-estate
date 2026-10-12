@@ -348,9 +348,10 @@ class PaymentReconciliationService
                 || ($existingPayment->status === 'pending' && !$existingPayment->payment_destination_id);
             $sameProviderReceipt = !$existingPayment->provider_transaction_id
                 || (string) $existingPayment->provider_transaction_id === (string) $transaction->external_transaction_id;
+            $sameMethod = $existingPayment->payment_method === $this->paymentMethod($transaction->provider);
             $isRent = $existingPayment->payment_type === 'rent';
 
-            if (!$sameLease || !$sameAmount || !$sameDestination || !$sameProviderReceipt || !$isRent) {
+            if (!$sameLease || !$sameAmount || !$sameDestination || !$sameProviderReceipt || !$sameMethod || !$isRent) {
                 $transaction->update([
                     'status' => 'needs_review',
                     'reconciliation_note' => 'A payment with this receipt/reference already exists, but its lease, amount, destination or payment type conflicts with the callback. No duplicate payment was created.',
