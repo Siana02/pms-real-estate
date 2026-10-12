@@ -9,6 +9,7 @@ use App\Services\RentLedgerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class FlutterwaveController extends Controller
@@ -204,18 +205,23 @@ class FlutterwaveController extends Controller
             default => 'other',
         };
 
-        $payment->update([
-            'status' => 'paid',
-            'payment_method' => $paymentMethod,
-            'provider_transaction_id' => (string) ($tx['id'] ?? $transactionId),
-            'reference' => $tx['flw_ref'] ?? $payment->reference,
-            'receipt_url' => $tx['receipt_url'] ?? null,
-            'payment_date' => now()->toDateString(),
-        ]);
+        $payment = DB::transaction(function () use ($payment, $paymentMethod, $tx, $transactionId) {
+            $payment->update([
+                'status' => 'paid',
+                'payment_method' => $paymentMethod,
+                'provider_transaction_id' => (string) ($tx['id'] ?? $transactionId),
+                'reference' => $tx['flw_ref'] ?? $payment->reference,
+                'receipt_url' => $tx['receipt_url'] ?? null,
+                'payment_date' => now()->toDateString(),
+            ]);
 
-        if ($payment->payment_type === 'rent') {
-            app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());
-        }
+            $payment = $payment->fresh();
+            if ($payment->payment_type === 'rent') {
+                app(RentLedgerService::class)->allocateConfirmedPayment($payment);
+            }
+
+            return $payment->fresh();
+        });
 
         return ['status' => 'paid', 'payment_id' => $payment->id];
     }
