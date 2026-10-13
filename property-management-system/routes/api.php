@@ -22,6 +22,7 @@ use App\Http\Controllers\FlutterwaveController;
 use App\Http\Controllers\PaymentDestinationController;
 use App\Http\Controllers\PaymentReconciliationController;
 use App\Http\Controllers\RentLedgerReviewController;
+use App\Http\Controllers\DarajaCallbackMonitoringController;
 use App\Http\Controllers\DarajaController;
 use App\Http\Controllers\OrganizationDarajaCredentialController;
 use App\Http\Controllers\GuestTenantPaymentLinkController;
@@ -100,6 +101,9 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
     Route::apiResource('payments', PaymentController::class)->middleware('subscription.feature:payment_ledger');
     Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
     Route::get('payment-reconciliation/ledger-review-flags', [RentLedgerReviewController::class, 'index']);
+    Route::get('payment-reconciliation/callback-monitoring', [DarajaCallbackMonitoringController::class, 'index']);
+    Route::patch('payment-reconciliation/callback-monitoring/{eventId}/resolve', [DarajaCallbackMonitoringController::class, 'resolveMonitorEvent']);
+    Route::post('payment-reconciliation/callback-monitoring/recover', [DarajaCallbackMonitoringController::class, 'recoverFromStatement'])->middleware('throttle:5,1');
     Route::patch('payment-reconciliation/ledger-review-flags/{flag}/resolve', [RentLedgerReviewController::class, 'resolve']);
     Route::post('payment-reconciliation/transactions', [PaymentReconciliationController::class, 'ingest']);
     Route::post('payment-reconciliation/transactions/{paymentTransaction}/resolve', [PaymentReconciliationController::class, 'resolve']);

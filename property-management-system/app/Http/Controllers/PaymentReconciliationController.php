@@ -55,7 +55,7 @@ class PaymentReconciliationController extends Controller
             ->findOrFail($validated['lease_id']);
 
         $payload = $paymentTransaction->raw_payload ?? [];
-        $isC2b = ($payload['source'] ?? null) === 'c2b_confirmation';
+        $isC2b = in_array(($payload['source'] ?? null), ['c2b_confirmation', 'statement_recovery'], true);
         $c2bEvent = null;
         $destination = null;
 

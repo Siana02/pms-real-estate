@@ -16,7 +16,7 @@ use RuntimeException;
 
 class DarajaC2bRoutingService
 {
-    public function receive(DarajaC2bRegistration $registration, array $payload, PaymentReconciliationService $reconciliation): DarajaC2bEvent
+    public function receive(DarajaC2bRegistration $registration, array $payload, PaymentReconciliationService $reconciliation, string $source = 'c2b_confirmation'): DarajaC2bEvent
     {
         $shortcode = trim((string) ($payload['BusinessShortCode'] ?? ''));
         $receipt = trim((string) ($payload['TransID'] ?? ''));
@@ -29,7 +29,7 @@ class DarajaC2bRoutingService
         }
 
         try {
-            return DB::transaction(function () use ($registration, $payload, $shortcode, $receipt, $amount, $reference, $transactionAt, $reconciliation) {
+            return DB::transaction(function () use ($registration, $payload, $shortcode, $receipt, $amount, $reference, $transactionAt, $reconciliation, $source) {
             $event = DarajaC2bEvent::firstOrCreate(
                 [
                     'environment' => $registration->environment,
@@ -186,7 +186,7 @@ class DarajaC2bRoutingService
                     'payment_reference' => $reference,
                     'transaction_at' => $transactionAt,
                     'raw_payload' => [
-                        'source' => 'c2b_confirmation',
+                        'source' => $source,
                         'environment' => $registration->environment,
                         'business_short_code' => $shortcode,
                         'bill_reference' => $reference,
@@ -283,7 +283,7 @@ class DarajaC2bRoutingService
                 throw $exception;
             }
 
-            return $this->receive($registration, $payload, $reconciliation);
+            return $this->receive($registration, $payload, $reconciliation, $source);
         }
     }
 
