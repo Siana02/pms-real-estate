@@ -194,6 +194,10 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
           <label className="ds-form__label" htmlFor={`${idPrefix}-email`}>Contact email (optional)</label>
           <input className="ds-form__input" id={`${idPrefix}-email`} type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} maxLength={254} placeholder="Where we can reply" />
         </div>
+        <div className="ds-form__field">
+          <label className="ds-form__label" htmlFor={`${idPrefix}-phone`}>Contact phone (optional)</label>
+          <input className="ds-form__input" id={`${idPrefix}-phone`} type="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} maxLength={32} placeholder="+254…" />
+        </div>
       </div>
       <div className="ds-form__grid">
         <div className="ds-form__field">
