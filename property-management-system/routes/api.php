@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('change-password', [AuthController::class, 'changePassword']);
     // Support remains available even if a paid subscription is expired.
     Route::post('developer-support-requests', [DeveloperSupportController::class, 'store'])->middleware('throttle:5,1');
+    Route::patch('developer-support-requests/{developerSupportRequest}/notification-status', [DeveloperSupportController::class, 'updateNotificationStatus'])->middleware('throttle:10,1');
     Route::get('platform-admin/developer-support-requests', [DeveloperSupportController::class, 'index'])->middleware('role:platform_admin');
     Route::patch('platform-admin/developer-support-requests/{developerSupportRequest}', [DeveloperSupportController::class, 'update'])->middleware('role:platform_admin');
 });
