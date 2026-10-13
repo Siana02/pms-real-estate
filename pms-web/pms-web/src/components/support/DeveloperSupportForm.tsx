@@ -73,7 +73,7 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
       // authoritative even if the external notification service is unavailable.
       const response = await apiRequest<{
         message?: string;
-        request?: { id?: number; email_status?: string };
+        request?: { id?: number; email_status?: string; requester_name?: string; requester_email?: string };
       }>("/developer-support-requests", {
         method: "POST",
         body: JSON.stringify({
@@ -86,14 +86,16 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
       });
 
       const id = response.request?.id;
+      const effectiveName = contactName.trim() || response.request?.requester_name || "";
+      const effectiveEmail = contactEmail.trim() || response.request?.requester_email || "";
       setTicket(typeof id === "number" ? id : null);
 
       const formData = new FormData();
       formData.append("_subject", `[PMS Support${id ? ` #${id}` : ""}] ${subject.trim()}`);
-      formData.append("contact_name", contactName.trim());
-      if (contactEmail.trim()) {
-        formData.append("_replyto", contactEmail.trim());
-        formData.append("contact_email", contactEmail.trim());
+      formData.append("contact_name", effectiveName);
+      if (effectiveEmail) {
+        formData.append("_replyto", effectiveEmail);
+        formData.append("contact_email", effectiveEmail);
       }
       formData.append("category", categories.find((item) => item.value === category)?.label ?? category);
       formData.append("subject", subject.trim());
