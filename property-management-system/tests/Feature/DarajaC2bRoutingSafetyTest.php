@@ -319,6 +319,71 @@ class DarajaC2bRoutingSafetyTest extends TestCase
         $this->assertSame('paid', $claim->fresh()->status);
     }
 
+
+    public function test_provider_retries_and_repeated_reconciliation_do_not_duplicate_payments_allocations_or_credits(): void
+    {
+        $created = $this->createDestinationAndLease('Retry Safety Properties', 'retry-safety@example.test', '51683/{unit}');
+        $service = app(PaymentReconciliationService::class);
+        $payload = [
+            'organization_id' => $created['organization_id'],
+            'payment_destination_id' => $created['destination_id'],
+            'provider' => 'mpesa_daraja',
+            'external_transaction_id' => 'RETRYSAFE123',
+            'amount' => 30000,
+            'currency' => 'KES',
+            'payer_phone' => '254712345678',
+            'payment_reference' => 'LEASE-' . $created['organization_id'],
+            'transaction_at' => '2026-01-09 12:00:00',
+            'raw_payload' => ['source' => 'c2b_confirmation', 'environment' => 'sandbox'],
+        ];
+
+        $first = $service->ingest($payload);
+        $retry = $service->ingest($payload);
+        $service->reconcile($retry);
+        $service->reconcile($first);
+
+        $this->assertSame($first->id, $retry->id);
+        $this->assertSame(1, PaymentTransaction::where('provider', 'mpesa_daraja')->where('external_transaction_id', 'RETRYSAFE123')->count());
+        $this->assertSame(1, Payment::where('provider_transaction_id', 'RETRYSAFE123')->count());
+        $this->assertSame(1, DB::table('payment_allocations')->whereNotNull('payment_id')->count());
+        $this->assertSame(1, RentPaymentCredit::whereHas('sourcePayment', fn ($query) => $query->where('provider_transaction_id', 'RETRYSAFE123'))->count());
+
+        $payment = Payment::where('provider_transaction_id', 'RETRYSAFE123')->firstOrFail();
+        $this->assertEquals(25000.00, (float) $payment->allocations()->sum('amount'));
+        $credit = RentPaymentCredit::where('source_payment_id', $payment->id)->firstOrFail();
+        $this->assertEquals(5000.00, (float) $credit->amount);
+        $this->assertEquals(0.00, (float) $credit->remaining_amount + (float) $credit->allocations()->sum('amount') - 5000.00);
+    }
+
+    public function test_mysql_unique_receipt_keys_are_present_to_reject_concurrent_duplicate_inserts(): void
+    {
+        $indexes = collect(DB::select("SHOW INDEX FROM payment_transactions"))
+            ->groupBy('Key_name')
+            ->map(fn ($rows) => [
+                'unique' => (int) $rows->first()->Non_unique === 0,
+                'columns' => $rows->sortBy('Seq_in_index')->pluck('Column_name')->values()->all(),
+            ]);
+
+        $this->assertTrue(
+            $indexes->contains(fn ($index) => $index['unique']
+                && $index['columns'] === ['organization_id', 'provider', 'external_transaction_id']),
+            'MySQL must enforce one provider transaction row per organization/provider/receipt, including concurrent callback races.'
+        );
+
+        $eventIndexes = collect(DB::select("SHOW INDEX FROM daraja_c2b_events"))
+            ->groupBy('Key_name')
+            ->map(fn ($rows) => [
+                'unique' => (int) $rows->first()->Non_unique === 0,
+                'columns' => $rows->sortBy('Seq_in_index')->pluck('Column_name')->values()->all(),
+            ]);
+
+        $this->assertTrue(
+            $eventIndexes->contains(fn ($index) => $index['unique']
+                && $index['columns'] === ['environment', 'receipt']),
+            'MySQL must enforce one immutable C2B event per environment/receipt.'
+        );
+    }
+
     private function createDestinationAndLease(string $organizationName, string $email, string $referenceFormat, string $c2bAuthorizationStatus = 'ready'): array
     {
         $now = now();

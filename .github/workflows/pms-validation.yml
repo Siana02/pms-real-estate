@@ -81,4 +81,6 @@ jobs:
       - name: Test 5 - team and organization access
         run: php artisan test tests/Feature/TeamManagementTest.php tests/Feature/OrganizationOwnershipTest.php
       - name: Full Laravel regression suite
-        run: php artisan test
+        run: php artisan test --exclude-group=parallel-mpesa
+      - name: Concurrent duplicate M-PESA callback regression (isolated MySQL run)
+        run: php artisan test --group=parallel-mpesa

@@ -16,6 +16,7 @@ use App\Services\PaymentReconciliationService;
 use App\Services\RentLedgerService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class RentLedgerIntegrityTest extends TestCase
@@ -413,6 +414,27 @@ class RentLedgerIntegrityTest extends TestCase
             'issue_code' => 'allocation_scope_or_source',
             'status' => 'open',
         ]);
+    }
+
+    public function test_ledger_audit_reports_mysql_target_and_does_not_modify_ledger_rows(): void
+    {
+        $this->assertSame('mysql', DB::connection()->getDriverName());
+
+        $before = [
+            'payments' => Payment::count(),
+            'allocations' => PaymentAllocation::count(),
+            'credits' => RentPaymentCredit::count(),
+            'obligations' => RentObligation::count(),
+        ];
+
+        $this->artisan('rent:ledger-audit')
+            ->expectsOutputToContain('Audit target: driver=mysql; database=')
+            ->assertExitCode(0);
+
+        $this->assertSame($before['payments'], Payment::count());
+        $this->assertSame($before['allocations'], PaymentAllocation::count());
+        $this->assertSame($before['credits'], RentPaymentCredit::count());
+        $this->assertSame($before['obligations'], RentObligation::count());
     }
 
 }
