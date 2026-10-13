@@ -3,13 +3,13 @@
 ## Monthly rent ledger email
 
 - Scheduler command: `rent:email-monthly-ledgers`
-- Schedule: the 6th of every month at 06:00 Africa/Nairobi.
+- Schedule: checked daily at 06:00 Africa/Nairobi; the first automatic send happens on the 6th. Failed or pending organizations are retried on later days, while already-sent organization/month reports are skipped.
 - Output: one UTF-8 CSV attachment per organization, with every rent obligation through the report month and payment transaction rows recorded through the report cutoff.
 - Each rent row includes property, unit, tenant, lease, rent period, due date, amount due, confirmed allocations, outstanding balance, status and days overdue. Transaction rows include provider/receipt references, amount, status and allocation periods.
 - The report respects each lease's `rent_due_day` and `rent_grace_period_days`; it does not assume every lease has a fifth-day deadline.
 - Recipient: organization email first, then the organization owner's email as a fallback.
 - `monthly_rent_ledger_reports` tracks one run per organization/month. A successful report is not sent again on retry unless `--force` is explicitly supplied.
-- Reports are read-only except that the existing rent ledger service safely creates any missing obligation for the report month. Existing payments and allocations are not rewritten.
+- Reports are read-only except that the existing rent ledger service safely creates any missing obligation for the report month. CSV rows also include rent credits, remaining credit balances and credit allocations. Existing payments and allocations are not rewritten.
 - The command refuses to run unless the active database driver is MySQL.
 
 Manual run / validation:
