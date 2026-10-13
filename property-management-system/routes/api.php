@@ -56,6 +56,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('platform-subscription/payments/{payment}/verify', [PlatformSubscriptionController::class, 'verifyPayment']);
     Route::put('platform-subscription/organizations/{organization}/custom-pricing', [PlatformSubscriptionController::class, 'setCustomPricing']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
+    // Support remains available even if a paid subscription is expired.
+    Route::post('developer-support-requests', [DeveloperSupportController::class, 'store'])->middleware('throttle:5,1');
+    Route::get('platform-admin/developer-support-requests', [DeveloperSupportController::class, 'index'])->middleware('role:platform_admin');
+    Route::patch('platform-admin/developer-support-requests/{developerSupportRequest}', [DeveloperSupportController::class, 'update'])->middleware('role:platform_admin');
 });
 
 Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'role:admin,property_manager,owner,staff'])->group(function () {
