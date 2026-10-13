@@ -37,6 +37,7 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
   const [category, setCategory] = useState("payment_not_received");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [propertyUnit, setPropertyUnit] = useState("");
@@ -55,6 +56,7 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
     setSuccess("");
 
     const context = [
+      `Contact name: ${contactName.trim() || "Use account name"}`,
       `Contact email: ${contactEmail.trim() || "Use account email"}`,
       `Contact phone: ${contactPhone.trim() || "Not supplied"}`,
       `Property / unit: ${propertyUnit.trim() || "Not applicable / not supplied"}`,
@@ -88,6 +90,7 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
 
       const formData = new FormData();
       formData.append("_subject", `[PMS Support${id ? ` #${id}` : ""}] ${subject.trim()}`);
+      formData.append("contact_name", contactName.trim());
       if (contactEmail.trim()) {
         formData.append("_replyto", contactEmail.trim());
         formData.append("contact_email", contactEmail.trim());
@@ -147,6 +150,7 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
       setCategory("payment_not_received");
       setSubject("");
       setMessage("");
+      setContactName("");
       setContactEmail("");
       setContactPhone("");
       setPropertyUnit("");
@@ -183,12 +187,12 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
       </div>
       <div className="ds-form__grid">
         <div className="ds-form__field">
-          <label className="ds-form__label" htmlFor={`${idPrefix}-email`}>Contact email (optional)</label>
-          <input className="ds-form__input" id={`${idPrefix}-email`} type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} maxLength={254} placeholder="Where we can reply" />
+          <label className="ds-form__label" htmlFor={`${idPrefix}-name`}>Contact name (optional)</label>
+          <input className="ds-form__input" id={`${idPrefix}-name`} value={contactName} onChange={(event) => setContactName(event.target.value)} maxLength={160} placeholder="Your name" />
         </div>
         <div className="ds-form__field">
-          <label className="ds-form__label" htmlFor={`${idPrefix}-phone`}>Contact phone (optional)</label>
-          <input className="ds-form__input" id={`${idPrefix}-phone`} type="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} maxLength={32} placeholder="+254…" />
+          <label className="ds-form__label" htmlFor={`${idPrefix}-email`}>Contact email (optional)</label>
+          <input className="ds-form__input" id={`${idPrefix}-email`} type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} maxLength={254} placeholder="Where we can reply" />
         </div>
       </div>
       <div className="ds-form__grid">
@@ -217,8 +221,8 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
       </div>
       <div className="ds-form__field">
         <label className="ds-form__label" htmlFor={`${idPrefix}-message`}>Explain the issue</label>
-        <textarea className="ds-form__input" id={`${idPrefix}-message`} value={message} onChange={(event) => setMessage(event.target.value)} minLength={15} maxLength={5000} placeholder="What happened, what did you expect, and when did it start?" required />
-        <p className="ds-form__meta">{message.length}/5000 characters · All fields are sent to Formspree; optional details are also included in the saved ticket.</p>
+        <textarea className="ds-form__input" id={`${idPrefix}-message`} value={message} onChange={(event) => setMessage(event.target.value)} minLength={15} maxLength={4000} placeholder="What happened, what did you expect, and when did it start?" required />
+        <p className="ds-form__meta">{message.length}/4000 characters · All fields are sent to Formspree; optional details are also included in the saved ticket.</p>
       </div>
       <button className="ds-form__button" type="submit" disabled={saving}><Send size={17} />{saving ? "Saving and notifying…" : "Submit to the development team"}</button>
     </form>
