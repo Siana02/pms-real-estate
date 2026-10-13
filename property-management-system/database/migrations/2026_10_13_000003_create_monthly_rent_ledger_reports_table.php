@@ -17,6 +17,7 @@ return new class extends Migration
             $table->unsignedInteger('rent_rows')->default(0);
             $table->unsignedInteger('payment_rows')->default(0);
             $table->unsignedInteger('credit_rows')->default(0);
+            $table->unsignedInteger('provider_transaction_rows')->default(0);
             $table->string('file_sha256', 64)->nullable();
             $table->timestamp('sent_at')->nullable();
             $table->text('last_error')->nullable();
