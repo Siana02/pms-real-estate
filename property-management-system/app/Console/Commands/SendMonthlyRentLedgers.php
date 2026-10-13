@@ -14,6 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Throwable;
 
 class SendMonthlyRentLedgers extends Command
@@ -122,7 +123,7 @@ class SendMonthlyRentLedgers extends Command
                 ]);
 
                 if (!in_array(config('mail.default'), ['smtp', 'sendmail'], true)) {
-                    throw new \\RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
+                    throw new RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
                 }
 
                 Mail::raw($body, function ($message) use ($recipient, $organization, $period, $filename, $csv) {
