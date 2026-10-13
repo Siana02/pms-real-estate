@@ -57,6 +57,10 @@ class DeveloperSupportController extends Controller
                 'This request is stored in the PMS database. Review it in the platform-admin support inbox.',
             ]);
 
+            if (in_array(config('mail.default'), ['log', 'array'], true)) {
+                throw new RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
+            }
+
             Mail::raw($body, function ($mail) use ($item) {
                 $mail->to(config('support.developer_email', 'hello@marswebz.com'))
                     ->subject('[PMS Support #' . $item->id . '] ' . $item->subject);
