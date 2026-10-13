@@ -1,6 +1,6 @@
 import { MessageCircle, ShieldCheck, Wrench } from "lucide-react";
 import { Link } from "react-router-dom";
-import DeveloperSupportForm from "../../components/support/DeveloperSupportForm";
+import DeveloperSupportForm from "../components/support/DeveloperSupportForm";
 
 const pageStyles = `
 .dsp-page { min-height:100vh; background:#f4f7fb; color:#172033; padding:clamp(1rem,3vw,2.5rem); font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
