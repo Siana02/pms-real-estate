@@ -119,6 +119,20 @@ class DeveloperSupportController extends Controller
             'error' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        if ($developerSupportRequest->email_status !== 'pending') {
+            if ($developerSupportRequest->email_status === $validated['status']) {
+                return response()->json([
+                    'message' => 'Support notification status was already recorded.',
+                    'request' => [
+                        'id' => $developerSupportRequest->id,
+                        'email_status' => $developerSupportRequest->email_status,
+                    ],
+                ]);
+            }
+
+            abort(409, 'The notification status has already changed. Refresh the support ticket before retrying.');
+        }
+
         $developerSupportRequest->forceFill([
             'email_status' => $validated['status'],
             'email_sent_at' => $validated['status'] === 'sent' ? now() : null,
