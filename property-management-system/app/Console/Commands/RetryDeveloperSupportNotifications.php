@@ -42,7 +42,7 @@ class RetryDeveloperSupportNotifications extends Command
             try {
                 $locked = DB::transaction(function () use ($ticket) {
                     $current = DeveloperSupportRequest::query()->lockForUpdate()->find($ticket->id);
-                    if (!$current || $current->email_status === 'sent') {
+                    if (!$current || !in_array($current->email_status, ['pending', 'failed'], true) && !($current->email_status === 'sending' && $current->updated_at?->lte(now()->subMinutes(15)))) {
                         return null;
                     }
                     $current->forceFill(['email_status' => 'sending', 'email_error' => null])->save();
