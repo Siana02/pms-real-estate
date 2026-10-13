@@ -104,7 +104,7 @@ class SendMonthlyRentLedgers extends Command
                 $body = implode("\n", [
                     'Hello ' . ($organization->name ?: 'there') . ',',
                     '',
-                    'Attached is your full rent ledger and payment reconciliation report through ' . $period->endOfMonth()->toFormattedDateString() . '.',
+                    'Attached is your full rent ledger and payment reconciliation report as of ' . $asOf->toFormattedDateString() . '.',
                     'The report includes each rent obligation by property, unit, tenant and lease, rent due dates, allocated payments, outstanding balances and overdue status, together with the payment transaction history recorded in the PMS through the report date.',
                     '',
                     'Overdue status is calculated from each lease rent due date and configured grace period. A payment is only reflected as received when its status is confirmed in the PMS; pending or unverified submissions are not counted as paid.',
@@ -202,6 +202,7 @@ class SendMonthlyRentLedgers extends Command
         $legacyPaid = Payment::query()
             ->where('organization_id', $organizationId)
             ->where('status', 'paid')
+            ->whereDate('payment_date', '<=', $asOf->toDateString())
             ->whereIn('rent_obligation_id', $obligationIds)
             ->whereDoesntHave('allocations')
             ->selectRaw('rent_obligation_id, SUM(amount) as total')
@@ -247,7 +248,7 @@ class SendMonthlyRentLedgers extends Command
                 CarbonImmutable::parse($obligation->period)->format('Y-m'), $obligation->due_date,
                 number_format($due, 2, '.', ''), number_format($paid, 2, '.', ''),
                 number_format($balance, 2, '.', ''), $status, $daysOverdue,
-                '', '', '', '', '', '', '', implode(' | ', $paymentDetailsByObligation[$obligation->id] ?? []), $asOf,
+                '', '', '', '', '', '', '', implode(' | ', $paymentDetailsByObligation[$obligation->id] ?? []), $asOfDate,
             ]);
         }
 
