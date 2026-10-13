@@ -28,6 +28,7 @@ use App\Http\Controllers\GuestTenantPaymentLinkController;
 use App\Http\Controllers\PlatformSubscriptionController;
 use App\Http\Middleware\EnsureActivePlatformSubscription;
 
+use App\Http\Controllers\DeveloperSupportController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('register', [AuthController::class, 'register']);
