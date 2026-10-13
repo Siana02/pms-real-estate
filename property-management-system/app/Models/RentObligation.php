@@ -29,6 +29,11 @@ class RentObligation extends Model
 
     protected $appends = ['amount_paid', 'balance', 'status', 'days_overdue'];
 
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
     public function lease()
     {
         return $this->belongsTo(Leases::class, 'lease_id');
