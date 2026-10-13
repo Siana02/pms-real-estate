@@ -172,6 +172,7 @@ class SendMonthlyRentLedgers extends Command
      */
     private function buildCsv(int $organizationId, CarbonImmutable $period, CarbonImmutable $asOf): array
     {
+        $organization = Organization::query()->find($organizationId);
         $obligations = RentObligation::query()
             ->where('organization_id', $organizationId)
             ->whereDate('period', '<=', $period->endOfMonth()->toDateString())
