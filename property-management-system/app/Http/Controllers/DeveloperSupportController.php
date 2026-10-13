@@ -123,3 +123,4 @@ class DeveloperSupportController extends Controller
             'request' => $developerSupportRequest->fresh()->load(['organization:id,name,email', 'requester:id,name,email']),
         ]);
     }
+}
