@@ -47,7 +47,6 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [ticket, setTicket] = useState<number | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,7 +87,6 @@ export default function DeveloperSupportForm({ compact = false }: { compact?: bo
       const id = response.request?.id;
       const effectiveName = contactName.trim() || response.request?.requester_name || "";
       const effectiveEmail = contactEmail.trim() || response.request?.requester_email || "";
-      setTicket(typeof id === "number" ? id : null);
 
       const formData = new FormData();
       formData.append("_subject", `[PMS Support${id ? ` #${id}` : ""}] ${subject.trim()}`);
