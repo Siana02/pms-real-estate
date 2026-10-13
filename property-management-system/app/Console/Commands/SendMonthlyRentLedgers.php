@@ -6,6 +6,7 @@ use App\Models\MonthlyRentLedgerReport;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Models\PaymentTransaction;
 use App\Models\RentPaymentCredit;
 use App\Models\RentObligation;
 use App\Services\RentLedgerService;
@@ -91,7 +92,7 @@ class SendMonthlyRentLedgers extends Command
                 }
 
                 $asOf = $period->isSameMonth(now()) ? CarbonImmutable::today() : $period->endOfMonth();
-                [$csv, $rentRows, $paymentRows, $creditRows] = $this->buildCsv($organization->id, $period, $asOf);
+                [$csv, $rentRows, $paymentRows, $creditRows, $providerTransactionRows] = $this->buildCsv($organization->id, $period, $asOf);
                 $hash = hash('sha256', $csv);
                 $filename = sprintf(
                     'MARSWebz-Rent-Ledger-%s-%s.csv',
@@ -105,6 +106,7 @@ class SendMonthlyRentLedgers extends Command
                     'rent_rows' => $rentRows,
                     'payment_rows' => $paymentRows,
                     'credit_rows' => $creditRows,
+                    'provider_transaction_rows' => $providerTransactionRows,
                     'file_sha256' => $hash,
                     'last_error' => null,
                 ])->save();
@@ -166,7 +168,7 @@ class SendMonthlyRentLedgers extends Command
      * all payment transaction records through the close date. Nothing is mutated
      * here other than first-time obligation generation by the ledger service.
      *
-     * @return array{0:string,1:int,2:int,3:int}
+     * @return array{0:string,1:int,2:int,3:int,4:int}
      */
     private function buildCsv(int $organizationId, CarbonImmutable $period, CarbonImmutable $asOf): array
     {
@@ -220,6 +222,20 @@ class SendMonthlyRentLedgers extends Command
             ->selectRaw('rent_obligation_id, SUM(amount) as total')
             ->groupBy('rent_obligation_id')
             ->pluck('total', 'rent_obligation_id');
+
+        $providerTransactions = PaymentTransaction::query()
+            ->where('organization_id', $organizationId)
+            ->where(function ($query) use ($asOf) {
+                $query->whereDate('transaction_at', '<=', $asOf->toDateString())
+                    ->orWhere(function ($missingTime) use ($asOf) {
+                        $missingTime->whereNull('transaction_at')
+                            ->whereDate('created_at', '<=', $asOf->toDateString());
+                    });
+            })
+            ->with(['matchedLease.property:id,name', 'matchedLease.unit:id,unit_number', 'matchedLease.tenant:id,first_name,last_name', 'matchedRentObligation:id,period', 'payment:id,amount,payment_date,status', 'paymentDestination:id,method'])
+            ->orderBy('transaction_at')
+            ->orderBy('id')
+            ->get();
 
         $credits = RentPaymentCredit::query()
             ->where('organization_id', $organizationId)
@@ -297,6 +313,32 @@ class SendMonthlyRentLedgers extends Command
             ]);
         }
 
+        $providerTransactionRowCount = 0;
+        foreach ($providerTransactions as $transaction) {
+            $providerTransactionRowCount++;
+            $matchedLease = $transaction->matchedLease;
+            $note = 'Destination #' . ($transaction->payment_destination_id ?? 'unknown') . '; currency ' . ($transaction->currency ?: 'unknown');
+            if ($transaction->reconciliation_note) {
+                $note .= '; reconciliation: ' . $transaction->reconciliation_note;
+            }
+            if ($transaction->matchedRentObligation?->period) {
+                $note .= '; matched rent period ' . CarbonImmutable::parse($transaction->matchedRentObligation->period)->format('Y-m');
+            }
+            fputcsv($stream, [
+                'provider_transaction', $organizationId, $organization->name ?? '',
+                $period->format('Y-m'), $matchedLease?->property?->name ?? '',
+                '', $matchedLease?->unit?->unit_number ?? '',
+                trim(($matchedLease?->tenant?->first_name ?? '') . ' ' . ($matchedLease?->tenant?->last_name ?? '')),
+                '', '', $transaction->matched_lease_id ?? '',
+                $transaction->matchedRentObligation?->period ? CarbonImmutable::parse($transaction->matchedRentObligation->period)->format('Y-m') : '',
+                '', '', '', '', $transaction->status, '', $transaction->payment_id ?? '',
+                $transaction->transaction_at?->format('Y-m-d') ?? '', $transaction->provider ?? '',
+                $transaction->provider ?? '', $transaction->external_transaction_id ?: $transaction->payment_reference ?: '',
+                number_format((float) $transaction->amount, 2, '.', ''), $transaction->status,
+                $note, $asOfDate,
+            ]);
+        }
+
         $creditRowCount = 0;
         foreach ($credits as $credit) {
             $creditRowCount++;
@@ -327,6 +369,6 @@ class SendMonthlyRentLedgers extends Command
         rewind($stream);
         $csv = stream_get_contents($stream);
         fclose($stream);
-        return [$csv === false ? '' : $csv, $rentRowCount, $paymentRowCount, $creditRowCount];
+        return [$csv === false ? '' : $csv, $rentRowCount, $paymentRowCount, $creditRowCount, $providerTransactionRowCount];
     }
 }
