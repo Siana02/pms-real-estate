@@ -73,7 +73,7 @@ export default function DeveloperSupportInboxPage() {
     finally { setLoading(false); }
   }, [statusFilter]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { if (selected) { setStatus(selected.status); setPriority(selected.priority); setNotes(selected.admin_notes ?? ""); } }, [selectedId, selected?.status, selected?.priority, selected?.admin_notes]);
+  useEffect(() => { if (selected) { setStatus(selected.status); setPriority(selected.priority); setNotes(selected.admin_notes ?? ""); } }, [selected]);
 
   async function update(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
