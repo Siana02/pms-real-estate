@@ -19,6 +19,7 @@ class DeveloperSupportController extends Controller
             'subject' => ['required', 'string', 'min:4', 'max:200'],
             'message' => ['required', 'string', 'min:15', 'max:5000'],
             'page_url' => ['nullable', 'string', 'max:1000'],
+            'notification_provider' => ['nullable', 'in:formspree,laravel'],
         ]);
 
         $user = $request->user();
@@ -38,47 +39,57 @@ class DeveloperSupportController extends Controller
             'email_status' => 'pending',
         ]);
 
-        try {
-            $body = implode("\n", [
-                'New MARSWebz PMS developer support request',
-                '',
-                'Ticket: #' . $item->id,
-                'Category: ' . $item->category,
-                'Priority: ' . $item->priority,
-                'Requester: ' . $item->requester_name,
-                'Email: ' . ($item->requester_email ?: 'Not available'),
-                'Role: ' . ($item->requester_role ?: 'Not available'),
-                'Organization: ' . ($organization?->name ?? 'Not associated with an organization'),
-                'Organization ID: ' . ($item->organization_id ?? 'N/A'),
-                'Page: ' . ($item->page_url ?: 'Not supplied'),
-                '',
-                'Message:',
-                $item->message,
-                '',
-                'This request is stored in the PMS database. Review it in the platform-admin support inbox.',
-            ]);
-
-            if (!in_array(config('mail.default'), ['smtp', 'sendmail'], true)) {
-                throw new RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
-            }
-
-            Mail::raw($body, function ($mail) use ($item) {
-                $mail->to(config('support.developer_email', 'hello@marswebz.com'))
-                    ->subject('[PMS Support #' . $item->id . '] ' . $item->subject);
-            });
-
-            $item->forceFill(['email_status' => 'sent', 'email_sent_at' => now(), 'email_error' => null])->save();
-        } catch (Throwable $exception) {
+        // The React support form explicitly selects Formspree. Store the ticket first,
+        // then let the browser deliver the external notification and report its outcome.
+        // Existing API clients without this field keep the original Laravel-mail path.
+        if (($validated['notification_provider'] ?? 'laravel') === 'formspree') {
             $item->forceFill([
-                'email_status' => 'failed',
-                'email_error' => mb_substr($exception->getMessage(), 0, 2000),
+                'email_status' => 'pending',
+                'email_error' => null,
             ])->save();
+        } else {
+            try {
+                $body = implode("\n", [
+                    'New MARSWebz PMS developer support request',
+                    '',
+                    'Ticket: #' . $item->id,
+                    'Category: ' . $item->category,
+                    'Priority: ' . $item->priority,
+                    'Requester: ' . $item->requester_name,
+                    'Email: ' . ($item->requester_email ?: 'Not available'),
+                    'Role: ' . ($item->requester_role ?: 'Not available'),
+                    'Organization: ' . ($organization?->name ?? 'Not associated with an organization'),
+                    'Organization ID: ' . ($item->organization_id ?? 'N/A'),
+                    'Page: ' . ($item->page_url ?: 'Not supplied'),
+                    '',
+                    'Message:',
+                    $item->message,
+                    '',
+                    'This request is stored in the PMS database. Review it in the platform-admin support inbox.',
+                ]);
 
-            Log::error('Developer support request was saved but its email notification failed.', [
-                'support_request_id' => $item->id,
-                'organization_id' => $item->organization_id,
-                'exception' => $exception::class,
-            ]);
+                if (!in_array(config('mail.default'), ['smtp', 'sendmail'], true)) {
+                    throw new RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
+                }
+
+                Mail::raw($body, function ($mail) use ($item) {
+                    $mail->to(config('support.developer_email', 'hello@marswebz.com'))
+                        ->subject('[PMS Support #' . $item->id . '] ' . $item->subject);
+                });
+
+                $item->forceFill(['email_status' => 'sent', 'email_sent_at' => now(), 'email_error' => null])->save();
+            } catch (Throwable $exception) {
+                $item->forceFill([
+                    'email_status' => 'failed',
+                    'email_error' => mb_substr($exception->getMessage(), 0, 2000),
+                ])->save();
+
+                Log::error('Developer support request was saved but its email notification failed.', [
+                    'support_request_id' => $item->id,
+                    'organization_id' => $item->organization_id,
+                    'exception' => $exception::class,
+                ]);
+            }
         }
 
         return response()->json([
@@ -90,6 +101,34 @@ class DeveloperSupportController extends Controller
                 'created_at' => $item->created_at,
             ],
         ], 201);
+    }
+
+    public function updateNotificationStatus(Request $request, DeveloperSupportRequest $developerSupportRequest): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user && ($user->role === 'platform_admin' || (int) $developerSupportRequest->user_id === (int) $user->id), 403);
+
+        $validated = $request->validate([
+            'provider' => ['required', 'in:formspree'],
+            'status' => ['required', 'in:sent,failed'],
+            'error' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $developerSupportRequest->forceFill([
+            'email_status' => $validated['status'],
+            'email_sent_at' => $validated['status'] === 'sent' ? now() : null,
+            'email_error' => $validated['status'] === 'failed'
+                ? mb_substr((string) ($validated['error'] ?? 'Formspree notification was not confirmed.'), 0, 2000)
+                : null,
+        ])->save();
+
+        return response()->json([
+            'message' => 'Support notification status recorded.',
+            'request' => [
+                'id' => $developerSupportRequest->id,
+                'email_status' => $developerSupportRequest->email_status,
+            ],
+        ]);
     }
 
     public function index(Request $request): JsonResponse
