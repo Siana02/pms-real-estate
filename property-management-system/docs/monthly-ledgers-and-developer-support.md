@@ -27,7 +27,7 @@ The host must run Laravel's scheduler (for example, a cron entry that runs `php 
 
 - Authenticated users submit through `POST /api/developer-support-requests`; support is not blocked by an expired organization subscription.
 - The request is stored in `developer_support_requests` before email delivery is attempted. Email status and failure details are stored for the platform-admin queue.
-- Notification destination is `DEVELOPER_SUPPORT_EMAIL`, defaulting to `hello@marswebz.com`.
+- Notification destination is `DEVELOPER_SUPPORT_EMAIL`, defaulting to `hello@marswebz.com`. Failed/pending notification emails are retried every ten minutes by `support:retry-failed-email-notifications` once a real outbound mail transport is configured.
 - Platform administrators review tickets at `/platform-admin/support` and can change status, priority and internal notes.
 - The floating Need help? widget appears throughout manager, tenant and platform-admin portal pages. The full support page is `/support`.
 - WhatsApp link: `https://wa.me/254101907239`.
