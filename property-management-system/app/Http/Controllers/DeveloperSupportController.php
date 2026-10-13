@@ -58,7 +58,7 @@ class DeveloperSupportController extends Controller
                 'This request is stored in the PMS database. Review it in the platform-admin support inbox.',
             ]);
 
-            if (in_array(config('mail.default'), ['log', 'array'], true)) {
+            if (!in_array(config('mail.default'), ['smtp', 'sendmail'], true)) {
                 throw new RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
             }
 
