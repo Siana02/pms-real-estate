@@ -36,6 +36,11 @@ class SendMonthlyRentLedgers extends Command
             return self::FAILURE;
         }
 
+        if (!$this->option('period') && CarbonImmutable::now('Africa/Nairobi')->day < 6) {
+            $this->info('Monthly ledger emails begin on the 6th; no reports were sent today.');
+            return self::SUCCESS;
+        }
+
         if (DB::connection()->getDriverName() !== 'mysql') {
             $this->error('Monthly rent ledger reporting is restricted to MySQL. No report was generated.');
             Log::critical('Monthly rent ledger report refused because the active database driver is not MySQL.', [
@@ -115,6 +120,10 @@ class SendMonthlyRentLedgers extends Command
                     '',
                     'MARSWebz Property Management System',
                 ]);
+
+                if (in_array(config('mail.default'), ['log', 'array'], true)) {
+                    throw new \\RuntimeException('Outbound email is not configured for delivery. Set MAIL_MAILER=smtp and configure the mailbox SMTP credentials.');
+                }
 
                 Mail::raw($body, function ($message) use ($recipient, $organization, $period, $filename, $csv) {
                     $message->to($recipient)
