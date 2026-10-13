@@ -36,6 +36,9 @@ import TenantHelpPage from "./pages/tenant/TenantHelpPage";
 import TenantSettingsPage from "./pages/tenant/TenantSettingsPage";
 import { applyTheme, readThemeId } from "./styles/themes";
 import { API_BASE } from "./services/api";
+import SupportEntryPoint from "./components/support/SupportEntryPoint";
+import DeveloperSupportPage from "./pages/DeveloperSupportPage";
+import DeveloperSupportInboxPage from "./pages/platform/DeveloperSupportInboxPage";
 
 type Portal = "manager" | "tenant";
 const TENANT_ROLES = ["tenant"];
@@ -127,6 +130,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   { title: "Maintenance and requests", body: "Use Maintenance to follow repairs and service issues. Requests is where staff or operational requests can be reviewed and actioned.", targets: ["/manager/maintenance", "/manager/requests"] },
   ...(role === "owner" || role === "admin" ? [{ title: "Audit log", body: "Review the recorded activity trail for accountability. Use it to investigate changes and understand who performed an action.", targets: ["/manager/audit-log"] }] : []),
   { title: "Settings and team", body: "Configure organisation preferences, payment destinations and theme. Owners/admins can manage staff access and permissions here.", targets: ["/manager/settings"] },
+  { title: "Contact the developers", body: "Use the floating Need help? control on important pages to report missing M-Pesa confirmations, technical bugs or outages. Requests are stored for review and routed to MARSWebz support. You can also contact the developers on WhatsApp.", targets: [] },
  ];
  const tenantSteps: TourStep[] = [
   { title: "Your dashboard", body: "Start here for your tenancy overview, reminders and recent updates.", targets: [] },
@@ -137,6 +141,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   { title: "Notifications", body: "Check updates about your tenancy, payments, lease and maintenance requests.", targets: [] },
   { title: "Profile and settings", body: "Keep your contact details current and manage account preferences and appearance.", targets: [] },
   { title: "Help centre", body: "Use Help when you need guidance on payments, lease information, maintenance or how to use the portal.", targets: [] },
+  { title: "Contact the developers", body: "If a payment confirmation is missing or something technical is not working, use the floating Need help? control to submit a request directly to MARSWebz. You can also contact the developers on WhatsApp.", targets: [] },
  ];
  const steps = portal === "manager" ? managerSteps : tenantSteps;
  const safeStepIndex = Math.min(stepIndex, steps.length - 1);
@@ -238,8 +243,8 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   </div>}
  </>;
 }
-function App() { useEffect(() => { applyTheme(readThemeId(), false); }, []); return <BrowserRouter><Routes>
-<Route path="/" element={<LandingPage/>}/><Route path="/help" element={<LegalHelpPage initialTab="help"/>}/><Route path="/terms" element={<LegalHelpPage initialTab="terms"/>}/><Route path="/privacy" element={<LegalHelpPage initialTab="privacy"/>}/><Route path="/manager/help" element={<RequirePortal portal="manager"><LegalHelpPage initialTab="help"/></RequirePortal>}/><Route path="/guest-payment/:token" element={<GuestPaymentPage/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/forgot-password" element={<PasswordResetPage/>}/><Route path="/reset-password" element={<PasswordResetPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/password-setup" element={<RequireAuth><ChangePasswordPage/></RequireAuth>}/><Route path="/accept-invite" element={<AcceptInvitePage/>}/>
+function App() { useEffect(() => { applyTheme(readThemeId(), false); }, []); return <BrowserRouter><SupportEntryPoint/><Routes>
+<Route path="/" element={<LandingPage/>}/><Route path="/help" element={<LegalHelpPage initialTab="help"/>}/><Route path="/terms" element={<LegalHelpPage initialTab="terms"/>}/><Route path="/privacy" element={<LegalHelpPage initialTab="privacy"/>}/><Route path="/manager/help" element={<RequirePortal portal="manager"><LegalHelpPage initialTab="help"/></RequirePortal>}/><Route path="/support" element={<RequireAuth><DeveloperSupportPage/></RequireAuth>}/><Route path="/platform-admin/support" element={<RequireAuth><DeveloperSupportInboxPage/></RequireAuth>}/><Route path="/guest-payment/:token" element={<GuestPaymentPage/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/forgot-password" element={<PasswordResetPage/>}/><Route path="/reset-password" element={<PasswordResetPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/password-setup" element={<RequireAuth><ChangePasswordPage/></RequireAuth>}/><Route path="/accept-invite" element={<AcceptInvitePage/>}/>
 <Route path="/platform-admin/subscriptions" element={<RequireAuth><PlatformAdminSubscriptionsPage /></RequireAuth>} />
 <Route path="/manager/subscription" element={<RequirePortal portal="manager" allowUnsubscribed><PlatformSubscriptionPage /></RequirePortal>} />
 <Route path="/manager/dashboard" element={<RequirePortal portal="manager"><FirstLoginGuide portal="manager"><DashboardPage /></FirstLoginGuide></RequirePortal>} />
