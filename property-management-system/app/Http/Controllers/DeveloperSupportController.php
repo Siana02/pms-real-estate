@@ -101,6 +101,8 @@ class DeveloperSupportController extends Controller
                 'id' => $item->id,
                 'status' => $item->status,
                 'email_status' => $item->email_status,
+                'requester_name' => $item->requester_name,
+                'requester_email' => $item->requester_email,
                 'created_at' => $item->created_at,
             ],
         ], 201);
