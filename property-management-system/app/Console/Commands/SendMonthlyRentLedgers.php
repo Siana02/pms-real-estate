@@ -176,7 +176,7 @@ class SendMonthlyRentLedgers extends Command
 
         $payments = Payment::query()
             ->where('organization_id', $organizationId)
-            ->whereDate('payment_date', '<=', $asOf->toDateString())
+            ->where(fn ($query) => $query->whereDate('payment_date', '<=', $asOf->toDateString())->orWhereNull('payment_date'))
             ->with(['lease.property:id,name', 'lease.unit:id,unit_number', 'lease.tenant:id,first_name,last_name', 'allocations.rentObligation:id,period', 'rentPaymentCredits.allocations.rentObligation:id,period'])
             ->orderBy('payment_date')
             ->orderBy('id')
@@ -202,7 +202,7 @@ class SendMonthlyRentLedgers extends Command
         $legacyPaid = Payment::query()
             ->where('organization_id', $organizationId)
             ->where('status', 'paid')
-            ->whereDate('payment_date', '<=', $asOf->toDateString())
+            ->where(fn ($query) => $query->whereDate('payment_date', '<=', $asOf->toDateString())->orWhereNull('payment_date'))
             ->whereIn('rent_obligation_id', $obligationIds)
             ->whereDoesntHave('allocations')
             ->selectRaw('rent_obligation_id, SUM(amount) as total')
