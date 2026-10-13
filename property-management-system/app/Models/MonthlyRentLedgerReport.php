@@ -14,6 +14,7 @@ class MonthlyRentLedgerReport extends Model
         'recipient_email',
         'rent_rows',
         'payment_rows',
+        'credit_rows',
         'file_sha256',
         'sent_at',
         'last_error',
@@ -24,6 +25,7 @@ class MonthlyRentLedgerReport extends Model
         'sent_at' => 'datetime',
         'rent_rows' => 'integer',
         'payment_rows' => 'integer',
+        'credit_rows' => 'integer',
     ];
 
     public function organization(): BelongsTo
