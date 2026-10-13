@@ -56,6 +56,7 @@ class SendMonthlyRentLedgers extends Command
         $sent = 0;
         $skipped = 0;
         foreach ($organizations as $organization) {
+            $run = null;
             try {
                 $run = DB::transaction(function () use ($organization, $period) {
                     $row = MonthlyRentLedgerReport::query()->firstOrCreate(
@@ -82,7 +83,8 @@ class SendMonthlyRentLedgers extends Command
                     continue;
                 }
 
-                [$csv, $rentRows, $paymentRows] = $this->buildCsv($organization->id, $period);
+                $asOf = $period->isSameMonth(now()) ? CarbonImmutable::today() : $period->endOfMonth();
+                [$csv, $rentRows, $paymentRows] = $this->buildCsv($organization->id, $period, $asOf);
                 $hash = hash('sha256', $csv);
                 $filename = sprintf(
                     'MARSWebz-Rent-Ledger-%s-%s.csv',
@@ -154,12 +156,12 @@ class SendMonthlyRentLedgers extends Command
      *
      * @return array{0:string,1:int,2:int}
      */
-    private function buildCsv(int $organizationId, CarbonImmutable $period): array
+    private function buildCsv(int $organizationId, CarbonImmutable $period, CarbonImmutable $asOf): array
     {
         $obligations = RentObligation::query()
             ->where('organization_id', $organizationId)
             ->whereDate('period', '<=', $period->endOfMonth()->toDateString())
-            ->with(['property:id,name,address', 'unit:id,property_id,unit_number', 'tenant:id,first_name,last_name,email,phone', 'lease:id,rent_due_day,rent_grace_period_days'])
+            ->with(['organization:id,name', 'property:id,name,address', 'unit:id,property_id,unit_number', 'tenant:id,first_name,last_name,email,phone', 'lease:id,rent_due_day,rent_grace_period_days'])
             ->orderBy('period')
             ->orderBy('property_id')
             ->orderBy('unit_id')
@@ -174,7 +176,7 @@ class SendMonthlyRentLedgers extends Command
 
         $payments = Payment::query()
             ->where('organization_id', $organizationId)
-            ->whereDate('payment_date', '<=', $period->endOfMonth()->toDateString())
+            ->whereDate('payment_date', '<=', $asOf->toDateString())
             ->with(['lease.property:id,name', 'lease.unit:id,unit_number', 'lease.tenant:id,first_name,last_name', 'allocations.rentObligation:id,period', 'rentPaymentCredits.allocations.rentObligation:id,period'])
             ->orderBy('payment_date')
             ->orderBy('id')
@@ -220,7 +222,7 @@ class SendMonthlyRentLedgers extends Command
         ]);
 
         $rentRowCount = 0;
-        $asOf = $period->endOfMonth()->toDateString();
+        $asOfDate = $asOf->toDateString();
         foreach ($obligations as $obligation) {
             $rentRowCount++;
             $paid = 0.0;
@@ -232,9 +234,9 @@ class SendMonthlyRentLedgers extends Command
             $balance = max(0, $due - $paid);
             $dueDate = CarbonImmutable::parse($obligation->due_date);
             $grace = (int) ($obligation->lease?->rent_grace_period_days ?? 0);
-            $overdue = $balance > 0 && $period->endOfMonth()->greaterThan($dueDate->addDays($grace));
-            $status = $balance <= 0.009 ? 'paid' : ($paid > 0 ? ($overdue ? 'partially_paid_overdue' : 'partially_paid') : ($overdue ? 'overdue' : ($dueDate->greaterThan($period->endOfMonth()) ? 'upcoming' : 'due')));
-            $daysOverdue = $overdue ? max(0, $dueDate->addDays($grace)->diffInDays($period->endOfMonth(), false)) : 0;
+            $overdue = $balance > 0 && $asOf->greaterThan($dueDate->addDays($grace));
+            $status = $balance <= 0.009 ? 'paid' : ($paid > 0 ? ($overdue ? 'partially_paid_overdue' : 'partially_paid') : ($overdue ? 'overdue' : ($dueDate->greaterThan($asOf) ? 'upcoming' : 'due')));
+            $daysOverdue = $overdue ? max(0, $dueDate->addDays($grace)->diffInDays($asOf, false)) : 0;
 
             fputcsv($stream, [
                 'rent_obligation', $organizationId, $obligation->organization?->name ?? '',
@@ -270,7 +272,7 @@ class SendMonthlyRentLedgers extends Command
                 $payment->id, $payment->payment_date?->format('Y-m-d') ?? '', $payment->payment_method ?? '',
                 $payment->provider ?? '', $payment->provider_transaction_id ?: $payment->reference ?: $payment->tx_ref ?: '',
                 number_format((float) $payment->amount, 2, '.', ''), $payment->status,
-                implode(' | ', $allocationDetails), $asOf,
+                implode(' | ', $allocationDetails), $asOfDate,
             ]);
         }
 
