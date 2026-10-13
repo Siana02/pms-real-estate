@@ -93,7 +93,10 @@ class DeveloperSupportController extends Controller
         }
 
         return response()->json([
-            'message' => 'Your support request has been saved. The development team has been notified by email when mail delivery is configured. Keep ticket #' . $item->id . ' for reference.',
+            'message' => (($validated['notification_provider'] ?? 'laravel') === 'formspree'
+                ? 'Your support request has been saved. Its Formspree notification is being processed.'
+                : 'Your support request has been saved. The development team has been notified by email when mail delivery is configured.')
+                . ' Keep ticket #' . $item->id . ' for reference.',
             'request' => [
                 'id' => $item->id,
                 'status' => $item->status,
