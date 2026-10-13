@@ -6,6 +6,7 @@ use App\Models\MonthlyRentLedgerReport;
 use App\Models\Organization;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
+use App\Models\RentPaymentCredit;
 use App\Models\RentObligation;
 use App\Services\RentLedgerService;
 use Carbon\CarbonImmutable;
@@ -84,7 +85,7 @@ class SendMonthlyRentLedgers extends Command
                 }
 
                 $asOf = $period->isSameMonth(now()) ? CarbonImmutable::today() : $period->endOfMonth();
-                [$csv, $rentRows, $paymentRows] = $this->buildCsv($organization->id, $period, $asOf);
+                [$csv, $rentRows, $paymentRows, $creditRows] = $this->buildCsv($organization->id, $period, $asOf);
                 $hash = hash('sha256', $csv);
                 $filename = sprintf(
                     'MARSWebz-Rent-Ledger-%s-%s.csv',
@@ -97,6 +98,7 @@ class SendMonthlyRentLedgers extends Command
                     'recipient_email' => $recipient,
                     'rent_rows' => $rentRows,
                     'payment_rows' => $paymentRows,
+                    'credit_rows' => $creditRows,
                     'file_sha256' => $hash,
                     'last_error' => null,
                 ])->save();
@@ -154,7 +156,7 @@ class SendMonthlyRentLedgers extends Command
      * all payment transaction records through the close date. Nothing is mutated
      * here other than first-time obligation generation by the ledger service.
      *
-     * @return array{0:string,1:int,2:int}
+     * @return array{0:string,1:int,2:int,3:int}
      */
     private function buildCsv(int $organizationId, CarbonImmutable $period, CarbonImmutable $asOf): array
     {
@@ -208,6 +210,14 @@ class SendMonthlyRentLedgers extends Command
             ->selectRaw('rent_obligation_id, SUM(amount) as total')
             ->groupBy('rent_obligation_id')
             ->pluck('total', 'rent_obligation_id');
+
+        $credits = RentPaymentCredit::query()
+            ->where('organization_id', $organizationId)
+            ->whereDate('created_at', '<=', $asOf->toDateString())
+            ->with(['organization:id,name', 'lease.property:id,name', 'lease.unit:id,unit_number', 'lease.tenant:id,first_name,last_name,email,phone', 'sourcePayment:id,amount,payment_date,payment_method,status,provider_transaction_id,reference,provider', 'allocations.rentObligation:id,period'])
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
 
         $stream = fopen('php://temp', 'w+');
         if ($stream === false) {
@@ -277,9 +287,36 @@ class SendMonthlyRentLedgers extends Command
             ]);
         }
 
+        $creditRowCount = 0;
+        foreach ($credits as $credit) {
+            $creditRowCount++;
+            $source = $credit->sourcePayment;
+            $creditAllocations = $credit->allocations
+                ->map(fn (PaymentAllocation $allocation) => sprintf(
+                    '%s KES %s',
+                    $allocation->rentObligation?->period ?? 'period unknown',
+                    number_format((float) $allocation->amount, 2, '.', '')
+                ))->implode(' | ');
+            fputcsv($stream, [
+                'rent_credit', $organizationId, $credit->organization?->name ?? '',
+                $period->format('Y-m'), $credit->lease?->property?->name ?? '',
+                '', $credit->lease?->unit?->unit_number ?? '',
+                trim(($credit->lease?->tenant?->first_name ?? '') . ' ' . ($credit->lease?->tenant?->last_name ?? '')),
+                $credit->lease?->tenant?->email ?? '', $credit->lease?->tenant?->phone ?? '',
+                $credit->lease_id, '', '', number_format((float) $credit->amount, 2, '.', ''),
+                '', number_format((float) $credit->remaining_amount, 2, '.', ''),
+                $credit->status, '', $source?->id ?? '', $source?->payment_date?->format('Y-m-d') ?? '',
+                $source?->payment_method ?? '', $source?->provider ?? '',
+                $source?->provider_transaction_id ?: $source?->reference ?: '',
+                number_format((float) $credit->amount, 2, '.', ''), $source?->status ?? $credit->status,
+                'Credit allocations: ' . $creditAllocations . '; remaining credit KES ' . number_format((float) $credit->remaining_amount, 2, '.', ''),
+                $asOfDate,
+            ]);
+        }
+
         rewind($stream);
         $csv = stream_get_contents($stream);
         fclose($stream);
-        return [$csv === false ? '' : $csv, $rentRowCount, $paymentRowCount];
+        return [$csv === false ? '' : $csv, $rentRowCount, $paymentRowCount, $creditRowCount];
     }
 }
