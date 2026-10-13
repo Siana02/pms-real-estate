@@ -37,7 +37,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ]);
 })
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('rent:generate --months=2')->dailyAt('00:10');
+        $schedule->command('rent:generate --months=2')->dailyAt('00:10')->withoutOverlapping();
+        $schedule->command('rent:email-monthly-ledgers')->dailyAt('06:00')->timezone('Africa/Nairobi')->withoutOverlapping();
+        $schedule->command('support:retry-failed-email-notifications')->everyTenMinutes()->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
