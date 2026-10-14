@@ -1594,10 +1594,9 @@ function ManagerLeasesPage() {
                           : "Editing manager-controlled details before signing may require the tenant to review and sign the new version."}
                       </p>
                     </div>
+                  </article>
 
-
-
-                    <article className="ls-copy-card">
+                  <article className="ls-copy-card">
                     <div className="ls-copy-card__head">
                       <div>
                         <p className="ls-copy-card__eyebrow">Tenant&apos;s copy</p>
