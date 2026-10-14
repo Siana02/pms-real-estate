@@ -335,6 +335,44 @@ const leaseStyles = `
 @media (prefers-reduced-motion:reduce) {
   .ls-root, .ls-root *, .ls-root *::before, .ls-root *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; }
 }
+.ls-root .ls-signature-panel {
+  margin-top: 1.15rem; padding: clamp(1rem, 2.4vw, 1.5rem);
+  border: 1px solid #dce7e0; border-radius: 20px;
+  background: radial-gradient(ellipse at 100% 0%, #e9f2ec 0%, transparent 42%), #fff;
+  box-shadow: 0 10px 30px #183c2e07; min-width: 0;
+}
+.ls-root .ls-signature-panel__head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.1rem; }
+.ls-root .ls-signature-panel__title { margin:.25rem 0 0; color:var(--ls-ink); font-family:Georgia,"Times New Roman",serif; font-size:clamp(1.35rem,2.4vw,1.8rem); font-weight:500; line-height:1.2; letter-spacing:-.025em; }
+.ls-root .ls-signature-panel__intro { margin:.45rem 0 0; max-width:45rem; color:var(--ls-muted); font-size:.82rem; line-height:1.65; }
+.ls-root .ls-signature-steps { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+.ls-root .ls-signature-step { display:grid; grid-template-columns:2.35rem minmax(0,1fr); align-items:start; gap:.75rem; padding:1rem; border:1px solid var(--ls-border); border-radius:15px; background:#fff; min-width:0; }
+.ls-root .ls-signature-step__icon { display:grid; place-items:center; width:2.2rem; height:2.2rem; border:1px solid #dce5df; border-radius:12px; color:#6b7f75; background:#f5f8f5; font-size:.82rem; font-weight:850; }
+.ls-root .ls-signature-step__icon svg { width:1.05rem; height:1.05rem; }
+.ls-root .ls-signature-step--complete { border-color:#cde3d5; background:#f5faf6; }
+.ls-root .ls-signature-step--complete .ls-signature-step__icon { border-color:#c4e0ce; background:#e3f2e8; color:#246446; }
+.ls-root .ls-signature-step__content { min-width:0; }
+.ls-root .ls-signature-step__content strong { display:block; color:var(--ls-ink); font-size:.85rem; line-height:1.4; }
+.ls-root .ls-signature-step__content p { margin:.3rem 0 0; color:var(--ls-muted); font-size:.76rem; line-height:1.6; overflow-wrap:anywhere; }
+.ls-root .ls-signature-step > .mg-badge { grid-column:2; justify-self:start; }
+.ls-root .ls-signature-action { display:flex; align-items:center; justify-content:space-between; gap:1.2rem; flex-wrap:wrap; margin-top:.85rem; padding:1rem; border:1px solid #d9e5dd; border-radius:16px; background:#f7faf7; min-width:0; }
+.ls-root .ls-signature-action__copy { display:flex; align-items:flex-start; gap:.7rem; flex:1 1 17rem; min-width:0; }
+.ls-root .ls-signature-action__copy strong { display:block; color:var(--ls-ink); font-size:.86rem; }
+.ls-root .ls-signature-action__copy p { margin:.3rem 0 0; color:var(--ls-muted); font-size:.76rem; line-height:1.6; overflow-wrap:anywhere; }
+.ls-root .ls-signature-action .ls-sign-controls { justify-content:flex-end; align-items:flex-end; }
+.ls-root .ls-signature-action .ls-sign-controls .mg-field { width:min(11rem,100%); }
+.ls-root .ls-signature-action .mg-btn { min-height:44px; }
+.ls-root .ls-signature-locked { display:flex; align-items:flex-start; gap:.7rem; margin-top:.85rem; padding:.95rem 1rem; border:1px solid #c8e2d1; border-radius:14px; color:#245d43; background:#edf7f0; font-size:.8rem; line-height:1.6; }
+.ls-root .ls-signature-locked svg { width:1.1rem; height:1.1rem; flex:0 0 auto; margin-top:.15rem; }
+.ls-root .ls-signature-locked strong { display:block; margin-bottom:.1rem; }
+@media (max-width:720px) {
+  .ls-root .ls-signature-steps { grid-template-columns:minmax(0,1fr); }
+  .ls-root .ls-signature-panel { border-radius:16px; }
+  .ls-root .ls-signature-action { align-items:stretch; }
+  .ls-root .ls-signature-action .ls-sign-controls { width:100%; align-items:stretch; }
+  .ls-root .ls-signature-action .ls-sign-controls .mg-field { width:100%; flex:1 1 100%; }
+  .ls-root .ls-signature-action .mg-btn { width:100%; }
+}
+
 `;
 
 function todayDate(): string {
@@ -1521,7 +1559,7 @@ function ManagerLeasesPage() {
                     <div className="ls-copy-card__head">
                       <div>
                         <p className="ls-copy-card__eyebrow">Manager&apos;s copy</p>
-                        <h3 className="ls-copy-card__title">Editable agreement text</h3>
+                        <h3 className="ls-copy-card__title">Agreement draft</h3>
                       </div>
                       <div className="ls-copy-card__status">
                         <span
@@ -1557,56 +1595,13 @@ function ManagerLeasesPage() {
                       </p>
                     </div>
 
-                    <p className="ls-status-line">
-                      <strong>Status:</strong>{" "}
-                      {selectedLease.manager_signed_at
-                        ? `${selectedLease.manager_signature ?? "Manager"} signed on ${formatDate(selectedLease.manager_signed_at)}.`
-                        : "Awaiting manager signature."}
-                    </p>
 
-                    <div className="ls-sign-row">
-                      <div className="ls-sign-copy">
-                        <span className="ls-sign-copy__icon"><FileSignature /></span>
-                        <div>
-                          <strong>{selectedLease.tenant_signed_at ? "Tenant has signed" : "Waiting for tenant signature"}</strong>
-                          <span>
-                            {selectedLease.tenant_signed_at
-                              ? "Review the tenant's signed copy above, then enter your initials to complete the agreement."
-                              : "The manager signature becomes the final lock, so it stays unavailable until the tenant signs the current agreement."}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="ls-sign-controls">
-                        <div className="mg-field">
-                          <label className="mg-label" htmlFor="lease-manager-signature">Your initials</label>
-                          <input
-                            id="lease-manager-signature"
-                            className="mg-input"
-                            maxLength={20}
-                            value={managerInitials}
-                            onChange={(event) => setManagerInitials(event.target.value.toUpperCase())}
-                            placeholder="e.g. JM"
-                            aria-label="Manager initials"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className="mg-btn mg-btn--primary"
-                          onClick={() => void signManagerCopy()}
-                          disabled={managerInitials.trim().length === 0 || signingManager || !selectedLease.tenant_signed_at || Boolean(selectedLease.manager_signed_at)}
-                        >
-                          <FileSignature />
-                          {signingManager ? "Signing…" : "Sign & lock lease"}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
 
-                  <article className="ls-copy-card">
+                    <article className="ls-copy-card">
                     <div className="ls-copy-card__head">
                       <div>
                         <p className="ls-copy-card__eyebrow">Tenant&apos;s copy</p>
-                        <h3 className="ls-copy-card__title">Editable agreement text</h3>
+                        <h3 className="ls-copy-card__title">Tenant&apos;s agreement copy</h3>
                       </div>
                       <div className="ls-copy-card__status">
                         <span
@@ -1639,13 +1634,98 @@ function ManagerLeasesPage() {
                       </p>
                     </div>
 
-                    <p className="ls-status-line">
-                      <strong>Status:</strong>{" "}
-                      {selectedLease.tenant_signed_at
-                        ? `${selectedLease.tenant_signature ?? "Tenant"} signed on ${formatDate(selectedLease.tenant_signed_at)}.`
-                        : "Awaiting tenant signature."}
-                    </p>
+
                   </article>
+                </section>
+
+                <section className="ls-signature-panel" aria-labelledby="lease-signature-heading">
+                  <div className="ls-signature-panel__head">
+                    <div>
+                      <p className="ls-copy-card__eyebrow">Final step</p>
+                      <h3 id="lease-signature-heading" className="ls-signature-panel__title">Lease signatures</h3>
+                      <p className="ls-signature-panel__intro">
+                        Both parties must sign the current agreement. Once the manager signs, the lease is locked.
+                      </p>
+                    </div>
+                    <span className={selectedLease.manager_signed_at ? "mg-badge mg-badge--ok" : selectedLease.tenant_signed_at ? "mg-badge mg-badge--warn" : "mg-badge"}>
+                      {selectedLease.manager_signed_at ? "Agreement signed" : selectedLease.tenant_signed_at ? "Manager signature needed" : "Awaiting tenant"}
+                    </span>
+                  </div>
+
+                  <div className="ls-signature-steps">
+                    <div className={selectedLease.tenant_signed_at ? "ls-signature-step ls-signature-step--complete" : "ls-signature-step"}>
+                      <span className="ls-signature-step__icon">{selectedLease.tenant_signed_at ? <CheckCircle2 /> : <span>1</span>}</span>
+                      <div className="ls-signature-step__content">
+                        <strong>Tenant signature</strong>
+                        <p>{selectedLease.tenant_signed_at
+                          ? "Signed by " + (selectedLease.tenant_signature ?? "tenant") + " on " + formatDate(selectedLease.tenant_signed_at) + "."
+                          : "The tenant has not signed this agreement version yet."}</p>
+                      </div>
+                      <span className={selectedLease.tenant_signed_at ? "mg-badge mg-badge--ok" : "mg-badge mg-badge--warn"}>
+                        {selectedLease.tenant_signed_at ? "Complete" : "Pending"}
+                      </span>
+                    </div>
+                    <div className={selectedLease.manager_signed_at ? "ls-signature-step ls-signature-step--complete" : "ls-signature-step"}>
+                      <span className="ls-signature-step__icon">{selectedLease.manager_signed_at ? <CheckCircle2 /> : <span>2</span>}</span>
+                      <div className="ls-signature-step__content">
+                        <strong>Manager signature</strong>
+                        <p>{selectedLease.manager_signed_at
+                          ? "Signed by " + (selectedLease.manager_signature ?? "manager") + " on " + formatDate(selectedLease.manager_signed_at) + ". The agreement is locked."
+                          : selectedLease.tenant_signed_at
+                            ? "The tenant has signed. Review their agreement copy, enter your initials below, and lock the lease."
+                            : "Available after the tenant signs the current agreement."}</p>
+                      </div>
+                      <span className={selectedLease.manager_signed_at ? "mg-badge mg-badge--ok" : "mg-badge mg-badge--warn"}>
+                        {selectedLease.manager_signed_at ? "Complete" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!selectedLease.manager_signed_at && (
+                    <div className="ls-signature-action">
+                      <div className="ls-signature-action__copy">
+                        <span className="ls-sign-copy__icon"><FileSignature /></span>
+                        <div>
+                          <strong>{selectedLease.tenant_signed_at ? "Complete the agreement" : "Waiting for the tenant"}</strong>
+                          <p>{selectedLease.tenant_signed_at
+                            ? "Confirm the tenant's signed copy above is correct. Signing locks this agreement and prevents further edits."
+                            : "You can prepare the manager's copy, but final signing stays disabled until the tenant signs."}</p>
+                        </div>
+                      </div>
+                      <div className="ls-sign-controls">
+                        <div className="mg-field">
+                          <label className="mg-label" htmlFor="lease-manager-signature">Your initials</label>
+                          <input
+                            id="lease-manager-signature"
+                            className="mg-input"
+                            maxLength={20}
+                            value={managerInitials}
+                            onChange={(event) => setManagerInitials(event.target.value.toUpperCase())}
+                            placeholder="e.g. JM"
+                            aria-label="Manager initials"
+                            disabled={!selectedLease.tenant_signed_at || signingManager}
+                            autoComplete="off"
+                          />
+                          <span className="mg-hint">Use the initials you intend to sign with.</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="mg-btn mg-btn--primary"
+                          onClick={() => void signManagerCopy()}
+                          disabled={managerInitials.trim().length === 0 || signingManager || !selectedLease.tenant_signed_at}
+                        >
+                          <FileSignature />
+                          {signingManager ? "Signing…" : "Sign & lock lease"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {selectedLease.manager_signed_at && (
+                    <div className="ls-signature-locked" role="status">
+                      <CheckCircle2 />
+                      <span><strong>This lease is signed and locked.</strong> Both signature records are shown above. The signed agreement can no longer be edited.</span>
+                    </div>
+                  )}
                 </section>
               </div>
 
