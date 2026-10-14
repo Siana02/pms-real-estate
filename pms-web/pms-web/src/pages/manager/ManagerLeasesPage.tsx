@@ -270,7 +270,7 @@ const leaseStyles = `
 .ls-root .ls-status-line strong { color:var(--ls-ink); }
 .ls-root .ls-overflow { overflow-wrap:anywhere; white-space:pre-wrap; }
 .ls-root .mg-spin { animation:ls-spin 1s linear infinite; }
-@keyframes ls-enter { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes ls-enter { from { opacity:0; } to { opacity:1; } }
 @keyframes ls-fade { from { opacity:0; } to { opacity:1; } }
 @keyframes ls-slide-in { from { opacity:.8; transform:translateX(24px); } to { opacity:1; transform:translateX(0); } }
 @keyframes ls-shimmer { to { background-position:-200% 0; } }
@@ -284,7 +284,7 @@ const leaseStyles = `
   .ls-root .mg-table { min-width:950px; }
 }
 @media (max-width:900px) {
-  .ls-shell { padding:1rem; }
+  .ls-root .ls-shell { padding:1rem; }
   .ls-root .mg-header { align-items:flex-start; flex-direction:column; gap:1.1rem; border-radius:20px; }
   .ls-root .mg-actions { width:100%; justify-content:flex-start; }
   .ls-root .mg-toolbar { align-items:stretch; flex-direction:column; }
@@ -305,7 +305,7 @@ const leaseStyles = `
   .ls-root .mg-num { text-align:left; }
 }
 @media (max-width:560px) {
-  .ls-shell { padding:.7rem; }
+  .ls-root .ls-shell { padding:.7rem; }
   .ls-root .mg-header { padding:1.15rem; border-radius:17px; }
   .ls-root .mg-title { font-size:2.2rem; }
   .ls-root .mg-subtitle { font-size:.86rem; line-height:1.65; }
