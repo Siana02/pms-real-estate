@@ -117,7 +117,7 @@ const leaseStyles = `
 .ls-root, .ls-root *, .ls-root *::before, .ls-root *::after { box-sizing: border-box; }
 .ls-root button, .ls-root input, .ls-root textarea { font: inherit; }
 .ls-root button { -webkit-tap-highlight-color: transparent; }
-.ls-shell { width: min(100%, 1560px); margin: 0 auto; padding: clamp(1rem, 2.3vw, 2.1rem); min-width: 0; }
+.ls-root .ls-shell { width: min(100%, 1560px); margin: 0 auto; padding: clamp(1rem, 2.3vw, 2.1rem); min-width: 0; }
 .ls-root .mg-header {
   display:flex; align-items:flex-end; justify-content:space-between; gap:1.5rem;
   padding: clamp(1.25rem, 3vw, 2.25rem); margin-bottom:1.25rem;
@@ -160,11 +160,11 @@ const leaseStyles = `
 .ls-root .mg-stat__hint { margin:.5rem 0 0; color:var(--ls-muted); font-size:.75rem; line-height:1.45; overflow-wrap:anywhere; }
 .ls-root .mg-stat__hint--warn { color:#8d6733; }
 .ls-root .mg-toolbar { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.15rem; padding:1rem; border:1px solid var(--ls-border); border-radius:18px; background:#fbfcfa; }
-.ls-toolbar-field { flex:1 1 18rem; min-width:0; }
+.ls-root .ls-toolbar-field { flex:1 1 18rem; min-width:0; }
 .ls-root .mg-label { display:block; margin:0 0 .45rem; color:var(--ls-ink-soft); font-size:.77rem; font-weight:800; }
-.ls-search { position:relative; min-width:0; }
-.ls-search svg { position:absolute; top:50%; left:.9rem; width:1rem; height:1rem; transform:translateY(-50%); color:var(--ls-faint); pointer-events:none; }
-.ls-search .mg-input { padding-left:2.55rem; }
+.ls-root .ls-search { position:relative; min-width:0; }
+.ls-root .ls-search svg { position:absolute; top:50%; left:.9rem; width:1rem; height:1rem; transform:translateY(-50%); color:var(--ls-faint); pointer-events:none; }
+.ls-root .ls-search .mg-input { padding-left:2.55rem; }
 .ls-root .mg-input, .ls-root .mg-textarea {
   display:block; width:100%; min-width:0; max-width:100%; padding:.75rem .85rem;
   border:1px solid #d8e2df; border-radius:11px; background:#fff; color:var(--ls-ink);
@@ -939,7 +939,7 @@ function ManagerLeasesPage() {
       <div className="ls-root">
         <style>{leaseStyles}</style>
 
-        <div className="mg-shell">
+        <div className="ls-shell">
           <header className="mg-header">
             <div>
               <span className="mg-eyebrow">
