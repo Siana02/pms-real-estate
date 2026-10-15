@@ -202,7 +202,7 @@ export default function PaymentDestinationSection({ role }: Props) {
 
       <div className="mg-panel__body">
         <p className="mg-hint" style={{ marginTop: 0 }}>
-          Add the payment destinations tenants should see for each property. You can offer more than one option.
+          Add the payment destinations tenants should see for each property. PayBill is used for automatic rent matching; bank transfers and M-PESA number payments remain manual unless a separate verified integration is available.
         </p>
 
         <label className="mg-field" style={{ marginTop: "1rem" }}>
@@ -225,10 +225,6 @@ export default function PaymentDestinationSection({ role }: Props) {
                     <div style={{ minWidth: 0 }}>
                       <strong style={{ display: "block" }}>{item.label || METHOD_LABEL[item.method]}</strong>
                       <span className="mg-hint" style={{ display: "block", marginTop: ".15rem", overflowWrap: "anywhere" }}>{destinationSummary(item)}</span>
-                      {(item.method === "mpesa_paybill" || item.method === "mpesa_till") && (
-                        <span className="mg-hint" style={{ display: "block", marginTop: ".3rem" }}>
-                        </span>
-                      )}
                     </div>
                   </div>
                   <div className="mg-actions">
