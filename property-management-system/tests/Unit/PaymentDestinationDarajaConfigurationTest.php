@@ -22,12 +22,12 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         parent::setUp();
 
-        config(['daraja.environment' => 'sandbox']);
+        config(['daraja.environment' => 'sandbox', 'daraja.consumer_key' => 'platform-consumer-key', 'daraja.consumer_secret' => 'platform-consumer-secret']);
         $this->organization = Organization::create(['name' => 'Daraja Test Organization', 'email' => 'daraja-test.invalid']);
         OrganizationDarajaCredential::create([
             'organization_id' => $this->organization->id,
-            'consumer_key' => 'organization-consumer-key',
-            'consumer_secret' => 'organization-consumer-secret',
+            'consumer_key' => 'platform-consumer-key',
+            'consumer_secret' => 'platform-consumer-secret',
             'enabled' => true,
         ]);
     }
@@ -43,9 +43,9 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertTrue($destination->stkPushReady());
     }
 
-    public function test_destination_is_not_ready_when_organization_credentials_are_missing(): void
+    public function test_destination_is_not_ready_when_platform_credentials_are_missing(): void
     {
-        OrganizationDarajaCredential::where('organization_id', $this->organization->id)->delete();
+        config(['daraja.consumer_key' => null, 'daraja.consumer_secret' => null]);
 
         $destination = $this->configuredDestination('ready');
 
@@ -69,7 +69,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         Cache::flush();
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query' => Http::response([
                 'ResponseCode' => '0',
                 'ResponseDescription' => 'The service request has been accepted successfully',
