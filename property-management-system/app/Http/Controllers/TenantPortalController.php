@@ -179,7 +179,7 @@ class TenantPortalController extends Controller
                 ->where('is_active', true)
                 ->when(
                     $validated['payment_method'] === 'mpesa',
-                    fn ($query) => $query->whereIn('method', ['mpesa_number', 'mpesa_till', 'mpesa_paybill'])
+                    fn ($query) => $query->whereIn('method', ['mpesa_number', 'mpesa_paybill'])
                 )
                 ->when(
                     $validated['payment_method'] === 'bank_transfer',
@@ -1399,6 +1399,7 @@ class TenantPortalController extends Controller
         $destinations = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)
             ->where('is_active', true)
+            ->whereIn('method', ['mpesa_number', 'mpesa_paybill', 'bank'])
             ->orderBy('id')
             ->get();
 
@@ -1409,8 +1410,8 @@ class TenantPortalController extends Controller
         $stkAvailable = $stkDestinations->count() === 1;
         $stkReason = match (true) {
             $stkDestinations->count() > 1 => 'More than one STK-ready destination is configured; contact the property manager to select the correct one.',
-            $destinations->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->isEmpty() => 'No PayBill or Till destination is configured for this property.',
-            $destinations->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->contains(fn (PaymentDestination $destination) => $destination->daraja_authorization_status === 'awaiting_merchant_authorization') => 'Merchant authorization is awaiting verification.',
+            $destinations->where('method', 'mpesa_paybill')->isEmpty() => 'No PayBill destination is configured for this property.',
+            $destinations->where('method', 'mpesa_paybill')->contains(fn (PaymentDestination $destination) => $destination->daraja_authorization_status === 'awaiting_merchant_authorization') => 'Merchant authorization is awaiting verification.',
             default => 'STK Push is not enabled for this property destination.',
         };
 
@@ -1422,8 +1423,8 @@ class TenantPortalController extends Controller
                     'method' => $destination->method,
                     'label' => $destination->label,
                     // Only return the public details needed to make a payment.
-                    'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['number', 'paybill', 'till', 'account', 'account_name', 'business_name', 'bank_name', 'account_number', 'branch'])),
-                    'account_reference' => in_array($destination->method, ['mpesa_number', 'mpesa_paybill', 'mpesa_till'], true)
+                    'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['number', 'paybill', 'account', 'account_name', 'business_name', 'bank_name', 'account_number', 'branch'])),
+                    'account_reference' => in_array($destination->method, ['mpesa_number', 'mpesa_paybill'], true)
                         ? ($referenceRenderer->renderAccountReference($destination, $lease)
                             ?: $lease->tenant_payment_reference)
                         : null,
