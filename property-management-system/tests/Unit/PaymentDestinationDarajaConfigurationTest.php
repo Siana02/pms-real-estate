@@ -53,6 +53,15 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertFalse($destination->stkPushReady());
     }
 
+    public function test_production_destination_requires_its_own_passkey_even_if_a_global_default_exists(): void
+    {
+        config(['daraja.environment' => 'production', 'daraja.passkey' => 'global-production-passkey']);
+        $destination = $this->configuredDestination('ready');
+        $destination->daraja_passkey = null;
+
+        $this->assertFalse($destination->stkPushReady());
+    }
+
     public function test_destination_is_not_ready_when_platform_credentials_are_missing(): void
     {
         config(['daraja.consumer_key' => null, 'daraja.consumer_secret' => null]);
