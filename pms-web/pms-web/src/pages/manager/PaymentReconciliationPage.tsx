@@ -10,6 +10,37 @@ import { formatDate, formatMoney, rows, asNumber, asString, toRecord } from "../
 type ReconciliationStatus = "pending" | "reconciled" | "reconciled_with_credit" | "needs_review" | "unmatched";
 interface Allocation { id:number; amount:number; rentObligation:{id:number; period:string; due_date:string; amount_due:number}|null }
 interface Credit { id:number; amount:number; remaining_amount:number; status:string; notes:string|null; allocations:Allocation[] }
+const reconciliationPageStyles = `
+.recon-page{color:#172b3f}
+.recon-page .mg-header{align-items:flex-start;padding-bottom:1.15rem;border-bottom:1px solid #e2e9f0;margin-bottom:1.25rem}
+.recon-page .mg-eyebrow{color:#496b89;font-weight:800;letter-spacing:.12em}
+.recon-page .mg-title{font-size:clamp(1.8rem,3vw,2.5rem);letter-spacing:-.04em;line-height:1.12;color:#162b40}
+.recon-page .mg-subtitle{max-width:58rem;font-size:.9rem;line-height:1.75;color:#5c6f82}
+.recon-page .mg-stats{gap:.8rem;margin:1.1rem 0 1.25rem}
+.recon-page .mg-stat{border:1px solid #dce5ee;border-radius:16px;background:linear-gradient(145deg,#fff,#f8fbfe);box-shadow:0 8px 24px rgba(25,48,75,.045);padding:1rem}
+.recon-page .mg-stat__label{font-size:.74rem;color:#65798d;font-weight:750}
+.recon-page .mg-stat__value{font-size:clamp(1.25rem,2.2vw,1.7rem);letter-spacing:-.035em;color:#1c3a55;font-variant-numeric:tabular-nums}
+.recon-page .mg-toolbar{padding:.85rem;border:1px solid #e0e8f0;border-radius:16px;background:#f7fafd;margin:1.1rem 0}
+.recon-page .mg-input,.recon-page .mg-select{border-color:#cbd7e2;border-radius:11px;background:#fff;min-height:42px}
+.recon-page .mg-chip{border-radius:999px;padding:.55rem .8rem;border-color:#d4dee8;background:#fff;color:#415a70}
+.recon-page .mg-chip--on{background:#234e73;border-color:#234e73;color:#fff}
+.recon-page .mg-panel{border:1px solid #dce5ee;border-radius:18px;box-shadow:0 10px 28px rgba(25,48,75,.05);overflow:hidden}
+.recon-page .mg-panel__head{background:#fbfdff;border-bottom:1px solid #e8eef4;padding:1rem 1.2rem}
+.recon-page .mg-panel__title{font-size:1rem;color:#1d3850}
+.recon-page .mg-table{border-collapse:separate;border-spacing:0}
+.recon-page .mg-table thead th{background:#f6f9fc;color:#667b8f;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:.85rem .75rem;border-bottom:1px solid #dce5ee}
+.recon-page .mg-table tbody td{padding:.9rem .75rem;border-bottom:1px solid #edf1f5;vertical-align:top}
+.recon-page .mg-table tbody tr:hover{background:#f8fbfe}
+.recon-page .mg-strong{color:#213b52;line-height:1.45}
+.recon-page .mg-sub{font-size:.73rem;line-height:1.55;color:#718296;overflow-wrap:anywhere}
+.recon-page .mg-badge{font-size:.69rem;letter-spacing:.01em;padding:.32rem .55rem;border-radius:999px}
+.recon-page .mg-drawer__panel{border-radius:20px;border:1px solid #dce5ee;box-shadow:0 28px 90px rgba(7,24,42,.28)}
+.recon-page .mg-drawer__head{background:#f8fbfe;border-bottom:1px solid #e6edf3}
+.recon-page .mg-drawer__title{font-size:1.45rem;letter-spacing:-.03em}
+.recon-page .mg-btn{border-radius:11px;min-height:40px}
+@media(max-width:680px){.recon-page .mg-shell{padding-inline:.2rem}.recon-page .mg-toolbar{padding:.65rem}.recon-page .mg-panel{border-radius:14px}.recon-page .mg-panel__head{padding:.9rem}.recon-page .mg-tablewrap{overflow-x:auto}.recon-page .mg-table{min-width:720px}}
+`;
+
 interface Transaction {
  id:number; provider:string; external_transaction_id:string; amount:number; currency:string; payer_phone:string|null; merchantShortcode:string|null; source:string|null;
  payment_reference:string|null; transaction_at:string; status:ReconciliationStatus; reconciliation_note:string|null;
@@ -80,7 +111,7 @@ function ResolveDrawer({transaction,leases,destinations,onClose,onDone}:{transac
  const candidateIds=Array.isArray(payload.candidate_destination_ids)?payload.candidate_destination_ids.map(Number):[];
  const eligibleDestinations=destinations.filter(d=>{
   const shortcodeValue=String(d.method==="mpesa_paybill"?(d.details.paybill??""):d.method==="mpesa_till"?(d.details.till??""):"");
-  return d.is_active&&d.daraja?.c2b_authorization_status==="ready"&&shortcodeValue===shortcode&&(candidateIds.length===0||candidateIds.includes(d.id));
+  return d.is_active&&d.method==="mpesa_paybill"&&d.daraja?.c2b_authorization_status==="ready"&&shortcodeValue===shortcode&&(candidateIds.length===0||candidateIds.includes(d.id));
  });
  const chosenDestination=eligibleDestinations.find(d=>String(d.id)===destinationId);
  const selectedPropertyId=transaction.paymentDestination?.propertyId??chosenDestination?.property_id;
@@ -104,7 +135,7 @@ function ResolveDrawer({transaction,leases,destinations,onClose,onDone}:{transac
     {isC2b&&<div className="mg-field"><label className="mg-label" htmlFor="resolve-destination">Verified payment destination</label>
      {transaction.paymentDestination?<p className="mg-strong">{transaction.paymentDestination.propertyName||"Property"} · {transaction.paymentDestination.method.replace("mpesa_","M-PESA ")}</p>:
       <select id="resolve-destination" className="mg-select" value={destinationId} onChange={e=>{setDestinationId(e.target.value);setLeaseId("");}}><option value="">Choose the correct property destination</option>{eligibleDestinations.map(d=><option key={d.id} value={d.id}>{d.property_name||`Property #${d.property_id}`} · {d.method==="mpesa_paybill"?"PayBill":"Till"} · #{d.id}</option>)}</select>}
-     <p className="mg-hint">Shortcode: {shortcode||"not provided"}. The destination must have verified C2B authorization.</p>
+     <p className="mg-hint">Shortcode: {shortcode||"not provided"}. Automatic matching requires a verified PayBill and account reference. Legacy Till transactions should be reviewed manually because the callback may not include an account reference.</p>
     </div>}
     <div className="mg-field"><label className="mg-label" htmlFor="resolve-lease">Lease / tenant</label><select id="resolve-lease" className="mg-select" value={leaseId} onChange={e=>setLeaseId(e.target.value)}><option value="">Choose the correct lease</option>{eligibleLeases.map(l=><option key={l.id} value={l.id}>{l.label}</option>)}</select></div>
     {!eligibleLeases.length&&<p className="mg-hint">No leases are available for the selected property. Confirm the destination and lease records before resolving.</p>}
@@ -120,7 +151,7 @@ function ReconciliationPage(){
  useEffect(()=>{void load()},[load]);
  const visible=useMemo(()=>{const q=query.trim().toLowerCase();return items.filter(x=>(filter==="all"||x.status===filter)&&(!q||[x.external_transaction_id,x.payment_reference??"",x.payer_phone??"",x.merchantShortcode??"",x.matchedLease?.tenant?.name??"",x.matchedLease?.property?.name??"",x.matchedLease?.unit?.unit_number??""].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.transaction_at.localeCompare(a.transaction_at));},[items,filter,query]);
  const summary=useMemo(()=>({total:items.length,review:items.filter(x=>x.status==="needs_review").length,unmatched:items.filter(x=>x.status==="unmatched").length,reconciled:items.filter(x=>x.status==="reconciled"||x.status==="reconciled_with_credit").length}),[items]);
- return <DashboardLayout><div className="mg-root"><style>{managerStyles}</style><div className="mg-shell">
+ return <DashboardLayout><div className="mg-root recon-page"><style>{managerStyles}{reconciliationPageStyles}</style><div className="mg-shell">
   <header className="mg-header"><div><span className="mg-eyebrow"><WalletCards/> Reconciliation</span><h1 className="mg-title">Payment Reconciliation</h1><p className="mg-subtitle">External money received by the organization, matched against tenants and rent obligations. Confirmed rent is allocated to the oldest outstanding months first; any remainder is shown as rent credit. Nothing ambiguous is silently applied.</p></div><button className="mg-btn mg-btn--subtle" onClick={()=>void load()} disabled={loading}><RefreshCw className={loading?"mg-spin":undefined}/>Refresh</button></header>
   {error&&<div className="mg-alert"><AlertCircle/><span>{error}</span></div>}
   <section className="mg-stats"><article className="mg-stat"><p className="mg-stat__label">Transactions</p><p className="mg-stat__value">{summary.total}</p></article><article className="mg-stat"><p className="mg-stat__label">Needs review</p><p className="mg-stat__value">{summary.review}</p></article><article className="mg-stat"><p className="mg-stat__label">Unmatched</p><p className="mg-stat__value">{summary.unmatched}</p></article><article className="mg-stat"><p className="mg-stat__label">Reconciled</p><p className="mg-stat__value">{summary.reconciled}</p></article></section>
