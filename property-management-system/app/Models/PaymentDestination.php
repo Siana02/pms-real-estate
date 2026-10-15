@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\OrganizationDarajaCredential;
 
 class PaymentDestination extends Model
 {
@@ -84,10 +83,9 @@ class PaymentDestination extends Model
 
     public function stkPushReady(): bool
     {
-        $credentials = OrganizationDarajaCredential::where('organization_id', $this->organization_id)->first();
-
         return in_array(config('daraja.environment'), ['sandbox', 'production'], true)
-            && $credentials?->isConfigured() === true
+            && filled(config('daraja.consumer_key'))
+            && filled(config('daraja.consumer_secret'))
             && $this->is_active
             && $this->hasMerchantStkConfiguration()
             && $this->daraja_authorization_status === 'ready';
