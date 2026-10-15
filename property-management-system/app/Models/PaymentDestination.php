@@ -80,7 +80,8 @@ class PaymentDestination extends Model
         return $this->method === 'mpesa_paybill'
             && filled($this->darajaShortcode())
             && $this->daraja_shortcode_type === 'PayBill'
-            && filled($this->daraja_passkey ?: config('daraja.passkey'));
+            && (filled($this->daraja_passkey)
+                || (config('daraja.environment', 'sandbox') === 'sandbox' && filled(config('daraja.passkey'))));
     }
 
     public function stkPushReady(): bool
