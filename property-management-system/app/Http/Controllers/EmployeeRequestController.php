@@ -12,7 +12,7 @@ class EmployeeRequestController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $query = EmployeeRequest::with(['creator:id,name,email,role','assignee:id,name,email','lease:id,unit_id,tenant_id,end_date'])
+        $query = EmployeeRequest::with(['creator:id,name,email,role','assignee:id,name,email','resolver:id,name','replier:id,name','lease:id,unit_id,tenant_id,end_date'])
             ->where('organization_id', $user->organization_id)
             ->latest();
 
