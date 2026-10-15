@@ -390,7 +390,7 @@ class LeasesController extends Controller
                 $lockedLease->update($changes);
             }
 
-            return $lockedLease->fresh()->load(['property', 'unit', 'tenant', 'deposit']);
+            return $lockedLease->fresh()->load(['property', 'unit', 'tenant', 'deposit', 'managerPhysicalConfirmedBy:id,name', 'tenantPhysicalConfirmedBy:id,name']);
         }, 3);
 
         return response()->json([
