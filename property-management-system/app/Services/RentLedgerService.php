@@ -385,6 +385,12 @@ class RentLedgerService
                     'status' => 'available',
                     'notes' => 'Rent overpayment retained for future rent after confirmed payment allocation.',
                 ]);
+
+                // If the next month's obligation already exists (the scheduler
+                // creates current/next periods), apply the new credit immediately.
+                // If it does not exist yet, obligation generation applies the
+                // remaining credit when that future period is created.
+                $this->applyAvailableCredits($lease, $through->addMonth());
             }
 
             $payment->forceFill([
