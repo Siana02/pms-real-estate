@@ -4,13 +4,13 @@
 
 Set `DARAJA_ENVIRONMENT=sandbox` for sandbox or `production` for live payments in the backend environment. Production callbacks require a public HTTPS `APP_URL`.
 
-Each organization owner/admin enters their own Daraja consumer key and consumer secret in payment-destination setup. These credentials are stored once per organization, encrypted at rest, and never returned by the API. The same organization app credentials are used for STK initiation, STK status queries, and C2B URL registration. Merchant shortcode and STK passkey remain destination-specific.
+Each organization owner/admin enters their own Daraja consumer key and consumer secret in payment-destination setup. These credentials are stored once per organization, encrypted at rest, and never returned by the API. The same MARSWebz platform app credentials are used for STK initiation, STK status queries, and C2B URL registration. Merchant shortcode and STK passkey remain destination-specific.
 
 Changing organization credentials resets prior STK and C2B authorization checks. Entering credentials does not prove Safaricom has authorized the app for the merchant; authorization must be independently verified.
 
 ## Sandbox STK configuration
 
-Safaricom's documented Lipa Na M-Pesa Online sandbox shortcode is `174379`. Sandbox tests must use that shortcode, the sandbox passkey supplied for the Daraja app, and sandbox OAuth credentials. Do not use a real property PayBill/Till shortcode with sandbox app credentials and assume it represents a real receiving account. The service now rejects non-sandbox merchant shortcodes in sandbox mode before making an STK request or status query. Use a separately verified production configuration for a real merchant destination.
+Safaricom's documented Lipa Na M-Pesa Online sandbox shortcode is `174379`. Sandbox tests must use that shortcode, the sandbox passkey supplied for the Daraja app, and sandbox OAuth credentials. Do not use a real property PayBill shortcode with sandbox app credentials and assume it represents a real receiving account. The service now rejects non-sandbox merchant shortcodes in sandbox mode before making an STK request or status query. Use a separately verified production configuration for a real merchant destination.
 
 ## Recovering an STK checkout with a missing callback
 
@@ -41,7 +41,7 @@ The STK configuration and shared C2B registration/routing are separate readiness
 
 C2B callbacks are registered once per unique `environment + shortcode`, not once per property. Registration uses the Daraja app credentials belonging to the organization that owns the selected destination. The registration record stores an encrypted callback token and a hash used to authenticate incoming callback paths. Do not restore manager-facing per-organization C2B registration: a shared shortcode must have one canonical callback pair for this platform.
 
-C2B authorization is tracked separately from STK readiness. This allows a verified PayBill/Till to receive C2B payments even if its STK passkey has not been configured.
+C2B authorization is tracked separately from STK readiness. This allows a verified PayBill to receive C2B payments even if its STK passkey has not been configured.
 
 1. Independently verify that the merchant has authorized this integration to receive C2B callbacks.
 2. Mark the property destination as C2B-authorized:
