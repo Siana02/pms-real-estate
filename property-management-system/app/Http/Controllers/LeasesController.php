@@ -16,7 +16,7 @@ class LeasesController extends Controller
     public function index(Request $request)
     {
         $leases = Leases::where('organization_id', $request->user()->organization_id)
-            ->with(['property', 'unit', 'tenant', 'deposit.tenant'])
+            ->with(['property', 'unit', 'tenant', 'deposit.tenant', 'managerPhysicalConfirmedBy:id,name', 'tenantPhysicalConfirmedBy:id,name'])
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'upcoming' THEN 1 WHEN status = 'active' THEN 2 ELSE 3 END")
             ->orderByDesc('id')
             ->get();
@@ -72,7 +72,7 @@ class LeasesController extends Controller
         $this->authorizeOrganization($request, $lease);
 
         return response()->json(
-            $lease->load(['property', 'unit', 'tenant', 'deposit'])
+            $lease->load(['property', 'unit', 'tenant', 'deposit', 'managerPhysicalConfirmedBy:id,name', 'tenantPhysicalConfirmedBy:id,name'])
         );
     }
 
