@@ -542,6 +542,7 @@ class TenantPortalController extends Controller
         $lease = $this->latestLease($tenant);
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
+        abort_if($lease->manager_copy_physical_confirmed_at !== null || $lease->tenant_copy_physical_confirmed_at !== null, 422, 'This lease is locked because a physical signature has been confirmed. Contact the property manager if a formal amendment is needed.');
         abort_if($lease->manager_signed_at !== null, 422, 'This lease is locked. Only the lease end date can be changed after final signing.');
         abort_if($lease->tenant_signed_at !== null, 422, 'Your signed copy is locked. Only the lease end date can be changed after signing.');
 
@@ -654,7 +655,9 @@ class TenantPortalController extends Controller
         $lease = $this->latestLease($tenant);
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
-        abort_if($lease->manager_signed_at === null || $lease->tenant_signed_at === null, 422, 'The lease must be signed by both parties before it can be downloaded.');
+        $tenantSigned = $lease->tenant_signed_at !== null || $lease->tenant_copy_physical_confirmed_at !== null;
+        $managerSigned = $lease->manager_signed_at !== null || $lease->manager_copy_physical_confirmed_at !== null;
+        abort_if(!$tenantSigned || !$managerSigned, 422, 'Both parties must have signed the lease digitally or have their physical copies confirmed before it can be downloaded.');
 
         $deposit = $lease->deposit;
         $depositRequired = (float) ($deposit?->amount_required ?? $lease->deposit_amount ?? 0) > 0;
@@ -662,7 +665,7 @@ class TenantPortalController extends Controller
 
         abort_if(! $depositConfirmed, 422, 'The deposit must be confirmed by the property manager before the signed lease can be downloaded.');
 
-        $lease->loadMissing(['organization', 'property', 'unit', 'tenant', 'deposit']);
+        $lease->loadMissing(['organization', 'property', 'unit', 'tenant', 'deposit', 'managerPhysicalConfirmedBy:id,name', 'tenantPhysicalConfirmedBy:id,name']);
         $organization = $lease->organization;
         $property = $lease->property;
         $unit = $lease->unit;
@@ -681,8 +684,12 @@ class TenantPortalController extends Controller
             '<div class="agreement">' . nl2br(e($leaseText)) . '</div>' .
             '<p class="muted"><strong>Current lease end date:</strong> ' . e($lease->end_date?->toDateString() ?? 'Open-ended') . '</p>' .
             '<div class="signatures">' .
-            '<section class="signature"><div class="muted">Tenant</div><div class="initials">' . e((string) $lease->tenant_signature) . '</div><div class="stamp">SIGNED</div><p class="muted">' . e((string) $lease->tenant_signed_at) . '</p><p>' . e($tenantName) . '</p></section>' .
-            '<section class="signature"><div class="muted">Property Manager / Organization</div><div class="initials">' . e((string) $lease->manager_signature) . '</div><div class="stamp">SIGNED</div><p class="muted">' . e((string) $lease->manager_signed_at) . '</p><p>' . e((string) ($organization?->name ?? '')) . '</p></section>' .
+            ($lease->tenant_signed_at !== null
+                ? '<section class="signature"><div class="muted">Tenant · digital signature</div><div class="initials">' . e((string) $lease->tenant_signature) . '</div><div class="stamp">DIGITALLY SIGNED</div><p class="muted">' . e((string) $lease->tenant_signed_at) . '</p><p>' . e($tenantName) . '</p></section>'
+                : '<section class="signature"><div class="muted">Tenant · physical copy</div><div class="stamp">PHYSICAL COPY VERIFIED</div><p class="muted">Signed on: ' . e((string) $lease->tenant_copy_physical_signed_on?->toDateString()) . '</p><p class="muted">Recorded by: ' . e((string) ($lease->tenantPhysicalConfirmedBy?->name ?? 'Property manager')) . ' on ' . e((string) $lease->tenant_copy_physical_confirmed_at) . '</p><p>' . e($tenantName) . '</p></section>') .
+            ($lease->manager_signed_at !== null
+                ? '<section class="signature"><div class="muted">Property Manager / Organization · digital signature</div><div class="initials">' . e((string) $lease->manager_signature) . '</div><div class="stamp">DIGITALLY SIGNED</div><p class="muted">' . e((string) $lease->manager_signed_at) . '</p><p>' . e((string) ($organization?->name ?? '')) . '</p></section>'
+                : '<section class="signature"><div class="muted">Property Manager / Organization · physical copy</div><div class="stamp">PHYSICAL COPY VERIFIED</div><p class="muted">Signed on: ' . e((string) $lease->manager_copy_physical_signed_on?->toDateString()) . '</p><p class="muted">Recorded by: ' . e((string) ($lease->managerPhysicalConfirmedBy?->name ?? 'Property manager')) . ' on ' . e((string) $lease->manager_copy_physical_confirmed_at) . '</p><p>' . e((string) ($organization?->name ?? '')) . '</p></section>') .
             '</div></body></html>';
 
         return response($html, 200, [
@@ -702,7 +709,7 @@ class TenantPortalController extends Controller
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
         abort_if(
-            $lease->manager_signed_at !== null || $lease->tenant_signed_at !== null,
+            $lease->manager_signed_at !== null || $lease->tenant_signed_at !== null || $lease->manager_copy_physical_confirmed_at !== null || $lease->tenant_copy_physical_confirmed_at !== null,
             422,
             'Tenant details cannot be changed after the agreement has been signed.'
         );
@@ -755,6 +762,7 @@ class TenantPortalController extends Controller
         $lease = $this->latestLease($tenant);
 
         abort_if($lease === null, 404, 'No lease agreement is available yet.');
+        abort_if($lease->manager_copy_physical_confirmed_at !== null || $lease->tenant_copy_physical_confirmed_at !== null, 422, 'A physically signed lease cannot be amended through the tenant portal. Contact the property manager to arrange a formal amendment.');
         abort_if($lease->manager_signed_at === null, 422, 'The lease must be finally signed before its end date can be changed here.');
 
         $validated = $request->validate(['end_date' => ['nullable', 'date']]);
@@ -899,7 +907,7 @@ class TenantPortalController extends Controller
             return null;
         }
 
-        $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization', 'tenant.property', 'tenant.unit']);
+        $lease->loadMissing(['property', 'unit', 'deposit', 'tenant.organization', 'tenant.property', 'tenant.unit', 'managerPhysicalConfirmedBy:id,name', 'tenantPhysicalConfirmedBy:id,name']);
 
         // Self-registered tenants have the organization/property/unit selected
         // during registration on the tenant record. The lease should use those
@@ -957,13 +965,17 @@ class TenantPortalController extends Controller
 
         $deposit = $lease->deposit;
 
-        $status = $lease->manager_signed_at !== null
+        $managerSideSigned = $lease->manager_signed_at !== null || $lease->manager_copy_physical_confirmed_at !== null;
+        $tenantSideSigned = $lease->tenant_signed_at !== null || $lease->tenant_copy_physical_confirmed_at !== null;
+        $status = $lease->agreement_finalized
             ? 'locked'
-            : ($lease->tenant_signed_at !== null
+            : ($tenantSideSigned
                 ? 'awaiting_manager_signature'
-                : ($lease->status === 'pending'
-                    ? 'pending_manager_confirmation'
-                    : 'awaiting_tenant_signature'));
+                : ($managerSideSigned
+                    ? 'awaiting_tenant_signature'
+                    : ($lease->status === 'pending'
+                        ? 'pending_manager_confirmation'
+                        : 'awaiting_tenant_signature')));
 
         return [
             'lease_id' => $lease->id,
@@ -1026,7 +1038,14 @@ class TenantPortalController extends Controller
             'manager_signed_at' => $lease->manager_signed_at?->toDateTimeString(),
             'tenant_signature' => $lease->tenant_signature,
             'tenant_signed_at' => $lease->tenant_signed_at?->toDateTimeString(),
-            'agreement_finalized' => $lease->manager_signed_at !== null && $lease->tenant_signed_at !== null,
+            'manager_copy_physical_signed_on' => $lease->manager_copy_physical_signed_on?->toDateString(),
+            'manager_copy_physical_confirmed_at' => $lease->manager_copy_physical_confirmed_at?->toDateTimeString(),
+            'manager_physical_confirmed_by' => $lease->managerPhysicalConfirmedBy?->name,
+            'tenant_copy_physical_signed_on' => $lease->tenant_copy_physical_signed_on?->toDateString(),
+            'tenant_copy_physical_confirmed_at' => $lease->tenant_copy_physical_confirmed_at?->toDateTimeString(),
+            'tenant_physical_confirmed_by' => $lease->tenantPhysicalConfirmedBy?->name,
+            'physical_signing_notes' => $lease->physical_signing_notes,
+            'agreement_finalized' => $lease->agreement_finalized,
             'deposit' => $deposit ? [
                 'amount_required' => $deposit->amount_required,
                 'amount_paid' => $deposit->amount_paid,
