@@ -11,10 +11,8 @@ use App\Models\RentObligation;
 use App\Models\RentPaymentCredit;
 use App\Models\Tenant;
 use App\Models\Unit;
-use App\Models\User;
 use App\Services\RentLedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class RentLedgerFutureCreditTest extends TestCase
