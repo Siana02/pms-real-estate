@@ -375,7 +375,7 @@ interface RentSummary {
 
 interface PaymentDestination {
   id: number;
-  method: "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank";
+  method: "mpesa_number" | "mpesa_paybill" | "bank";
   label: string | null;
   details: Record<string, string | null>;
   account_reference?: string | null;
@@ -457,7 +457,6 @@ function methodLabel(method: string | null): string {
 function destinationLabel(destination: PaymentDestination): string {
   return destination.label || ({
     mpesa_number: "M-PESA",
-    mpesa_till: "M-PESA Till",
     mpesa_paybill: "M-PESA PayBill",
     bank: "Bank transfer",
   } as Record<string, string>)[destination.method];
@@ -467,7 +466,6 @@ function destinationDetail(destination: PaymentDestination): string {
   const details = destination.details;
   let detail = "";
   if (destination.method === "mpesa_number") detail = `Send to ${details.number ?? "—"}`;
-  else if (destination.method === "mpesa_till") detail = `Legacy Till ${details.till ?? "—"} · manual verification may be required`;
   else if (destination.method === "mpesa_paybill") detail = `PayBill ${details.paybill ?? "—"}`;
   else detail = [details.bank_name, details.account_name, details.account_number ? `Account ••••${details.account_number.slice(-4)}` : null, details.branch].filter(Boolean).join(" · ");
   if (destination.method === "mpesa_paybill" && destination.account_reference) {
@@ -816,7 +814,7 @@ function TenantPaymentsPage() {
             <div>
               <h2 className="tp-section__title">Payment options</h2>
               <p className="tp-section__sub">Choose how you want to pay. Your property manager's payment destinations are shown here before you confirm a manual payment.</p>
-              {paymentOptions.tenant_payment_reference && paymentOptions.destinations.some((item) => item.method === "mpesa_paybill" || item.method === "mpesa_till") && !paymentOptions.destinations.some((item) => Boolean(item.account_reference)) && (
+              {paymentOptions.tenant_payment_reference && paymentOptions.destinations.some((item) => item.method === "mpesa_paybill") && !paymentOptions.destinations.some((item) => Boolean(item.account_reference)) && (
                 <p className="tp-section__sub" style={{ marginTop: ".5rem" }}>
                   Paying directly through M-PESA PayBill? Use this as the account/reference for automatic matching: <strong><code>{paymentOptions.tenant_payment_reference}</code></strong>
                 </p>
@@ -1080,9 +1078,9 @@ function TenantPaymentsPage() {
                       option.key === "flutterwave"
                         ? paymentOptions.online.available
                         : option.key === "mpesa_stk"
-                          ? Boolean(paymentOptions.stk_push?.available) || paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill"].includes(item.method))
+                          ? Boolean(paymentOptions.stk_push?.available) || paymentOptions.destinations.some((item) => ["mpesa_paybill"].includes(item.method))
                           : option.key === "mpesa"
-                            ? paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill", "mpesa_number"].includes(item.method))
+                            ? paymentOptions.destinations.some((item) => ["mpesa_paybill", "mpesa_number"].includes(item.method))
                           : paymentOptions.destinations.some((item) => item.method === "bank")
                     ).map((option) => (
                       <button
@@ -1108,10 +1106,10 @@ function TenantPaymentsPage() {
                       </button>
                     ))}
                   </div>
-                  {!paymentOptions.stk_push?.available && paymentOptions.destinations.some((item) => ["mpesa_till", "mpesa_paybill"].includes(item.method)) && (
+                  {!paymentOptions.stk_push?.available && paymentOptions.destinations.some((item) => ["mpesa_paybill"].includes(item.method)) && (
                     <small role="status" style={{ color: "var(--tp-muted)", lineHeight: 1.5 }}>
                       STK Push isn't available yet: {paymentOptions.stk_push?.reason ?? "the property payment destination needs to be verified by the property manager."}
-                      {" "}You can still pay manually using the PayBill or Till details. Manual payment does not open the M-PESA app.
+                      {" "}You can still pay manually using the PayBill or M-PESA number details. Manual payment does not open the M-PESA app.
                     </small>
                   )}
                 </div>
@@ -1130,7 +1128,7 @@ function TenantPaymentsPage() {
                         {paymentOptions.destinations
                           .filter((item) =>
                             method === "mpesa" || method === "mpesa_stk"
-                              ? (method === "mpesa_stk" ? ["mpesa_till", "mpesa_paybill"].includes(item.method) : item.method.startsWith("mpesa"))
+                              ? (method === "mpesa_stk" ? item.method === "mpesa_paybill" : item.method.startsWith("mpesa"))
                               : item.method === "bank"
                           )
                           .map((item) => (
@@ -1171,7 +1169,7 @@ function TenantPaymentsPage() {
                           placeholder={method === "mpesa" ? "e.g. QAB123XYZ" : "Enter your bank reference"} required />
                         <small style={{ color: "var(--tp-muted)", lineHeight: 1.5 }}>
                           {method === "mpesa"
-                            ? "Pay using the PayBill, Till or number shown above first. Then enter the receipt code from the completed M-PESA confirmation—not the PayBill number or account number. Your payment stays pending until verified."
+                            ? "Pay using the PayBill or M-PESA number shown above first. Then enter the receipt code from the completed M-PESA confirmation—not the PayBill number or account number. Your payment stays pending until verified."
                             : "Enter the reference from your completed bank transfer. Your payment stays pending until your property manager verifies it."}
                         </small>
                       </div>
