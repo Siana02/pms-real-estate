@@ -22,7 +22,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         parent::setUp();
 
-        config(['daraja.environment' => 'sandbox', 'daraja.consumer_key' => 'platform-consumer-key', 'daraja.consumer_secret' => 'platform-consumer-secret']);
+        config(['daraja.environment' => 'sandbox', 'daraja.consumer_key' => 'platform-consumer-key', 'daraja.consumer_secret' => 'platform-consumer-secret', 'daraja.passkey' => 'platform-sandbox-passkey']);
         $this->organization = Organization::create(['name' => 'Daraja Test Organization', 'email' => 'daraja-test.invalid']);
         OrganizationDarajaCredential::create([
             'organization_id' => $this->organization->id,
@@ -63,6 +63,14 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertArrayNotHasKey('daraja_callback_token', $destination->toArray());
         $this->assertArrayNotHasKey('consumer_key', $credential->toArray());
         $this->assertArrayNotHasKey('consumer_secret', $credential->toArray());
+    }
+
+    public function test_destination_can_use_platform_managed_passkey_without_manager_entered_secret(): void
+    {
+        $destination = $this->configuredDestination('ready');
+        $destination->daraja_passkey = null;
+
+        $this->assertTrue($destination->stkPushReady());
     }
 
     public function test_stk_query_uses_platform_token_and_destination_merchant_credentials(): void
