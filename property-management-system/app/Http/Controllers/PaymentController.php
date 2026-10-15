@@ -48,7 +48,19 @@ class PaymentController extends Controller
             ->whereDate('start_date', '<=', $through->endOfMonth()->toDateString())
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $through->startOfMonth()->toDateString()))
             ->get()
-            ->each(fn (Leases $lease) => app(RentLedgerService::class)->ensureForLeaseThrough($lease, $through));
+            ->each(function (Leases $lease) use ($through) {
+                try {
+                    app(RentLedgerService::class)->ensureForLeaseThrough($lease, $through);
+                } catch (\Throwable $exception) {
+                    // Keep other tenants' ledgers visible when one inconsistent
+                    // lease needs separate review; do not fabricate its obligations.
+                    \Illuminate\Support\Facades\Log::warning('Rent ledger page could not backfill one lease.', [
+                        'lease_id' => $lease->id,
+                        'organization_id' => $lease->organization_id,
+                        'exception' => $exception::class,
+                    ]);
+                }
+            });
 
         $obligations = RentObligation::query()
             ->where('organization_id', $organizationId)
