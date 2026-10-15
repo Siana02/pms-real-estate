@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\PaymentDestination;
-use App\Models\OrganizationDarajaCredential;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -14,15 +13,14 @@ class DarajaService
     public function accessToken(PaymentDestination $destination): string
     {
         $environment = (string) config('daraja.environment', 'sandbox');
-        $credential = OrganizationDarajaCredential::where('organization_id', $destination->organization_id)->first();
+        $consumerKey = trim((string) config('daraja.consumer_key', ''));
+        $consumerSecret = trim((string) config('daraja.consumer_secret', ''));
 
-        if (!$credential || !$credential->isConfigured()) {
-            throw new RuntimeException('This organization has not configured its own Daraja consumer key and consumer secret.');
+        if ($consumerKey === '' || $consumerSecret === '') {
+            throw new RuntimeException('MARSWebz platform Daraja credentials are not configured in the server environment.');
         }
 
-        $consumerKey = (string) $credential->consumer_key;
-        $consumerSecret = (string) $credential->consumer_secret;
-        $cacheKey = 'daraja:organization-token:' . $environment . ':' . $destination->organization_id . ':' . hash('sha256', $consumerKey . "\0" . $consumerSecret);
+        $cacheKey = 'daraja:platform-token:' . $environment . ':' . hash('sha256', $consumerKey . "\0" . $consumerSecret);
 
         return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($consumerKey, $consumerSecret) {
             $response = Http::withBasicAuth($consumerKey, $consumerSecret)
