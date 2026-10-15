@@ -43,6 +43,16 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertTrue($destination->stkPushReady());
     }
 
+    public function test_legacy_till_destination_is_never_stk_ready(): void
+    {
+        $destination = $this->configuredDestination('ready');
+        $destination->method = 'mpesa_till';
+        $destination->details = ['till' => '123456'];
+        $destination->daraja_shortcode_type = 'Till';
+
+        $this->assertFalse($destination->stkPushReady());
+    }
+
     public function test_destination_is_not_ready_when_platform_credentials_are_missing(): void
     {
         config(['daraja.consumer_key' => null, 'daraja.consumer_secret' => null]);
