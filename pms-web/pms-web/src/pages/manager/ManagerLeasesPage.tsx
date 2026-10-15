@@ -763,7 +763,6 @@ function ManagerLeasesPage() {
   const agreementSummary = selectedLease ? agreementState(selectedLease) : null;
   const managerSideSigned = selectedLease ? Boolean(selectedLease.manager_signed_at || selectedLease.manager_copy_physical_confirmed_at) : false;
   const tenantSideSigned = selectedLease ? Boolean(selectedLease.tenant_signed_at || selectedLease.tenant_copy_physical_confirmed_at) : false;
-  const hasPhysicalSignature = selectedLease ? Boolean(selectedLease.manager_copy_physical_confirmed_at || selectedLease.tenant_copy_physical_confirmed_at) : false;
   const managerTermsChanged = selectedLease
     ? managerTermsDraft !== (selectedLease.manager_terms ?? "")
     : false;
