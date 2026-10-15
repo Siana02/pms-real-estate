@@ -14,18 +14,6 @@ type Destination = {
   details: Record<string, string | null>;
   is_active: boolean;
   account_reference_format?: string | null;
-  daraja?: {
-    shortcode_type?: string | null;
-    has_passkey?: boolean;
-    authorization_status?: string;
-    authorization_checked_at?: string | null;
-    c2b_registration_status?: string;
-    c2b_authorization_status?: string;
-    c2b_authorization_checked_at?: string | null;
-    c2b_registered_at?: string | null;
-    organization_credentials_configured?: boolean;
-    stk_push_available?: boolean;
-  };
 };
 
 type Payload = {
@@ -166,7 +154,6 @@ export default function PaymentDestinationSection({ role }: Props) {
       };
 
       if (method === "mpesa_paybill") {
-        payload.daraja_shortcode_type = "PayBill";
         payload.account_reference_format = accountReferenceFormat.trim() || null;
       }
       if (method === "mpesa_till") {
@@ -240,8 +227,6 @@ export default function PaymentDestinationSection({ role }: Props) {
                       <span className="mg-hint" style={{ display: "block", marginTop: ".15rem", overflowWrap: "anywhere" }}>{destinationSummary(item)}</span>
                       {(item.method === "mpesa_paybill" || item.method === "mpesa_till") && (
                         <span className="mg-hint" style={{ display: "block", marginTop: ".3rem" }}>
-                          C2B: {item.daraja?.c2b_authorization_status === "ready" ? "authorized" : item.daraja?.c2b_authorization_status === "awaiting_merchant_authorization" ? "awaiting verification" : "not configured"}
-                          {item.daraja?.c2b_registration_status === "registered" ? " · C2B callback registered" : " · C2B callback not registered"}
                         </span>
                       )}
                     </div>
