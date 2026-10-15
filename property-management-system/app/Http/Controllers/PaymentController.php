@@ -50,7 +50,18 @@ class PaymentController extends Controller
             ->get()
             ->each(function (Leases $lease) use ($through) {
                 try {
-                    app(RentLedgerService::class)->ensureForLeaseThrough($lease, $through);
+                    $creditAmount = (float) RentPaymentCredit::query()
+                        ->where('organization_id', $lease->organization_id)
+                        ->where('lease_id', $lease->id)
+                        ->where('status', 'available')
+                        ->where('remaining_amount', '>', 0)
+                        ->sum('remaining_amount');
+                    $monthlyRent = max((float) $lease->monthly_rent, 1.0);
+                    $futureMonths = $creditAmount > 0
+                        ? max(1, min(24, (int) ceil($creditAmount / $monthlyRent)))
+                        : 0;
+                    $ledgerThrough = $through->addMonths($futureMonths);
+                    app(RentLedgerService::class)->ensureForLeaseThrough($lease, $ledgerThrough);
                 } catch (\Throwable $exception) {
                     // Keep other tenants' ledgers visible when one inconsistent
                     // lease needs separate review; do not fabricate its obligations.
