@@ -71,8 +71,8 @@ class PaymentController extends Controller
                 'property:id,name',
                 'unit:id,unit_number',
                 'tenant:id,first_name,last_name,email',
-                'allocations.payment:id,reference,payment_date,amount,status',
-                'allocations.rentPaymentCredit.sourcePayment:id,reference,payment_date,amount,status',
+                'allocations.payment:id,reference,provider_transaction_id,tx_ref,payment_date,amount,status',
+                'allocations.rentPaymentCredit.sourcePayment:id,reference,provider_transaction_id,tx_ref,payment_date,amount,status',
                 'payments.allocations:id,payment_id,rent_obligation_id',
                 'lease:id,organization_id,property_id,unit_id,tenant_id,rent_due_day,rent_grace_period_days',
             ])
@@ -106,7 +106,7 @@ class PaymentController extends Controller
                 $payment = $allocation->payment ?? $allocation->rentPaymentCredit?->sourcePayment;
                 if (!$payment) return null;
                 return [
-                    'reference' => $payment->reference,
+                    'reference' => $payment->provider_transaction_id ?: $payment->reference ?: $payment->tx_ref,
                     'payment_date' => $payment->payment_date?->toDateString() ?? (string) $payment->payment_date,
                     'amount_applied' => round((float) $allocation->amount, 2),
                     'source' => $allocation->payment_id ? 'payment' : 'rent_credit',
@@ -140,7 +140,7 @@ class PaymentController extends Controller
         $credits = RentPaymentCredit::query()
             ->where('organization_id', $organizationId)
             ->where('remaining_amount', '>', 0)
-            ->with(['lease.tenant', 'lease.property', 'lease.unit', 'sourcePayment:id,reference,payment_date,amount'])
+            ->with(['lease.tenant', 'lease.property', 'lease.unit', 'sourcePayment:id,reference,provider_transaction_id,tx_ref,payment_date,amount'])
             ->orderBy('lease_id')
             ->orderBy('id')
             ->get()
@@ -155,7 +155,7 @@ class PaymentController extends Controller
                     'unit_number' => $credit->lease?->unit?->unit_number ?? '—',
                     'original_amount' => round((float) $credit->amount, 2),
                     'remaining_amount' => round((float) $credit->remaining_amount, 2),
-                    'source_reference' => $credit->sourcePayment?->reference,
+                    'source_reference' => $credit->sourcePayment?->provider_transaction_id ?: $credit->sourcePayment?->reference ?: $credit->sourcePayment?->tx_ref,
                     'source_payment_date' => $credit->sourcePayment?->payment_date?->toDateString(),
                 ];
             })->values();
