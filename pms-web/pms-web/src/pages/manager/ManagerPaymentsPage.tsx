@@ -575,10 +575,14 @@ function ManagerPaymentsPage() {
       group.credits.push(credit);
       grouped.set(credit.lease_id, group);
     });
+    const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
     return [...grouped.values()].map((group) => ({
       ...group,
       rows: [...group.rows].sort((a, b) => b.period.localeCompare(a.period)),
-      outstanding: group.rows.reduce((sum, row) => sum + row.balance, 0),
+      // Upcoming rent is shown in the month-by-month ledger but should not inflate
+      // the headline amount currently owed.
+      outstanding: group.rows.reduce((sum, row) => sum + (row.period.slice(0, 7) <= currentMonthKey ? row.balance : 0), 0),
       creditRemaining: group.credits.reduce((sum, credit) => sum + credit.remaining_amount, 0),
     })).sort((a, b) => a.tenantName.localeCompare(b.tenantName));
   }, [ledgerRows, rentCredits]);
