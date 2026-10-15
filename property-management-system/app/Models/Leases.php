@@ -32,6 +32,13 @@ class Leases extends Model
         'manager_signed_at',
         'tenant_signature',
         'tenant_signed_at',
+        'manager_copy_physical_signed_on',
+        'manager_copy_physical_confirmed_at',
+        'manager_copy_physical_confirmed_by',
+        'tenant_copy_physical_signed_on',
+        'tenant_copy_physical_confirmed_at',
+        'tenant_copy_physical_confirmed_by',
+        'physical_signing_notes',
         'notice_date',
         'intended_move_out_date',
         'notice_period_months',
@@ -52,6 +59,12 @@ class Leases extends Model
         'deposit_amount' => 'decimal:2',
         'manager_signed_at' => 'datetime',
         'tenant_signed_at' => 'datetime',
+        'manager_copy_physical_signed_on' => 'date',
+        'manager_copy_physical_confirmed_at' => 'datetime',
+        'manager_copy_physical_confirmed_by' => 'integer',
+        'tenant_copy_physical_signed_on' => 'date',
+        'tenant_copy_physical_confirmed_at' => 'datetime',
+        'tenant_copy_physical_confirmed_by' => 'integer',
         'notice_date' => 'date',
         'intended_move_out_date' => 'date',
         'notice_period_months' => 'integer',
@@ -132,6 +145,9 @@ class Leases extends Model
 
     public function getAgreementFinalizedAttribute(): bool
     {
-        return $this->manager_signed_at !== null && $this->tenant_signed_at !== null;
+        $managerSigned = $this->manager_signed_at !== null || $this->manager_copy_physical_confirmed_at !== null;
+        $tenantSigned = $this->tenant_signed_at !== null || $this->tenant_copy_physical_confirmed_at !== null;
+
+        return $managerSigned && $tenantSigned;
     }
 }
