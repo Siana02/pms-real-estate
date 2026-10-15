@@ -23,7 +23,7 @@ class DarajaController extends Controller
     {
         $this->authorizeManager($request);
         return response()->json([
-            'message' => 'Use the organization Daraja credentials endpoint and verified payment-destination workflow.',
+            'message' => 'Daraja app credentials and environment are managed by MARSWebz on the server. Configure only the property PayBill destination, then wait for independent merchant authorization verification.',
         ], 410);
     }
 
@@ -31,7 +31,7 @@ class DarajaController extends Controller
     {
         $this->authorizeManager($request);
         return response()->json([
-            'message' => 'Use the dedicated organization Daraja credentials settings endpoint; merchant shortcode and passkey remain destination-specific.',
+            'message' => 'Daraja app credentials and passkeys are managed by MARSWebz on the server. Configure the property PayBill destination and wait for independent merchant authorization verification.',
         ], 410);
     }
 
