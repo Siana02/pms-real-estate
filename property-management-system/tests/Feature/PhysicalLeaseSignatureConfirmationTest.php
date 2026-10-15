@@ -30,10 +30,19 @@ class PhysicalLeaseSignatureConfirmationTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('lease.agreement_finalized', true)
-            ->assertJsonPath('lease.manager_copy_physical_signed_on', now()->subDays(2)->toDateString())
-            ->assertJsonPath('lease.tenant_copy_physical_signed_on', now()->subDay()->toDateString())
             ->assertJsonPath('lease.manager_physical_confirmed_by.id', $manager->id)
             ->assertJsonPath('lease.tenant_physical_confirmed_by.id', $manager->id);
+
+        // Eloquent serializes date casts as ISO timestamps in model responses;
+        // the stored MySQL columns remain DATE values.
+        $this->assertSame(
+            now()->subDays(2)->toDateString(),
+            substr((string) $response->json('lease.manager_copy_physical_signed_on'), 0, 10)
+        );
+        $this->assertSame(
+            now()->subDay()->toDateString(),
+            substr((string) $response->json('lease.tenant_copy_physical_signed_on'), 0, 10)
+        );
 
         $fresh = $lease->fresh();
         $this->assertNull($fresh->manager_signature);
