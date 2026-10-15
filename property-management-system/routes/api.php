@@ -23,7 +23,6 @@ use App\Http\Controllers\PaymentDestinationController;
 use App\Http\Controllers\PaymentReconciliationController;
 use App\Http\Controllers\RentLedgerReviewController;
 use App\Http\Controllers\DarajaController;
-use App\Http\Controllers\OrganizationDarajaCredentialController;
 use App\Http\Controllers\GuestTenantPaymentLinkController;
 use App\Http\Controllers\PlatformSubscriptionController;
 use App\Http\Middleware\EnsureActivePlatformSubscription;
@@ -52,8 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('platform-subscription/status', [PlatformSubscriptionController::class, 'status']);
     Route::get('platform-subscription/admin/payments', [PlatformSubscriptionController::class, 'pendingPayments']);
     Route::get('platform-subscription/admin/organizations', [PlatformSubscriptionController::class, 'adminOrganizations']);
-    Route::post('platform-subscription/select', [PlatformSubscriptionController::class, 'select']);
-    Route::post('platform-subscription/payment-reference', [PlatformSubscriptionController::class, 'submitPayment']);
+    Route::post('platform-subscription/select', [PlatformSubscriptionController::class, 'select'])->middleware('role:admin,owner');
+    Route::post('platform-subscription/payment-reference', [PlatformSubscriptionController::class, 'submitPayment'])->middleware('role:admin,owner');
     Route::post('platform-subscription/payments/{payment}/verify', [PlatformSubscriptionController::class, 'verifyPayment']);
     Route::put('platform-subscription/organizations/{organization}/custom-pricing', [PlatformSubscriptionController::class, 'setCustomPricing']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
@@ -71,9 +70,6 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
     Route::get('organization/profile', [OrganizationController::class, 'profile']);
     Route::patch('organization/profile', [OrganizationController::class, 'updateProfile']);
     Route::get('organization/payment-settings', [OrganizationPaymentSettingsController::class, 'show']);
-    // Organization owners/admins manage their own encrypted Daraja app credentials.
-    Route::get('organization/daraja-credentials', [OrganizationDarajaCredentialController::class, 'show']);
-    Route::put('organization/daraja-credentials', [OrganizationDarajaCredentialController::class, 'update']);
     Route::get('organization/payment-destinations', [PaymentDestinationController::class, 'index']);
     Route::post('organization/payment-destinations', [PaymentDestinationController::class, 'store']);
     Route::patch('organization/payment-destinations/{paymentDestination}', [PaymentDestinationController::class, 'update']);
@@ -103,6 +99,8 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
     Route::apiResource('tenants', TenantController::class);
     Route::apiResource('leases', LeasesController::class);
     Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
+    Route::patch('leases/{lease}/physical-signatures', [LeasesController::class, 'confirmPhysicalSignatures'])->middleware('throttle:20,1');
+    Route::get('payments/rent-ledger', [PaymentController::class, 'rentLedger'])->middleware('subscription.feature:payment_ledger');
     Route::apiResource('payments', PaymentController::class)->middleware('subscription.feature:payment_ledger');
     Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
     Route::get('payment-reconciliation/ledger-review-flags', [RentLedgerReviewController::class, 'index']);

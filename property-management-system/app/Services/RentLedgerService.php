@@ -49,11 +49,25 @@ class RentLedgerService
 
         $period = CarbonImmutable::parse($lease->start_date)->startOfMonth();
         $lastPeriod = $through->startOfMonth();
+        $existingPeriods = RentObligation::query()
+            ->where('lease_id', $lease->id)
+            ->whereBetween('period', [$period->toDateString(), $lastPeriod->toDateString()])
+            ->pluck('period')
+            ->map(fn ($value) => CarbonImmutable::parse($value)->toDateString())
+            ->flip();
 
         while ($period->lessThanOrEqualTo($lastPeriod)) {
-            $this->ensureLeaseObligationForPeriod($lease, $period);
+            // Existing periods are already represented. Skip repeat firstOrCreate
+            // calls for every historical month on each payment/page load.
+            if (!$existingPeriods->has($period->toDateString())) {
+                $this->ensureLeaseObligationForPeriod($lease, $period);
+            }
             $period = $period->addMonth();
         }
+
+        // Also applies newly-created or previously unconsumed credits to existing
+        // obligations, including a next-month obligation already prepared by the scheduler.
+        $this->applyAvailableCredits($lease, $lastPeriod);
 
         if ($this->obligationScopeMismatchExists($lease, $lastPeriod)) {
             // Callers that reconcile a provider transaction must persist needs_review
@@ -385,6 +399,13 @@ class RentLedgerService
                     'status' => 'available',
                     'notes' => 'Rent overpayment retained for future rent after confirmed payment allocation.',
                 ]);
+
+                // Generate enough future monthly obligations to visibly carry this
+                // credit forward, then allocate it against those months immediately.
+                // The helper respects the lease end date and remains idempotent.
+                $monthlyRent = max((float) $lease->monthly_rent, 1.0);
+                $monthsToCover = max(1, min(24, (int) ceil(($remainingCents / 100) / $monthlyRent)));
+                $this->ensureForLeaseThrough($lease, $through->addMonths($monthsToCover));
             }
 
             $payment->forceFill([

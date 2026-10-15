@@ -46,7 +46,7 @@ export default function GuestPaymentPage() {
     if (!Number.isInteger(parsedAmount) || parsedAmount < 1 || parsedAmount > 250000) { setError("Enter a whole-number amount between KES 1 and KES 250,000."); return; }
     if (!phone.trim()) { setError("Enter the M-PESA phone number to receive the payment prompt."); return; }
     const selectedDestination = data?.payment_destinations.find(destination => String(destination.id) === destinationId);
-    if (!selectedDestination?.stk_push_available) { setError("Choose an STK-ready destination to request a phone prompt. You can use the manual PayBill/Till instructions below instead."); return; }
+    if (!selectedDestination?.stk_push_available) { setError("Choose an STK-ready PayBill destination to request a phone prompt. You can use the manual PayBill instructions below instead."); return; }
     setSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/guest-payments/${encodeURIComponent(token)}/stk-push`, {
@@ -87,9 +87,7 @@ export default function GuestPaymentPage() {
                 {data.payment_destinations.map(destination => <article key={destination.id} style={{ padding:"1rem", border:"1px solid #dce5eb", borderRadius:".8rem", display:"grid", gap:".45rem" }}>
                   <strong>{destination.label}</strong>
                   {destination.method === "mpesa_paybill" && <p style={{ margin:0, fontSize:".9rem" }}>PayBill number: <strong>{destination.details.paybill || "Contact property manager"}</strong></p>}
-                  {destination.method === "mpesa_till" && <p style={{ margin:0, fontSize:".9rem" }}>Till number: <strong>{destination.details.till || "Contact property manager"}</strong></p>}
                   {destination.method === "mpesa_paybill" && <p style={{ margin:0, fontSize:".9rem" }}>Account / reference: <strong>{destination.account_reference || destination.details.account || "Contact property manager"}</strong></p>}
-                  {destination.method === "mpesa_till" && <p style={{ margin:0, fontSize:".9rem" }}>Payment reference: <strong>{destination.account_reference || "Use your unit number and contact the property manager if unsure"}</strong></p>}
                   {(destination.details.account_name || destination.details.business_name) && <p style={{ margin:0, color:"#64748b", fontSize:".82rem" }}>Account name: {destination.details.account_name || destination.details.business_name}</p>}
                   {!destination.stk_push_available && <small style={{ color:"#64748b", lineHeight:1.5 }}>Phone prompts are not enabled for this destination. Manual payment is still available.</small>}
                 </article>)}

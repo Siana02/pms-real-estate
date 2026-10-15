@@ -291,10 +291,10 @@ class DarajaC2bRoutingService
     {
         $destinations = PaymentDestination::query()
             ->where('is_active', true)
-            ->where(function ($query) use ($shortcode) {
-                $query->where(fn ($q) => $q->where('method', 'mpesa_paybill')->where('details->paybill', $shortcode))
-                    ->orWhere(fn ($q) => $q->where('method', 'mpesa_till')->where('details->till', $shortcode));
-            })
+            // C2B rent matching requires a PayBill account reference. Legacy Till
+            // records remain stored for audit/history but are never auto-routed.
+            ->where('method', 'mpesa_paybill')
+            ->where('details->paybill', $shortcode)
             ->get();
 
         $matches = collect();

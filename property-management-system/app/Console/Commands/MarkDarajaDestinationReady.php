@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\PaymentDestination;
-use App\Models\OrganizationDarajaCredential;
 use Illuminate\Console\Command;
 
 class MarkDarajaDestinationReady extends Command
@@ -28,14 +27,27 @@ class MarkDarajaDestinationReady extends Command
             return self::FAILURE;
         }
 
-        $credentials = OrganizationDarajaCredential::where('organization_id', $destination->organization_id)->first();
-        if (!$credentials || !$credentials->isConfigured()) {
-            $this->error('The owning organization has not configured its own Daraja consumer key and consumer secret.');
+        if (!filled(config('daraja.consumer_key')) || !filled(config('daraja.consumer_secret'))) {
+            $this->error('MARSWebz platform Daraja consumer credentials are not configured in the server environment.');
             return self::FAILURE;
         }
 
+        // Production merchant passkeys are shortcode-specific. Never silently
+        // reuse one platform-wide passkey for unrelated merchant PayBills.
+        if (config('daraja.environment', 'sandbox') === 'production' && !filled($destination->daraja_passkey)) {
+            $passkey = trim((string) $this->secret('Enter this merchant PayBill STK passkey (input is hidden)'));
+            if ($passkey === '') {
+                $this->error('A destination-specific production passkey is required.');
+                return self::FAILURE;
+            }
+
+            $destination->daraja_passkey = $passkey;
+            $destination->save();
+            $destination->refresh();
+        }
+
         if (!$destination->is_active || !$destination->hasMerchantStkConfiguration() || !filled($destination->daraja_callback_token)) {
-            $this->error('This destination is inactive or its merchant STK configuration is incomplete.');
+            $this->error('This destination is inactive or its merchant STK configuration is incomplete. Verify the PayBill, destination-specific passkey and callback token.');
             return self::FAILURE;
         }
 

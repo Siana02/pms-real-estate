@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\PaymentDestination;
-use App\Models\OrganizationDarajaCredential;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -14,15 +13,14 @@ class DarajaService
     public function accessToken(PaymentDestination $destination): string
     {
         $environment = (string) config('daraja.environment', 'sandbox');
-        $credential = OrganizationDarajaCredential::where('organization_id', $destination->organization_id)->first();
+        $consumerKey = trim((string) config('daraja.consumer_key', ''));
+        $consumerSecret = trim((string) config('daraja.consumer_secret', ''));
 
-        if (!$credential || !$credential->isConfigured()) {
-            throw new RuntimeException('This organization has not configured its own Daraja consumer key and consumer secret.');
+        if ($consumerKey === '' || $consumerSecret === '') {
+            throw new RuntimeException('MARSWebz platform Daraja credentials are not configured in the server environment.');
         }
 
-        $consumerKey = (string) $credential->consumer_key;
-        $consumerSecret = (string) $credential->consumer_secret;
-        $cacheKey = 'daraja:organization-token:' . $environment . ':' . $destination->organization_id . ':' . hash('sha256', $consumerKey . "\0" . $consumerSecret);
+        $cacheKey = 'daraja:platform-token:' . $environment . ':' . hash('sha256', $consumerKey . "\0" . $consumerSecret);
 
         return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($consumerKey, $consumerSecret) {
             $response = Http::withBasicAuth($consumerKey, $consumerSecret)
@@ -44,7 +42,7 @@ class DarajaService
         }
 
         $shortcode = $destination->darajaShortcode();
-        $passkey = $destination->daraja_passkey;
+        $passkey = $destination->daraja_passkey ?: (config('daraja.environment', 'sandbox') === 'sandbox' ? config('daraja.passkey') : null);
         $callbackToken = $destination->daraja_callback_token;
         $this->assertEnvironmentShortcode($destination, $shortcode);
 
@@ -91,7 +89,7 @@ class DarajaService
     public function queryStk(PaymentDestination $destination, string $checkoutRequestId): array
     {
         $shortcode = $destination->darajaShortcode();
-        $passkey = $destination->daraja_passkey;
+        $passkey = $destination->daraja_passkey ?: config('daraja.passkey');
         $this->assertEnvironmentShortcode($destination, $shortcode);
 
         if (!filled($shortcode) || !filled($passkey)) {
@@ -124,7 +122,7 @@ class DarajaService
     }
 
     /**
-     * Register the shared C2B callback pair using the owning organization's Daraja app.
+     * Register the shared C2B callback pair using the MARSWebz platform Daraja app.
      */
     public function registerC2BUrls(PaymentDestination $destination, string $confirmationUrl, string $validationUrl): array
     {

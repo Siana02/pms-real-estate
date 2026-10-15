@@ -134,13 +134,13 @@ class GuestTenantPaymentLinkController extends Controller
         $referenceRenderer = app(DarajaC2bRoutingService::class);
         $destinations = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)->where('is_active', true)
-            ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->get()
+            ->where('method', 'mpesa_paybill')->get()
             ->map(fn (PaymentDestination $destination) => [
                 'id' => $destination->id,
-                'label' => $destination->label ?: ($destination->method === 'mpesa_till' ? 'M-PESA Till' : 'M-PESA PayBill'),
+                'label' => $destination->label ?: 'M-PESA PayBill',
                 'method' => $destination->method,
                 // Only expose public payment instructions, never gateway credentials.
-                'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['paybill', 'till', 'account', 'account_name', 'business_name'])),
+                'details' => array_intersect_key((array) ($destination->details ?? []), array_flip(['paybill', 'account', 'account_name', 'business_name'])),
                 'account_reference' => $referenceRenderer->renderAccountReference($destination, $lease)
                     ?: $lease->tenant_payment_reference,
                 'stk_push_available' => $destination->stkPushReady(),
@@ -176,7 +176,7 @@ class GuestTenantPaymentLinkController extends Controller
             ->where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)
             ->where('is_active', true)
-            ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])->first();
+            ->where('method', 'mpesa_paybill')->first();
         abort_if(!$destination || !$destination->stkPushReady(), 422,
             'M-PESA payments are not currently available for this property.');
 

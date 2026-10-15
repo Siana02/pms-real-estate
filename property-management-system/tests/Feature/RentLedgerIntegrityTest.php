@@ -290,8 +290,16 @@ class RentLedgerIntegrityTest extends TestCase
 
         $credit = RentPaymentCredit::where('source_payment_id', $payment->id)->firstOrFail();
         $this->assertSame(5000.0, (float) $credit->amount);
-        $this->assertSame(5000.0, (float) $credit->remaining_amount);
-        $this->assertSame('available', $credit->status);
+        $this->assertSame(0.0, (float) $credit->remaining_amount);
+        $this->assertSame('consumed', $credit->status);
+
+        // The excess is carried into the next rent month immediately, not left
+        // as a vague "available" amount detached from a month in the ledger.
+        $futureObligation = RentObligation::where('lease_id', $lease->id)
+            ->whereDate('period', $currentPeriod->addMonth()->toDateString())
+            ->firstOrFail();
+        $this->assertSame(5000.0, (float) $futureObligation->amount_paid);
+        $this->assertSame(5000.0, (float) $futureObligation->balance);
 
         // A retry must not duplicate month allocations or create a second credit.
         app(RentLedgerService::class)->allocateConfirmedPayment($payment->fresh());

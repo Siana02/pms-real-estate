@@ -98,6 +98,28 @@ class PlatformSubscriptionController extends Controller
         if (!$testingAccessOverride && $subscription && $subscription->status === 'active' && (!$subscription->current_period_ends_at || $subscription->current_period_ends_at->isPast())) {
             $subscription->update(['status' => 'past_due']);
         }
+        $isOrganizationOwner = in_array($request->user()->role, ['admin', 'owner'], true);
+        $features = $testingAccessOverride ? ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'] : match ($subscription?->plan_code) {
+            'basic' => ['payment_matching'],
+            'standard' => ['payment_matching', 'tenant_payment_links'],
+            'premium' => ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'],
+            default => [],
+        };
+
+        // Staff need only the status and feature list to decide which parts of
+        // the portal they can use. Never expose plans, pricing, billing Till or
+        // subscription payment history to non-owner accounts.
+        if (!$isOrganizationOwner) {
+            return response()->json([
+                'subscription' => $subscription ? [
+                    'status' => $subscription->status,
+                    'current_period_ends_at' => $subscription->current_period_ends_at,
+                ] : null,
+                'access_override' => $testingAccessOverride,
+                'features' => $features,
+            ]);
+        }
+
         $plans = array_values($this->plans());
         $quote = $subscription ? $this->quote($organization, $subscription->plan_code, $subscription->pricing_overrides ?? [], $subscription->unit_mix ?? []) : null;
         if ($subscription && $quote && ($subscription->billable_units !== $quote['billable_units'] || (float) $subscription->monthly_amount !== (float) $quote['monthly_amount'])) {
@@ -112,12 +134,7 @@ class PlatformSubscriptionController extends Controller
             'till_number' => config('services.platform_billing.till_number'),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
             'payments' => $subscription ? $subscription->payments()->latest()->limit(10)->get() : [],
-            'features' => $testingAccessOverride ? ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'] : match ($subscription?->plan_code) {
-                'basic' => ['payment_matching'],
-                'standard' => ['payment_matching', 'tenant_payment_links'],
-                'premium' => ['payment_matching', 'tenant_payment_links', 'tenant_portal', 'payment_ledger', 'premium_operations'],
-                default => [],
-            },
+            'features' => $features,
         ]);
     }
 

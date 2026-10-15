@@ -22,12 +22,12 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         parent::setUp();
 
-        config(['daraja.environment' => 'sandbox']);
+        config(['daraja.environment' => 'sandbox', 'daraja.consumer_key' => 'platform-consumer-key', 'daraja.consumer_secret' => 'platform-consumer-secret', 'daraja.passkey' => 'platform-sandbox-passkey']);
         $this->organization = Organization::create(['name' => 'Daraja Test Organization', 'email' => 'daraja-test.invalid']);
         OrganizationDarajaCredential::create([
             'organization_id' => $this->organization->id,
-            'consumer_key' => 'organization-consumer-key',
-            'consumer_secret' => 'organization-consumer-secret',
+            'consumer_key' => 'platform-consumer-key',
+            'consumer_secret' => 'platform-consumer-secret',
             'enabled' => true,
         ]);
     }
@@ -43,9 +43,28 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertTrue($destination->stkPushReady());
     }
 
-    public function test_destination_is_not_ready_when_organization_credentials_are_missing(): void
+    public function test_legacy_till_destination_is_never_stk_ready(): void
     {
-        OrganizationDarajaCredential::where('organization_id', $this->organization->id)->delete();
+        $destination = $this->configuredDestination('ready');
+        $destination->method = 'mpesa_till';
+        $destination->details = ['till' => '123456'];
+        $destination->daraja_shortcode_type = 'Till';
+
+        $this->assertFalse($destination->stkPushReady());
+    }
+
+    public function test_production_destination_requires_its_own_passkey_even_if_a_global_default_exists(): void
+    {
+        config(['daraja.environment' => 'production', 'daraja.passkey' => 'global-production-passkey']);
+        $destination = $this->configuredDestination('ready');
+        $destination->daraja_passkey = null;
+
+        $this->assertFalse($destination->stkPushReady());
+    }
+
+    public function test_destination_is_not_ready_when_platform_credentials_are_missing(): void
+    {
+        config(['daraja.consumer_key' => null, 'daraja.consumer_secret' => null]);
 
         $destination = $this->configuredDestination('ready');
 
@@ -65,11 +84,19 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertArrayNotHasKey('consumer_secret', $credential->toArray());
     }
 
-    public function test_stk_query_uses_organization_token_and_destination_merchant_credentials(): void
+    public function test_destination_can_use_platform_managed_passkey_without_manager_entered_secret(): void
+    {
+        $destination = $this->configuredDestination('ready');
+        $destination->daraja_passkey = null;
+
+        $this->assertTrue($destination->stkPushReady());
+    }
+
+    public function test_stk_query_uses_platform_token_and_destination_merchant_credentials(): void
     {
         Cache::flush();
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query' => Http::response([
                 'ResponseCode' => '0',
                 'ResponseDescription' => 'The service request has been accepted successfully',
@@ -87,7 +114,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertSame('0', (string) $result['ResultCode']);
         Http::assertSent(fn (Request $request) =>
             str_contains($request->url(), '/mpesa/stkpushquery/v1/query')
-            && $request->hasHeader('Authorization', 'Bearer test-organization-token')
+            && $request->hasHeader('Authorization', 'Bearer test-platform-token')
             && $request['BusinessShortCode'] === '174379'
             && $request['CheckoutRequestID'] === 'ws_CO_test_query'
             && filled($request['Password'])
@@ -95,12 +122,12 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         );
     }
 
-    public function test_stk_push_sends_the_prompt_request_with_the_organization_token_and_merchant_passkey(): void
+    public function test_stk_push_sends_the_prompt_request_with_the_platform_token_and_merchant_passkey(): void
     {
         Cache::flush();
         config(['app.url' => 'https://pms.example.test']);
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
                 'ResponseCode' => '0',
                 'ResponseDescription' => 'Success. Request accepted for processing',
@@ -120,7 +147,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertSame('ws_CO_test_stk_push', $result['CheckoutRequestID']);
         Http::assertSent(fn (Request $request) =>
             str_contains($request->url(), '/mpesa/stkpush/v1/processrequest')
-            && $request->hasHeader('Authorization', 'Bearer test-organization-token')
+            && $request->hasHeader('Authorization', 'Bearer test-platform-token')
             && $request['BusinessShortCode'] === '174379'
             && $request['PartyA'] === '254712345678'
             && $request['PhoneNumber'] === '254712345678'
@@ -158,7 +185,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         Cache::flush();
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
                 'ResponseCode' => '1',
                 'ResponseDescription' => 'Invalid Access Token',

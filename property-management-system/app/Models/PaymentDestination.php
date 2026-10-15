@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\OrganizationDarajaCredential;
 
 class PaymentDestination extends Model
 {
@@ -76,18 +75,20 @@ class PaymentDestination extends Model
 
     public function hasMerchantStkConfiguration(): bool
     {
-        return in_array($this->method, ['mpesa_paybill', 'mpesa_till'], true)
+        // New automatic Daraja rent payments are PayBill-only. Till remains a
+        // legacy record type, but it must not be presented as STK/C2B-ready.
+        return $this->method === 'mpesa_paybill'
             && filled($this->darajaShortcode())
-            && $this->daraja_shortcode_type === $this->darajaMethod()
-            && filled($this->daraja_passkey);
+            && $this->daraja_shortcode_type === 'PayBill'
+            && (filled($this->daraja_passkey)
+                || (config('daraja.environment', 'sandbox') === 'sandbox' && filled(config('daraja.passkey'))));
     }
 
     public function stkPushReady(): bool
     {
-        $credentials = OrganizationDarajaCredential::where('organization_id', $this->organization_id)->first();
-
         return in_array(config('daraja.environment'), ['sandbox', 'production'], true)
-            && $credentials?->isConfigured() === true
+            && filled(config('daraja.consumer_key'))
+            && filled(config('daraja.consumer_secret'))
             && $this->is_active
             && $this->hasMerchantStkConfiguration()
             && $this->daraja_authorization_status === 'ready';

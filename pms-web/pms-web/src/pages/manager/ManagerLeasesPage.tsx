@@ -77,6 +77,13 @@ interface LeaseRecord {
   tenant_signature: string | null;
   manager_signed_at: string | null;
   tenant_signed_at: string | null;
+  manager_copy_physical_signed_on: string | null;
+  manager_copy_physical_confirmed_at: string | null;
+  manager_physical_confirmed_by: string | null;
+  tenant_copy_physical_signed_on: string | null;
+  tenant_copy_physical_confirmed_at: string | null;
+  tenant_physical_confirmed_by: string | null;
+  physical_signing_notes: string | null;
   agreement_finalized: boolean;
   deposit: DepositRecord | null;
 }
@@ -335,6 +342,16 @@ const leaseStyles = `
 @media (prefers-reduced-motion:reduce) {
   .ls-root, .ls-root *, .ls-root *::before, .ls-root *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; }
 }
+.ls-root .ls-physical-panel { margin-top:1rem; padding:clamp(1rem,2.4vw,1.5rem); border:1px solid #dbe4ef; border-radius:18px; background:#f8fafc; min-width:0; }
+.ls-root .ls-physical-panel__title { margin:.2rem 0 0; color:var(--ls-ink); font-family:Georgia,"Times New Roman",serif; font-size:clamp(1.25rem,2.2vw,1.6rem); font-weight:500; line-height:1.25; }
+.ls-root .ls-physical-panel__intro { margin:.5rem 0 1rem; max-width:48rem; color:var(--ls-muted); font-size:.82rem; line-height:1.65; }
+.ls-root .ls-physical-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+.ls-root .ls-physical-copy { min-width:0; padding:1rem; border:1px solid var(--ls-border); border-radius:14px; background:#fff; }
+.ls-root .ls-physical-copy strong { display:block; color:var(--ls-ink); font-size:.88rem; line-height:1.45; }
+.ls-root .ls-physical-copy p { margin:.35rem 0 .75rem; color:var(--ls-muted); font-size:.76rem; line-height:1.55; overflow-wrap:anywhere; }
+.ls-root .ls-physical-meta { margin:.55rem 0 0; color:#246446; font-size:.76rem; line-height:1.55; overflow-wrap:anywhere; }
+.ls-root .ls-physical-actions { display:flex; justify-content:flex-end; margin-top:.9rem; }
+@media(max-width:720px) { .ls-root .ls-physical-grid { grid-template-columns:minmax(0,1fr); } .ls-root .ls-physical-actions .mg-btn { width:100%; } }
 .ls-root .ls-signature-panel {
   margin-top: 1.15rem; padding: clamp(1rem, 2.4vw, 1.5rem);
   border: 1px solid #dce7e0; border-radius: 20px;
@@ -383,6 +400,8 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
   const tenantRecord = toRecord(record.tenant);
   const unit = toRecord(record.unit);
   const depositRecord = toRecord(record.deposit);
+  const managerPhysicalVerifier = toRecord(record.manager_physical_confirmed_by);
+  const tenantPhysicalVerifier = toRecord(record.tenant_physical_confirmed_by);
   const unitNumber = asString(unit.unit_number);
   const hasDeposit =
     Object.keys(depositRecord).length > 0 || asNumber(record.deposit_amount) > 0;
@@ -435,6 +454,13 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
     tenant_signature: asString(record.tenant_signature) || null,
     manager_signed_at: asString(record.manager_signed_at) || null,
     tenant_signed_at: asString(record.tenant_signed_at) || null,
+    manager_copy_physical_signed_on: asString(record.manager_copy_physical_signed_on) || null,
+    manager_copy_physical_confirmed_at: asString(record.manager_copy_physical_confirmed_at) || null,
+    manager_physical_confirmed_by: asString(managerPhysicalVerifier.name) || asString(record.manager_physical_confirmed_by) || null,
+    tenant_copy_physical_signed_on: asString(record.tenant_copy_physical_signed_on) || null,
+    tenant_copy_physical_confirmed_at: asString(record.tenant_copy_physical_confirmed_at) || null,
+    tenant_physical_confirmed_by: asString(tenantPhysicalVerifier.name) || asString(record.tenant_physical_confirmed_by) || null,
+    physical_signing_notes: asString(record.physical_signing_notes) || null,
     agreement_finalized: asBoolean(record.agreement_finalized),
     deposit: hasDeposit
       ? {
@@ -530,8 +556,8 @@ function agreementState(lease: LeaseRecord): {
   }
 
   const pending: string[] = [];
-  if (!lease.manager_signed_at) pending.push("manager copy");
-  if (!lease.tenant_signed_at) pending.push("tenant copy");
+  if (!lease.manager_signed_at && !lease.manager_copy_physical_confirmed_at) pending.push("manager copy");
+  if (!lease.tenant_signed_at && !lease.tenant_copy_physical_confirmed_at) pending.push("tenant copy");
 
   return {
     badgeClass: "mg-badge mg-badge--warn",
@@ -583,6 +609,10 @@ function ManagerLeasesPage() {
   const [drawerNotice, setDrawerNotice] = useState("");
   const [savingTerms, setSavingTerms] = useState(false);
   const [signingManager, setSigningManager] = useState(false);
+  const [physicalManagerSignedOnDraft, setPhysicalManagerSignedOnDraft] = useState("");
+  const [physicalTenantSignedOnDraft, setPhysicalTenantSignedOnDraft] = useState("");
+  const [physicalSigningNotesDraft, setPhysicalSigningNotesDraft] = useState("");
+  const [savingPhysicalSignatures, setSavingPhysicalSignatures] = useState(false);
   const [savingDeposit, setSavingDeposit] = useState(false);
   const [confirmingLeaseId, setConfirmingLeaseId] = useState<number | null>(null);
 
@@ -648,6 +678,9 @@ function ManagerLeasesPage() {
     setManagerTermsDraft(selectedLease.manager_terms ?? "");
     setTenantTermsDraft(selectedLease.tenant_terms ?? "");
     setManagerInitials("");
+    setPhysicalManagerSignedOnDraft(selectedLease.manager_copy_physical_signed_on?.slice(0, 10) ?? "");
+    setPhysicalTenantSignedOnDraft(selectedLease.tenant_copy_physical_signed_on?.slice(0, 10) ?? "");
+    setPhysicalSigningNotesDraft(selectedLease.physical_signing_notes ?? "");
     setManagerStartDate(
       selectedLease.start_date?.slice(0, 10) ??
         selectedLease.requested_move_in_date?.slice(0, 10) ??
@@ -728,6 +761,8 @@ function ManagerLeasesPage() {
   }, [views]);
 
   const agreementSummary = selectedLease ? agreementState(selectedLease) : null;
+  const managerSideSigned = selectedLease ? Boolean(selectedLease.manager_signed_at || selectedLease.manager_copy_physical_confirmed_at) : false;
+  const tenantSideSigned = selectedLease ? Boolean(selectedLease.tenant_signed_at || selectedLease.tenant_copy_physical_confirmed_at) : false;
   const managerTermsChanged = selectedLease
     ? managerTermsDraft !== (selectedLease.manager_terms ?? "")
     : false;
@@ -936,6 +971,47 @@ function ManagerLeasesPage() {
       );
     } finally {
       setSigningManager(false);
+    }
+  }
+
+  async function recordPhysicalSignatures() {
+    if (!selectedLease || savingPhysicalSignatures) return;
+    const managerDate = physicalManagerSignedOnDraft.trim();
+    const tenantDate = physicalTenantSignedOnDraft.trim();
+    const managerAlreadyConfirmed = Boolean(selectedLease.manager_copy_physical_confirmed_at);
+    const tenantAlreadyConfirmed = Boolean(selectedLease.tenant_copy_physical_confirmed_at);
+    if ((!managerDate || managerAlreadyConfirmed) && (!tenantDate || tenantAlreadyConfirmed) &&
+        physicalSigningNotesDraft.trim() === (selectedLease.physical_signing_notes ?? "")) {
+      setDrawerNotice("No new physical signature details to save.");
+      setDrawerError("");
+      return;
+    }
+
+    setSavingPhysicalSignatures(true);
+    setDrawerError("");
+    setDrawerNotice("");
+    try {
+      const payload = await apiRequest(`/leases/${selectedLease.id}/physical-signatures`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          manager_copy_signed_on: managerDate || null,
+          tenant_copy_signed_on: tenantDate || null,
+          physical_signing_notes: physicalSigningNotesDraft.trim() || null,
+        }),
+      });
+      const updated = parseLeaseUpdate(payload);
+      if (updated) {
+        syncLease(updated);
+        setPhysicalManagerSignedOnDraft(updated.manager_copy_physical_signed_on?.slice(0, 10) ?? "");
+        setPhysicalTenantSignedOnDraft(updated.tenant_copy_physical_signed_on?.slice(0, 10) ?? "");
+        setPhysicalSigningNotesDraft(updated.physical_signing_notes ?? "");
+      }
+      setDrawerNotice("Physical signature records saved. The system records who verified each copy and when; no digital signature was created.");
+      await load();
+    } catch (cause) {
+      setDrawerError(cause instanceof Error ? cause.message : "Could not record the physical signatures.");
+    } finally {
+      setSavingPhysicalSignatures(false);
     }
   }
 
@@ -1564,14 +1640,16 @@ function ManagerLeasesPage() {
                       <div className="ls-copy-card__status">
                         <span
                           className={
-                            selectedLease.manager_signed_at
+                            managerSideSigned
                               ? "mg-badge mg-badge--ok"
                               : "mg-badge mg-badge--warn"
                           }
                         >
                           {selectedLease.manager_signed_at
-                            ? `Signed by ${selectedLease.manager_signature ?? "manager"}`
-                            : "Not yet signed"}
+                            ? `Digitally signed by ${selectedLease.manager_signature ?? "manager"}`
+                            : selectedLease.manager_copy_physical_confirmed_at
+                              ? "Physically signed · verified"
+                              : "Not yet signed"}
                         </span>
                       </div>
                     </div>
@@ -1585,12 +1663,12 @@ function ManagerLeasesPage() {
                         className="mg-textarea"
                         value={managerTermsDraft}
                         onChange={(event) => setManagerTermsDraft(event.target.value)}
-                        disabled={Boolean(selectedLease.manager_signed_at)}
+                        disabled={Boolean(selectedLease.manager_signed_at || selectedLease.manager_copy_physical_confirmed_at || selectedLease.tenant_copy_physical_confirmed_at)}
                         placeholder="Agreement terms visible to the manager…"
                       />
                       <p className="ls-copy-card__hint">
-                        {selectedLease.manager_signed_at
-                          ? "The manager signature has locked this lease."
+                        {selectedLease.manager_signed_at || selectedLease.manager_copy_physical_confirmed_at || selectedLease.tenant_copy_physical_confirmed_at
+                          ? "A digital signature or physical signature confirmation has locked this lease."
                           : "Editing manager-controlled details before signing may require the tenant to review and sign the new version."}
                       </p>
                     </div>
@@ -1605,14 +1683,16 @@ function ManagerLeasesPage() {
                       <div className="ls-copy-card__status">
                         <span
                           className={
-                            selectedLease.tenant_signed_at
+                            tenantSideSigned
                               ? "mg-badge mg-badge--ok"
                               : "mg-badge mg-badge--warn"
                           }
                         >
                           {selectedLease.tenant_signed_at
-                            ? `Signed by ${selectedLease.tenant_signature ?? "tenant"}`
-                            : "Not yet signed"}
+                            ? `Digitally signed by ${selectedLease.tenant_signature ?? "tenant"}`
+                            : selectedLease.tenant_copy_physical_confirmed_at
+                              ? "Physically signed · verified"
+                              : "Not yet signed"}
                         </span>
                       </div>
                     </div>
@@ -1646,41 +1726,45 @@ function ManagerLeasesPage() {
                         Both parties must sign the current agreement. Once the manager signs, the lease is locked.
                       </p>
                     </div>
-                    <span className={selectedLease.manager_signed_at ? "mg-badge mg-badge--ok" : selectedLease.tenant_signed_at ? "mg-badge mg-badge--warn" : "mg-badge"}>
-                      {selectedLease.manager_signed_at ? "Agreement signed" : selectedLease.tenant_signed_at ? "Manager signature needed" : "Awaiting tenant"}
+                    <span className={selectedLease.agreement_finalized ? "mg-badge mg-badge--ok" : tenantSideSigned ? "mg-badge mg-badge--warn" : "mg-badge"}>
+                      {selectedLease.agreement_finalized ? "Agreement fully executed" : tenantSideSigned ? "Manager copy needed" : managerSideSigned ? "Tenant copy needed" : "Awaiting signatures"}
                     </span>
                   </div>
 
                   <div className="ls-signature-steps">
-                    <div className={selectedLease.tenant_signed_at ? "ls-signature-step ls-signature-step--complete" : "ls-signature-step"}>
-                      <span className="ls-signature-step__icon">{selectedLease.tenant_signed_at ? <CheckCircle2 /> : <span>1</span>}</span>
+                    <div className={tenantSideSigned ? "ls-signature-step ls-signature-step--complete" : "ls-signature-step"}>
+                      <span className="ls-signature-step__icon">{tenantSideSigned ? <CheckCircle2 /> : <span>1</span>}</span>
                       <div className="ls-signature-step__content">
                         <strong>Tenant signature</strong>
                         <p>{selectedLease.tenant_signed_at
-                          ? "Signed by " + (selectedLease.tenant_signature ?? "tenant") + " on " + formatDate(selectedLease.tenant_signed_at) + "."
-                          : "The tenant has not signed this agreement version yet."}</p>
+                          ? "Digitally signed by " + (selectedLease.tenant_signature ?? "tenant") + " on " + formatDate(selectedLease.tenant_signed_at) + "."
+                          : selectedLease.tenant_copy_physical_confirmed_at
+                            ? "Physical tenant copy signed on " + (selectedLease.tenant_copy_physical_signed_on ?? "date not recorded") + "; confirmed by " + (selectedLease.tenant_physical_confirmed_by ?? "manager") + " on " + formatDate(selectedLease.tenant_copy_physical_confirmed_at) + "."
+                            : "The tenant has not signed this agreement version yet."}</p>
                       </div>
-                      <span className={selectedLease.tenant_signed_at ? "mg-badge mg-badge--ok" : "mg-badge mg-badge--warn"}>
-                        {selectedLease.tenant_signed_at ? "Complete" : "Pending"}
+                      <span className={tenantSideSigned ? "mg-badge mg-badge--ok" : "mg-badge mg-badge--warn"}>
+                        {tenantSideSigned ? "Complete" : "Pending"}
                       </span>
                     </div>
-                    <div className={selectedLease.manager_signed_at ? "ls-signature-step ls-signature-step--complete" : "ls-signature-step"}>
-                      <span className="ls-signature-step__icon">{selectedLease.manager_signed_at ? <CheckCircle2 /> : <span>2</span>}</span>
+                    <div className={managerSideSigned ? "ls-signature-step ls-signature-step--complete" : "ls-signature-step"}>
+                      <span className="ls-signature-step__icon">{managerSideSigned ? <CheckCircle2 /> : <span>2</span>}</span>
                       <div className="ls-signature-step__content">
                         <strong>Manager signature</strong>
                         <p>{selectedLease.manager_signed_at
-                          ? "Signed by " + (selectedLease.manager_signature ?? "manager") + " on " + formatDate(selectedLease.manager_signed_at) + ". The agreement is locked."
-                          : selectedLease.tenant_signed_at
-                            ? "The tenant has signed. Review their agreement copy, enter your initials below, and lock the lease."
-                            : "Available after the tenant signs the current agreement."}</p>
+                          ? "Digitally signed by " + (selectedLease.manager_signature ?? "manager") + " on " + formatDate(selectedLease.manager_signed_at) + ". The agreement is locked."
+                          : selectedLease.manager_copy_physical_confirmed_at
+                            ? "Physical manager copy signed on " + (selectedLease.manager_copy_physical_signed_on ?? "date not recorded") + "; confirmed by " + (selectedLease.manager_physical_confirmed_by ?? "manager") + " on " + formatDate(selectedLease.manager_copy_physical_confirmed_at) + "."
+                            : tenantSideSigned
+                              ? "The tenant has signed. You can sign digitally or confirm the manager's printed copy in the physical-signing section below."
+                              : "Available after the tenant signs the current agreement."}</p>
                       </div>
-                      <span className={selectedLease.manager_signed_at ? "mg-badge mg-badge--ok" : "mg-badge mg-badge--warn"}>
-                        {selectedLease.manager_signed_at ? "Complete" : "Pending"}
+                      <span className={managerSideSigned ? "mg-badge mg-badge--ok" : "mg-badge mg-badge--warn"}>
+                        {managerSideSigned ? "Complete" : "Pending"}
                       </span>
                     </div>
                   </div>
 
-                  {!selectedLease.manager_signed_at && (
+                  {!selectedLease.manager_signed_at && !selectedLease.manager_copy_physical_confirmed_at && !selectedLease.tenant_copy_physical_confirmed_at && (
                     <div className="ls-signature-action">
                       <div className="ls-signature-action__copy">
                         <span className="ls-sign-copy__icon"><FileSignature /></span>
@@ -1719,12 +1803,55 @@ function ManagerLeasesPage() {
                       </div>
                     </div>
                   )}
-                  {selectedLease.manager_signed_at && (
+                  {(selectedLease.manager_signed_at || selectedLease.agreement_finalized) && (
                     <div className="ls-signature-locked" role="status">
                       <CheckCircle2 />
-                      <span><strong>This lease is signed and locked.</strong> Both signature records are shown above. The signed agreement can no longer be edited.</span>
+                      <span><strong>This agreement is fully executed.</strong> The recorded digital and/or physical signing evidence is shown above. The agreement terms are locked.</span>
                     </div>
                   )}
+                </section>
+
+                <section className="ls-physical-panel" aria-labelledby="lease-physical-signatures-heading">
+                  <p className="ls-copy-card__eyebrow">Offline signing</p>
+                  <h3 id="lease-physical-signatures-heading" className="ls-physical-panel__title">Confirm physically signed copies</h3>
+                  <p className="ls-physical-panel__intro">
+                    Use this when the tenant does not use the portal and both parties sign printed copies. Enter the actual date on each copy. Saving records the manager who verified it and the time of confirmation; it does not create or imitate a digital signature. Once a physical copy is confirmed, agreement terms are locked.
+                  </p>
+                  <div className="ls-physical-grid">
+                    <div className="ls-physical-copy">
+                      <strong>Manager / landlord copy</strong>
+                      <p>{selectedLease.manager_copy_physical_confirmed_at
+                        ? "This physical copy has already been confirmed."
+                        : "Enter the date the manager's or landlord's printed copy was signed."}</p>
+                      <div className="mg-field">
+                        <label className="mg-label" htmlFor="lease-manager-physical-date">Date physically signed</label>
+                        <input id="lease-manager-physical-date" className="mg-input" type="date" max={todayDate()} value={physicalManagerSignedOnDraft} onChange={(event) => setPhysicalManagerSignedOnDraft(event.target.value)} disabled={Boolean(selectedLease.manager_copy_physical_confirmed_at)} />
+                      </div>
+                      {selectedLease.manager_copy_physical_confirmed_at && <p className="ls-physical-meta">Verified by {selectedLease.manager_physical_confirmed_by ?? "manager"} on {formatDate(selectedLease.manager_copy_physical_confirmed_at)}.</p>}
+                    </div>
+                    <div className="ls-physical-copy">
+                      <strong>Tenant copy</strong>
+                      <p>{selectedLease.tenant_copy_physical_confirmed_at
+                        ? "This physical copy has already been confirmed."
+                        : "Enter the date the tenant's printed copy was signed."}</p>
+                      <div className="mg-field">
+                        <label className="mg-label" htmlFor="lease-tenant-physical-date">Date physically signed</label>
+                        <input id="lease-tenant-physical-date" className="mg-input" type="date" max={todayDate()} value={physicalTenantSignedOnDraft} onChange={(event) => setPhysicalTenantSignedOnDraft(event.target.value)} disabled={Boolean(selectedLease.tenant_copy_physical_confirmed_at)} />
+                      </div>
+                      {selectedLease.tenant_copy_physical_confirmed_at && <p className="ls-physical-meta">Verified by {selectedLease.tenant_physical_confirmed_by ?? "manager"} on {formatDate(selectedLease.tenant_copy_physical_confirmed_at)}.</p>}
+                    </div>
+                  </div>
+                  <div className="mg-field" style={{ marginTop: ".9rem" }}>
+                    <label className="mg-label" htmlFor="lease-physical-notes">Verification notes (optional)</label>
+                    <textarea id="lease-physical-notes" className="mg-textarea" value={physicalSigningNotesDraft} onChange={(event) => setPhysicalSigningNotesDraft(event.target.value)} maxLength={2000} disabled={Boolean(selectedLease.agreement_finalized)} placeholder="e.g. Both printed copies checked in person at the property office." />
+                    <span className="mg-hint">Do not upload or enter sensitive identity documents here. Keep the signed paper copies securely filed.</span>
+                  </div>
+                  <div className="ls-physical-actions">
+                    <button type="button" className="mg-btn mg-btn--primary" onClick={() => void recordPhysicalSignatures()} disabled={savingPhysicalSignatures || ((Boolean(selectedLease.manager_copy_physical_confirmed_at) || !physicalManagerSignedOnDraft) && (Boolean(selectedLease.tenant_copy_physical_confirmed_at) || !physicalTenantSignedOnDraft) && physicalSigningNotesDraft.trim() === (selectedLease.physical_signing_notes ?? ""))}>
+                      <FileSignature />
+                      {savingPhysicalSignatures ? "Saving confirmations…" : "Record physical signatures"}
+                    </button>
+                  </div>
                 </section>
               </div>
 
@@ -1736,7 +1863,7 @@ function ManagerLeasesPage() {
                   type="button"
                   className="mg-btn mg-btn--primary"
                   onClick={() => void saveAgreementTerms()}
-                  disabled={savingTerms || Boolean(selectedLease.manager_signed_at) || (!managerTermsChanged && managerStartDate === (selectedLease.start_date?.slice(0, 10) ?? "") && managerEndDate === (selectedLease.end_date?.slice(0, 10) ?? "") && Number(managerRentDraft) === selectedLease.monthly_rent && Number(managerDepositRequiredDraft) === depositRequired(selectedLease))}
+                  disabled={savingTerms || Boolean(selectedLease.manager_signed_at || selectedLease.manager_copy_physical_confirmed_at || selectedLease.tenant_copy_physical_confirmed_at) || (!managerTermsChanged && managerStartDate === (selectedLease.start_date?.slice(0, 10) ?? "") && managerEndDate === (selectedLease.end_date?.slice(0, 10) ?? "") && Number(managerRentDraft) === selectedLease.monthly_rent && Number(managerDepositRequiredDraft) === depositRequired(selectedLease))}
                 >
                   {savingTerms ? "Saving…" : "Save agreement text"}
                 </button>
