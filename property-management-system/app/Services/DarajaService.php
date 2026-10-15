@@ -122,7 +122,7 @@ class DarajaService
     }
 
     /**
-     * Register the shared C2B callback pair using the owning organization's Daraja app.
+     * Register the shared C2B callback pair using the MARSWebz platform Daraja app.
      */
     public function registerC2BUrls(PaymentDestination $destination, string $confirmationUrl, string $validationUrl): array
     {
