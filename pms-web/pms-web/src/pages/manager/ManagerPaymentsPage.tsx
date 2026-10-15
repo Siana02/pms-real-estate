@@ -59,6 +59,42 @@ interface PaymentRecord {
   rent_payment_credits: RentCreditRecord[];
 }
 
+interface RentLedgerRow {
+  id: number; lease_id: number; tenant_id: number; tenant_name: string; property_name: string;
+  unit_number: string; period: string; due_date: string; amount_due: number; amount_paid: number;
+  balance: number; status: string;
+  references: { reference: string | null; payment_date: string; amount_applied: number; source: string }[];
+}
+interface RentLedgerCredit {
+  id: number; lease_id: number; tenant_name: string; property_name: string; unit_number: string;
+  original_amount: number; remaining_amount: number; source_reference: string | null; source_payment_date: string | null;
+}
+function parseRentLedger(payload: unknown): { rows: RentLedgerRow[]; credits: RentLedgerCredit[] } {
+  const root = toRecord(payload);
+  return {
+    rows: rows(root.data).map((record) => ({
+      id: asNumber(record.id), lease_id: asNumber(record.lease_id), tenant_id: asNumber(record.tenant_id),
+      tenant_name: asString(record.tenant_name) || "Unknown tenant", property_name: asString(record.property_name) || "Property",
+      unit_number: asString(record.unit_number) || "—", period: asString(record.period), due_date: asString(record.due_date),
+      amount_due: asNumber(record.amount_due), amount_paid: asNumber(record.amount_paid), balance: asNumber(record.balance),
+      status: asString(record.status) || "due",
+      references: rows(record.references).map((ref) => ({ reference: asString(ref.reference) || null, payment_date: asString(ref.payment_date), amount_applied: asNumber(ref.amount_applied), source: asString(ref.source) })),
+    })),
+    credits: rows(root.credits).map((record) => ({
+      id: asNumber(record.id), lease_id: asNumber(record.lease_id), tenant_name: asString(record.tenant_name) || "Unknown tenant",
+      property_name: asString(record.property_name) || "Property", unit_number: asString(record.unit_number) || "—",
+      original_amount: asNumber(record.original_amount), remaining_amount: asNumber(record.remaining_amount),
+      source_reference: asString(record.source_reference) || null, source_payment_date: asString(record.source_payment_date) || null,
+    })),
+  };
+}
+function rentStatusLabel(status: string) {
+  return status === "paid" ? "Paid fully" : status === "partial" ? "Partially paid" : status === "overdue" ? "Overdue" : status === "due" ? "Due now" : "Upcoming";
+}
+function rentStatusClass(status: string) {
+  return status === "paid" ? "ok" : status === "overdue" ? "danger" : status === "partial" ? "info" : "warn";
+}
+
 interface LeaseOption {
   id: number;
   label: string;
@@ -393,6 +429,8 @@ function ManagerPaymentsPage() {
 
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [leaseOptions, setLeaseOptions] = useState<LeaseOption[]>([]);
+  const [ledgerRows, setLedgerRows] = useState<RentLedgerRow[]>([]);
+  const [rentCredits, setRentCredits] = useState<RentLedgerCredit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -406,13 +444,17 @@ function ManagerPaymentsPage() {
     setError("");
 
     try {
-      const [paymentsPayload, leasesPayload] = await Promise.all([
+      const [paymentsPayload, leasesPayload, ledgerPayload] = await Promise.all([
         apiRequest("/payments"),
         apiRequest("/leases"),
+        apiRequest("/payments/rent-ledger"),
       ]);
 
       setPayments(parsePayments(paymentsPayload));
       setLeaseOptions(parseLeaseOptions(leasesPayload));
+      const ledger = parseRentLedger(ledgerPayload);
+      setLedgerRows(ledger.rows);
+      setRentCredits(ledger.credits);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not load payments."
@@ -476,6 +518,26 @@ function ManagerPaymentsPage() {
       })
       .sort((a, b) => (a.payment_date ?? "") < (b.payment_date ?? "") ? 1 : -1);
   }, [scoped, type, query, statusFilter]);
+
+  const groupedRentLedger = useMemo(() => {
+    const grouped = new Map<number, { leaseId: number; tenantName: string; propertyName: string; unitNumber: string; rows: RentLedgerRow[]; credits: RentLedgerCredit[] }>();
+    ledgerRows.forEach((row) => {
+      const group = grouped.get(row.lease_id) ?? { leaseId: row.lease_id, tenantName: row.tenant_name, propertyName: row.property_name, unitNumber: row.unit_number, rows: [], credits: [] };
+      group.rows.push(row);
+      grouped.set(row.lease_id, group);
+    });
+    rentCredits.forEach((credit) => {
+      const group = grouped.get(credit.lease_id) ?? { leaseId: credit.lease_id, tenantName: credit.tenant_name, propertyName: credit.property_name, unitNumber: credit.unit_number, rows: [], credits: [] };
+      group.credits.push(credit);
+      grouped.set(credit.lease_id, group);
+    });
+    return [...grouped.values()].map((group) => ({
+      ...group,
+      rows: [...group.rows].sort((a, b) => b.period.localeCompare(a.period)),
+      outstanding: group.rows.reduce((sum, row) => sum + row.balance, 0),
+      creditRemaining: group.credits.reduce((sum, credit) => sum + credit.remaining_amount, 0),
+    })).sort((a, b) => a.tenantName.localeCompare(b.tenantName));
+  }, [ledgerRows, rentCredits]);
 
   const totals = useMemo(() => {
     const confirmed = scoped.filter((payment) => payment.status === "paid");
@@ -576,6 +638,53 @@ function ManagerPaymentsPage() {
                 {formatMoney(totals.average, currency)}
               </p>
             </article>
+          </section>
+
+          <style>{`
+            .pl-ledger{margin:1.4rem 0 1.6rem;display:grid;gap:.85rem}
+            .pl-ledger__intro{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap}
+            .pl-ledger__intro h2{margin:0;font-size:1.15rem;color:#172b3f;letter-spacing:-.02em}
+            .pl-ledger__intro p{margin:.4rem 0 0;max-width:58rem;font-size:.86rem;line-height:1.65;color:#607286}
+            .pl-ledger__lease{border:1px solid #dbe4ed;border-radius:16px;background:#fff;overflow:hidden}
+            .pl-ledger__summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:1rem;align-items:center;padding:1rem 1.1rem;cursor:pointer;list-style:none}
+            .pl-ledger__summary::-webkit-details-marker{display:none}
+            .pl-ledger__name{font-weight:800;color:#1b344b;line-height:1.4}
+            .pl-ledger__meta{font-size:.77rem;color:#66798c;margin-top:.2rem}
+            .pl-ledger__metric{font-size:.73rem;color:#6b7c8d;white-space:nowrap}
+            .pl-ledger__metric strong{display:block;font-size:.94rem;color:#1b344b;margin-top:.2rem}
+            .pl-ledger__body{border-top:1px solid #edf1f5;padding:.7rem 1rem 1rem}
+            .pl-ledger__table{width:100%;border-collapse:collapse;font-size:.82rem}
+            .pl-ledger__table th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#6a7b8c;padding:.65rem .5rem;border-bottom:1px solid #e8edf2}
+            .pl-ledger__table td{padding:.75rem .5rem;border-bottom:1px solid #f0f3f6;color:#334b60;vertical-align:top}
+            .pl-ledger__table tr:last-child td{border-bottom:0}
+            .pl-ledger__amount{font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}
+            .pl-ledger__refs{display:grid;gap:.2rem;color:#6b7c8c;font-size:.73rem;line-height:1.45}
+            .pl-ledger__credit{display:flex;gap:.65rem;align-items:flex-start;padding:.8rem .9rem;margin-top:.7rem;border:1px solid #d7e8fa;border-radius:12px;background:#f4f9ff;color:#2a4d70;font-size:.82rem;line-height:1.55}
+            .pl-ledger__empty{padding:1rem;border:1px dashed #cdd8e3;border-radius:14px;color:#6b7c8c;font-size:.85rem}
+            @media(max-width:760px){.pl-ledger__summary{grid-template-columns:minmax(0,1fr) auto}.pl-ledger__metric:last-child{grid-column:1/-1}.pl-ledger__body{overflow-x:auto}.pl-ledger__table{min-width:620px}}
+          `}</style>
+          <section className="pl-ledger" aria-labelledby="pl-ledger-title">
+            <div className="pl-ledger__intro"><div><h2 id="pl-ledger-title">Rent ledger by tenant and month</h2><p>Each row is one rent month. “Paid” includes direct payments and credit carried forward from earlier overpayments. Rent is considered overdue after its due date (usually the 5th), subject to any grace period on the lease.</p></div><span className="mg-badge mg-badge--info">{groupedRentLedger.length} leases</span></div>
+            {loading ? <div className="pl-ledger__empty">Loading monthly rent ledger…</div> : groupedRentLedger.length === 0 ? <div className="pl-ledger__empty">No rent obligations have been generated yet. Refresh after the rent ledger has been generated for active leases.</div> : groupedRentLedger.map((group) => (
+              <details className="pl-ledger__lease" key={group.leaseId}>
+                <summary className="pl-ledger__summary">
+                  <div><div className="pl-ledger__name">{group.tenantName}</div><div className="pl-ledger__meta">{group.propertyName} · Unit {group.unitNumber} · Lease #{group.leaseId}</div></div>
+                  <div className="pl-ledger__metric">Outstanding<strong>{formatMoney(group.outstanding, currency)}</strong></div>
+                  <div className="pl-ledger__metric">Future rent credit<strong>{formatMoney(group.creditRemaining, currency)}</strong></div>
+                </summary>
+                <div className="pl-ledger__body">
+                  {group.rows.length === 0 ? <p className="pl-ledger__meta">No monthly obligations recorded for this lease yet.</p> : <table className="pl-ledger__table"><thead><tr><th>Rent month</th><th>Due date</th><th>Status</th><th>Rent due</th><th>Paid / credit applied</th><th>Balance</th><th>Receipt reference</th></tr></thead><tbody>
+                    {group.rows.map((row) => <tr key={row.id}>
+                      <td><strong>{formatRentPeriod(row.period)}</strong></td><td>{formatDate(row.due_date)}</td>
+                      <td><span className={`mg-badge mg-badge--${rentStatusClass(row.status)}`}>{rentStatusLabel(row.status)}</span></td>
+                      <td className="pl-ledger__amount">{formatMoney(row.amount_due, currency)}</td><td className="pl-ledger__amount">{formatMoney(row.amount_paid, currency)}</td><td className="pl-ledger__amount">{formatMoney(row.balance, currency)}</td>
+                      <td><div className="pl-ledger__refs">{row.references.length ? row.references.map((reference, index) => <span key={`${row.id}-${index}`}>{reference.reference || "No receipt reference"} · {formatMoney(reference.amount_applied, currency)}{reference.source === "rent_credit" ? " (credit)" : ""}</span>) : <span>No receipt linked</span>}</div></td>
+                    </tr>)}
+                  </tbody></table>}
+                  {group.credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <div className="pl-ledger__credit" key={credit.id}><CheckCircle2 size={17}/><div><strong>{formatMoney(credit.remaining_amount, currency)} rent credit carried forward</strong><div>Original overpayment: {formatMoney(credit.original_amount, currency)}{credit.source_reference ? ` · Receipt ${credit.source_reference}` : ""}. This amount will be applied to the next outstanding rent month when that month’s obligation is generated.</div></div></div>)}
+                </div>
+              </details>
+            ))}
           </section>
 
           <div className="mg-toolbar">
@@ -740,7 +849,7 @@ function ManagerPaymentsPage() {
                               {creditAllocations.map((allocation) => <span key={`credit-${allocation.creditId}-${allocation.id}`} className="mg-sub">{formatRentPeriod(allocation.rent_obligation?.period)} · {formatMoney(allocation.amount, currency)} from excess</span>)}
                               {legacyObligation && <span className="mg-sub">Legacy month link: {formatRentPeriod(legacyObligation.period)} · explicit month-by-month allocation was not recorded</span>}
                               {!hasLedgerAllocations && !legacyObligation && <span className="mg-sub">{payment.status === "pending" ? "Not allocated until confirmed" : payment.status === "paid" ? "No rent allocation recorded" : "Not allocated"}</span>}
-                              {payment.rent_payment_credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <span key={`credit-remaining-${credit.id}`} className="mg-badge mg-badge--info">{formatMoney(credit.remaining_amount, currency)} still available for rent</span>)}
+                              {payment.rent_payment_credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <span key={`credit-remaining-${credit.id}`} className="mg-badge mg-badge--info">{formatMoney(credit.remaining_amount, currency)} rent credit carried forward</span>)}
                             </div>;
                           })()}
                         </td>
