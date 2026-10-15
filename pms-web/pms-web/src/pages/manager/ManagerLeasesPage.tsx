@@ -556,8 +556,8 @@ function agreementState(lease: LeaseRecord): {
   }
 
   const pending: string[] = [];
-  if (!lease.manager_signed_at) pending.push("manager copy");
-  if (!lease.tenant_signed_at) pending.push("tenant copy");
+  if (!lease.manager_signed_at && !lease.manager_copy_physical_confirmed_at) pending.push("manager copy");
+  if (!lease.tenant_signed_at && !lease.tenant_copy_physical_confirmed_at) pending.push("tenant copy");
 
   return {
     badgeClass: "mg-badge mg-badge--warn",
