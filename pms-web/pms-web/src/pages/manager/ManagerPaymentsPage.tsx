@@ -604,8 +604,8 @@ function ManagerPaymentsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mg-root">
-        <style>{managerStyles}</style>
+      <div className="mg-root payment-ledger-page">
+        <style>{managerStyles}{paymentsPageStyles}</style>
 
         <div className="mg-shell">
           <header className="mg-header">
