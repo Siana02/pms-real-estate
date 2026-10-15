@@ -6,4 +6,7 @@ return [
     'environment' => env('DARAJA_ENVIRONMENT', 'sandbox'),
     'consumer_key' => env('PLATFORM_DARAJA_CONSUMER_KEY', env('DARAJA_CONSUMER_KEY')),
     'consumer_secret' => env('PLATFORM_DARAJA_CONSUMER_SECRET', env('DARAJA_CONSUMER_SECRET')),
+    // Default STK passkey is deployment-managed. A destination-specific encrypted
+    // passkey may override it when a merchant has its own shortcode/passkey pair.
+    'passkey' => env('PLATFORM_DARAJA_PASSKEY', env('DARAJA_PASSKEY')),
 ];
