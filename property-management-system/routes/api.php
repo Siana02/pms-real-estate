@@ -100,6 +100,7 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
     Route::apiResource('leases', LeasesController::class);
     Route::patch('leases/{lease}/deposit', [LeasesController::class, 'recordDeposit']);
     Route::patch('leases/{lease}/physical-signatures', [LeasesController::class, 'confirmPhysicalSignatures'])->middleware('throttle:20,1');
+    Route::get('payments/rent-ledger', [PaymentController::class, 'rentLedger'])->middleware('subscription.feature:payment_ledger');
     Route::apiResource('payments', PaymentController::class)->middleware('subscription.feature:payment_ledger');
     Route::get('payment-reconciliation', [PaymentReconciliationController::class, 'index']);
     Route::get('payment-reconciliation/ledger-review-flags', [RentLedgerReviewController::class, 'index']);
