@@ -23,7 +23,7 @@ type Payload = {
 
 const METHOD_LABEL: Record<Method, string> = {
   mpesa_number: "M-PESA number",
-  mpesa_till: "M-PESA Till",
+  mpesa_till: "Legacy destination", 
   mpesa_paybill: "M-PESA PayBill",
   bank: "Bank account",
 };
@@ -34,7 +34,7 @@ function destinationSummary(item: Destination) {
     case "mpesa_number":
       return d.number ?? "M-PESA number";
     case "mpesa_till":
-      return `Till ${d.till ?? "—"}`;
+      return "Legacy destination retained for historical records; automatic matching unavailable";
     case "mpesa_paybill":
       return `PayBill ${d.paybill ?? "—"} · Account ${d.account ?? "—"}`;
     case "bank":
@@ -53,7 +53,6 @@ export default function PaymentDestinationSection({ role }: Props) {
   const [method, setMethod] = useState<Method>("mpesa_paybill");
   const [label, setLabel] = useState("");
   const [number, setNumber] = useState("");
-  const [till, setTill] = useState("");
   const [paybill, setPaybill] = useState("");
   const [account, setAccount] = useState("");
   const [bankName, setBankName] = useState("");
@@ -102,7 +101,6 @@ export default function PaymentDestinationSection({ role }: Props) {
     setShowForm(false);
     setLabel("");
     setNumber("");
-    setTill("");
     setPaybill("");
     setAccount("");
     setBankName("");
@@ -120,7 +118,6 @@ export default function PaymentDestinationSection({ role }: Props) {
     setMethod(item.method);
     setLabel(item.label ?? "");
     setNumber(d.number ?? "");
-    setTill(d.till ?? "");
     setPaybill(d.paybill ?? "");
     setAccount(d.account ?? "");
     setBankName(d.bank_name ?? "");
@@ -133,7 +130,6 @@ export default function PaymentDestinationSection({ role }: Props) {
 
   function details() {
     if (method === "mpesa_number") return { number };
-    if (method === "mpesa_till") return { till }; // legacy records only
     if (method === "mpesa_paybill") return { paybill, account };
     return { bank_name: bankName, account_name: accountName, account_number: accountNumber, branch };
   }
@@ -223,12 +219,12 @@ export default function PaymentDestinationSection({ role }: Props) {
                       {item.method === "bank" ? <Building2 size={20} /> : <Smartphone size={20} />}
                     </span>
                     <div style={{ minWidth: 0 }}>
-                      <strong style={{ display: "block" }}>{item.label || METHOD_LABEL[item.method]}</strong>
+                      <strong style={{ display: "block" }}>{item.method === "mpesa_till" ? "Legacy destination (manual review only)" : item.label || METHOD_LABEL[item.method]}</strong>
                       <span className="mg-hint" style={{ display: "block", marginTop: ".15rem", overflowWrap: "anywhere" }}>{destinationSummary(item)}</span>
                     </div>
                   </div>
                   <div className="mg-actions">
-                    {item.method !== "mpesa_till" && <button type="button" className="mg-btn mg-btn--ghost" onClick={() => startEdit(item)}>Edit</button>}{item.method === "mpesa_till" && <span className="mg-hint">Legacy Till · automatic matching unavailable</span>}
+                    {item.method !== "mpesa_till" && <button type="button" className="mg-btn mg-btn--ghost" onClick={() => startEdit(item)}>Edit</button>}{item.method === "mpesa_till" && <span className="mg-hint">Legacy destination · automatic matching unavailable</span>}
                     <button type="button" className="mg-btn mg-btn--ghost" onClick={() => void disable(item)}><Trash2 />Disable</button>
                   </div>
                 </article>
@@ -270,7 +266,6 @@ export default function PaymentDestinationSection({ role }: Props) {
                 </div>
 
                 {method === "mpesa_number" && <label className="mg-field"><span className="mg-label">M-PESA number</span><input className="mg-input" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="0712345678" /></label>}
-                {method === "mpesa_till" && <label className="mg-field"><span className="mg-label">Till number</span><input className="mg-input" value={till} onChange={(e) => setTill(e.target.value)} placeholder="Enter Till number" /></label>}
                 {method === "mpesa_paybill" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">PayBill number</span><input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" /></label><label className="mg-field"><span className="mg-label">Account / reference</span><input className="mg-input" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="ABC Properties" /></label></div>}
 
                 {method === "mpesa_paybill" && (
