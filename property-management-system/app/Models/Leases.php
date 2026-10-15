@@ -103,6 +103,16 @@ class Leases extends Model
         return $this->hasOne(Deposit::class, 'lease_id');
     }
 
+    public function managerPhysicalConfirmedBy()
+    {
+        return $this->belongsTo(User::class, 'manager_copy_physical_confirmed_by');
+    }
+
+    public function tenantPhysicalConfirmedBy()
+    {
+        return $this->belongsTo(User::class, 'tenant_copy_physical_confirmed_by');
+    }
+
     public function getStatusAttribute($value): string
     {
         if (in_array($value, ['ended', 'terminated'], true)) {
