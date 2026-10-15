@@ -45,6 +45,10 @@ const TENANT_ROLES = ["tenant"];
 const MANAGER_ROLES = ["admin", "property_manager", "owner", "staff"];
 function getToken(): string | null { try { return localStorage.getItem("token") ?? sessionStorage.getItem("token"); } catch { return null; } }
 function getRole(): string { try { const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user"); if (!raw) return ""; const parsed: unknown = JSON.parse(raw); if (parsed && typeof parsed === "object") { const role = (parsed as Record<string, unknown>).role; if (typeof role === "string") return role.trim().toLowerCase(); } } catch {} return ""; }
+function RequireOrganizationOwner({ children }: { children: ReactNode }) {
+ const role = getRole();
+ return ["admin", "owner"].includes(role) ? <>{children}</> : <Navigate to="/manager/dashboard" replace />;
+}
 function mustChangePassword(): boolean { try { const raw = localStorage.getItem("user") ?? sessionStorage.getItem("user"); if (!raw) return false; const parsed: unknown = JSON.parse(raw); return !!(parsed && typeof parsed === "object" && (parsed as Record<string, unknown>).must_change_password === true); } catch { return false; } }
 function portalForRole(role: string): Portal { if (TENANT_ROLES.includes(role)) return "tenant"; if (MANAGER_ROLES.includes(role)) return "manager"; return "manager"; }
 function homePath(): string { return getRole() === "platform_admin" ? "/platform-admin/subscriptions" : portalForRole(getRole()) === "tenant" ? "/tenant/dashboard" : "/manager/dashboard"; }
@@ -246,7 +250,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
 function App() { useEffect(() => { applyTheme(readThemeId(), false); }, []); return <BrowserRouter><SupportEntryPoint/><Routes>
 <Route path="/" element={<LandingPage/>}/><Route path="/help" element={<LegalHelpPage initialTab="help"/>}/><Route path="/terms" element={<LegalHelpPage initialTab="terms"/>}/><Route path="/privacy" element={<LegalHelpPage initialTab="privacy"/>}/><Route path="/manager/help" element={<RequirePortal portal="manager"><LegalHelpPage initialTab="help"/></RequirePortal>}/><Route path="/support" element={<RequireAuth><DeveloperSupportPage/></RequireAuth>}/><Route path="/platform-admin/support" element={<RequireAuth><DeveloperSupportInboxPage/></RequireAuth>}/><Route path="/guest-payment/:token" element={<GuestPaymentPage/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/forgot-password" element={<PasswordResetPage/>}/><Route path="/reset-password" element={<PasswordResetPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/password-setup" element={<RequireAuth><ChangePasswordPage/></RequireAuth>}/><Route path="/accept-invite" element={<AcceptInvitePage/>}/>
 <Route path="/platform-admin/subscriptions" element={<RequireAuth><PlatformAdminSubscriptionsPage /></RequireAuth>} />
-<Route path="/manager/subscription" element={<RequirePortal portal="manager" allowUnsubscribed><PlatformSubscriptionPage /></RequirePortal>} />
+<Route path="/manager/subscription" element={<RequirePortal portal="manager" allowUnsubscribed><RequireOrganizationOwner><PlatformSubscriptionPage /></RequireOrganizationOwner></RequirePortal>} />
 <Route path="/manager/dashboard" element={<RequirePortal portal="manager"><FirstLoginGuide portal="manager"><DashboardPage /></FirstLoginGuide></RequirePortal>} />
 <Route path="/manager/properties/add" element={<RequirePortal portal="manager"><AddProperties /></RequirePortal>} />
 <Route path="/manager/properties" element={<RequirePortal portal="manager"><ManagerPropertiesPage /></RequirePortal>} />
@@ -256,7 +260,7 @@ function App() { useEffect(() => { applyTheme(readThemeId(), false); }, []); ret
 <Route path="/manager/payments" element={<RequirePortal portal="manager"><ManagerPaymentsPage /></RequirePortal>} />
 <Route path="/manager/reconciliation" element={<RequirePortal portal="manager"><PaymentReconciliationPage /></RequirePortal>} />
 <Route path="/manager/guest-payment-links" element={<RequirePortal portal="manager"><ManagerGuestPaymentLinksPage /></RequirePortal>} />
-<Route path="/manager/expenses" element={<RequirePortal portal="manager" allowUnsubscribed><PlatformSubscriptionPage /></RequirePortal>} />
+<Route path="/manager/expenses" element={<RequirePortal portal="manager" allowUnsubscribed><RequireOrganizationOwner><PlatformSubscriptionPage /></RequireOrganizationOwner></RequirePortal>} />
 <Route path="/manager/maintenance" element={<RequirePortal portal="manager"><ManagerMaintenancePage /></RequirePortal>} />
 <Route path="/manager/settings" element={<RequirePortal portal="manager"><ManagerSettingsPage /></RequirePortal>} />
 <Route path="/manager/settings/team" element={<RequirePortal portal="manager"><TeamPage /></RequirePortal>} />
