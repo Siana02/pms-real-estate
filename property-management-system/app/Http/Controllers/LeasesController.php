@@ -89,9 +89,11 @@ class LeasesController extends Controller
         $this->authorizeOrganization($request, $lease);
 
         abort_if(
-            $lease->manager_signed_at !== null,
+            $lease->manager_signed_at !== null ||
+            $lease->manager_copy_physical_confirmed_at !== null ||
+            $lease->tenant_copy_physical_confirmed_at !== null,
             422,
-            'This lease is locked because the manager has already signed the final version.'
+            'This lease is locked because a final digital signature or physical signature confirmation has been recorded.'
         );
 
         $validated = $request->validate([
@@ -119,9 +121,11 @@ class LeasesController extends Controller
             && trim((string) $validated['manager_signature']) !== '';
 
         abort_if(
-            $signingAsManager && $lease->tenant_signed_at === null,
+            $signingAsManager &&
+                $lease->tenant_signed_at === null &&
+                $lease->tenant_copy_physical_confirmed_at === null,
             422,
-            'The tenant must sign the current agreement before the manager can sign and lock it.'
+            'The tenant must sign the current agreement or have their physical signature confirmed before the manager can sign and lock it.'
         );
 
         abort_if(
@@ -324,6 +328,78 @@ class LeasesController extends Controller
     }
 
     /**
+     * Record that physical copies have been signed outside the portal.
+     * This records the manager's verification, not a digital signature.
+     * Existing confirmations are immutable; a conflicting date is rejected.
+     */
+    public function confirmPhysicalSignatures(Request $request, Leases $lease)
+    {
+        $this->authorizeOrganization($request, $lease);
+
+        $validated = $request->validate([
+            'manager_copy_signed_on' => ['nullable', 'date', 'before_or_equal:today'],
+            'tenant_copy_signed_on' => ['nullable', 'date', 'before_or_equal:today'],
+            'physical_signing_notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        abort_if(
+            empty($validated['manager_copy_signed_on']) &&
+            empty($validated['tenant_copy_signed_on']) &&
+            !array_key_exists('physical_signing_notes', $validated),
+            422,
+            'Record at least one physical signature date or add verification notes.'
+        );
+
+        $updated = DB::transaction(function () use ($request, $lease, $validated) {
+            $lockedLease = Leases::query()
+                ->where('organization_id', $request->user()->organization_id)
+                ->lockForUpdate()
+                ->findOrFail($lease->id);
+
+            $changes = [];
+            foreach ([
+                'manager_copy' => 'manager_copy_signed_on',
+                'tenant_copy' => 'tenant_copy_signed_on',
+            ] as $prefix => $inputKey) {
+                $signedOn = $validated[$inputKey] ?? null;
+                if (!$signedOn) {
+                    continue;
+                }
+
+                $dateColumn = $prefix . '_physical_signed_on';
+                $confirmedAtColumn = $prefix . '_physical_confirmed_at';
+                $confirmedByColumn = $prefix . '_physical_confirmed_by';
+                $existingDate = $lockedLease->{$dateColumn}?->toDateString();
+
+                if ($existingDate !== null && $existingDate !== $signedOn) {
+                    abort(422, 'A physical signature date has already been confirmed for the ' . str_replace('_', ' ', $prefix) . '. Contact a platform administrator if the record needs correction.');
+                }
+
+                if ($existingDate === null) {
+                    $changes[$dateColumn] = $signedOn;
+                    $changes[$confirmedAtColumn] = now();
+                    $changes[$confirmedByColumn] = $request->user()->id;
+                }
+            }
+
+            if (array_key_exists('physical_signing_notes', $validated)) {
+                $changes['physical_signing_notes'] = $validated['physical_signing_notes'];
+            }
+
+            if ($changes !== []) {
+                $lockedLease->update($changes);
+            }
+
+            return $lockedLease->fresh()->load(['property', 'unit', 'tenant', 'deposit']);
+        }, 3);
+
+        return response()->json([
+            'message' => 'Physical lease signature confirmations saved. These records identify who verified each signed copy and when; they do not create a digital signature.',
+            'lease' => $updated,
+        ]);
+    }
+
+    /**
      * Deposit receipt is deliberately separate from lease editing so the
      * canonical agreement can remain locked after the manager signs while the
      * financial receipt status can still be recorded.
@@ -372,9 +448,11 @@ class LeasesController extends Controller
         $this->authorizeOrganization($request, $lease);
 
         abort_if(
-            $lease->manager_signed_at !== null,
+            $lease->manager_signed_at !== null ||
+            $lease->manager_copy_physical_confirmed_at !== null ||
+            $lease->tenant_copy_physical_confirmed_at !== null,
             422,
-            'A signed lease is locked and cannot be deleted.'
+            'A digitally signed or physically confirmed lease is locked and cannot be deleted.'
         );
 
         $unit = $lease->unit;
