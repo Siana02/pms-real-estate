@@ -89,7 +89,7 @@ class DarajaService
     public function queryStk(PaymentDestination $destination, string $checkoutRequestId): array
     {
         $shortcode = $destination->darajaShortcode();
-        $passkey = $destination->daraja_passkey;
+        $passkey = $destination->daraja_passkey ?: config('daraja.passkey');
         $this->assertEnvironmentShortcode($destination, $shortcode);
 
         if (!filled($shortcode) || !filled($passkey)) {
