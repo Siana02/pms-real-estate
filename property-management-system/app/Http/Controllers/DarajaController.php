@@ -69,7 +69,7 @@ class DarajaController extends Controller
         $readyDestinations = PaymentDestination::where('organization_id', $lease->organization_id)
             ->where('property_id', $lease->property_id)
             ->where('is_active', true)
-            ->whereIn('method', ['mpesa_paybill', 'mpesa_till'])
+            ->where('method', 'mpesa_paybill')
             ->get()
             ->filter(fn (PaymentDestination $destination) => $destination->stkPushReady())
             ->values();
