@@ -1640,14 +1640,16 @@ function ManagerLeasesPage() {
                       <div className="ls-copy-card__status">
                         <span
                           className={
-                            selectedLease.manager_signed_at
+                            managerSideSigned
                               ? "mg-badge mg-badge--ok"
                               : "mg-badge mg-badge--warn"
                           }
                         >
                           {selectedLease.manager_signed_at
-                            ? `Signed by ${selectedLease.manager_signature ?? "manager"}`
-                            : "Not yet signed"}
+                            ? `Digitally signed by ${selectedLease.manager_signature ?? "manager"}`
+                            : selectedLease.manager_copy_physical_confirmed_at
+                              ? "Physically signed · verified"
+                              : "Not yet signed"}
                         </span>
                       </div>
                     </div>
@@ -1665,8 +1667,8 @@ function ManagerLeasesPage() {
                         placeholder="Agreement terms visible to the manager…"
                       />
                       <p className="ls-copy-card__hint">
-                        {selectedLease.manager_signed_at
-                          ? "The manager signature has locked this lease."
+                        {selectedLease.manager_signed_at || selectedLease.manager_copy_physical_confirmed_at || selectedLease.tenant_copy_physical_confirmed_at
+                          ? "A digital signature or physical signature confirmation has locked this lease."
                           : "Editing manager-controlled details before signing may require the tenant to review and sign the new version."}
                       </p>
                     </div>
@@ -1681,14 +1683,16 @@ function ManagerLeasesPage() {
                       <div className="ls-copy-card__status">
                         <span
                           className={
-                            selectedLease.tenant_signed_at
+                            tenantSideSigned
                               ? "mg-badge mg-badge--ok"
                               : "mg-badge mg-badge--warn"
                           }
                         >
                           {selectedLease.tenant_signed_at
-                            ? `Signed by ${selectedLease.tenant_signature ?? "tenant"}`
-                            : "Not yet signed"}
+                            ? `Digitally signed by ${selectedLease.tenant_signature ?? "tenant"}`
+                            : selectedLease.tenant_copy_physical_confirmed_at
+                              ? "Physically signed · verified"
+                              : "Not yet signed"}
                         </span>
                       </div>
                     </div>
