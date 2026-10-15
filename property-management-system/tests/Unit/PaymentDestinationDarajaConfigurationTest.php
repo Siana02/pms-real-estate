@@ -65,7 +65,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertArrayNotHasKey('consumer_secret', $credential->toArray());
     }
 
-    public function test_stk_query_uses_organization_token_and_destination_merchant_credentials(): void
+    public function test_stk_query_uses_platform_token_and_destination_merchant_credentials(): void
     {
         Cache::flush();
         Http::fake([
@@ -87,7 +87,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertSame('0', (string) $result['ResultCode']);
         Http::assertSent(fn (Request $request) =>
             str_contains($request->url(), '/mpesa/stkpushquery/v1/query')
-            && $request->hasHeader('Authorization', 'Bearer test-organization-token')
+            && $request->hasHeader('Authorization', 'Bearer test-platform-token')
             && $request['BusinessShortCode'] === '174379'
             && $request['CheckoutRequestID'] === 'ws_CO_test_query'
             && filled($request['Password'])
@@ -95,12 +95,12 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         );
     }
 
-    public function test_stk_push_sends_the_prompt_request_with_the_organization_token_and_merchant_passkey(): void
+    public function test_stk_push_sends_the_prompt_request_with_the_platform_token_and_merchant_passkey(): void
     {
         Cache::flush();
         config(['app.url' => 'https://pms.example.test']);
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
                 'ResponseCode' => '0',
                 'ResponseDescription' => 'Success. Request accepted for processing',
@@ -120,7 +120,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
         $this->assertSame('ws_CO_test_stk_push', $result['CheckoutRequestID']);
         Http::assertSent(fn (Request $request) =>
             str_contains($request->url(), '/mpesa/stkpush/v1/processrequest')
-            && $request->hasHeader('Authorization', 'Bearer test-organization-token')
+            && $request->hasHeader('Authorization', 'Bearer test-platform-token')
             && $request['BusinessShortCode'] === '174379'
             && $request['PartyA'] === '254712345678'
             && $request['PhoneNumber'] === '254712345678'
@@ -158,7 +158,7 @@ class PaymentDestinationDarajaConfigurationTest extends TestCase
     {
         Cache::flush();
         Http::fake([
-            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-organization-token'], 200),
+            'sandbox.safaricom.co.ke/oauth/v1/generate*' => Http::response(['access_token' => 'test-platform-token'], 200),
             'sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest' => Http::response([
                 'ResponseCode' => '1',
                 'ResponseDescription' => 'Invalid Access Token',
