@@ -131,7 +131,6 @@ class PaymentDestinationController extends Controller
         $stkAuthorizationChanged = $merchantChanged || $reactivated;
         // Passkeys are not configurable through the manager portal. A changed shortcode requires developer verification.
         $passkey = $merchantChanged ? null : $paymentDestination->daraja_passkey;
-        $hasConfig = false;
         $hasShortcode = $isDarajaMethod && filled($newShortcode) && filled($shortcodeType);
         $referenceFormat = array_key_exists('account_reference_format', $validated)
             ? $this->validateReferenceFormat($validated['account_reference_format'])
@@ -153,7 +152,7 @@ class PaymentDestinationController extends Controller
             'daraja_callback_token' => $hasShortcode
                 ? ($paymentDestination->daraja_callback_token ?: Str::random(48))
                 : null,
-            'daraja_authorization_status' => 'not_configured',
+            'daraja_authorization_status' => $merchantChanged ? 'not_configured' : $paymentDestination->daraja_authorization_status,
             'daraja_authorization_checked_at' => $stkAuthorizationChanged ? null : $paymentDestination->daraja_authorization_checked_at,
             'account_reference_format' => $isDarajaMethod ? $referenceFormat : null,
             'c2b_registration_status' => $merchantChanged ? 'not_registered' : $paymentDestination->c2b_registration_status,
