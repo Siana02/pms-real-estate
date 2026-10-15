@@ -89,10 +89,10 @@ function parseRentLedger(payload: unknown): { rows: RentLedgerRow[]; credits: Re
   };
 }
 function rentStatusLabel(status: string) {
-  return status === "paid" ? "Paid fully" : status === "partial" ? "Partially paid" : status === "overdue" ? "Overdue" : status === "due" ? "Due now" : "Upcoming";
+  return status === "paid" ? "Paid fully" : status === "partial_overdue" ? "Partially paid · overdue" : status === "partial" ? "Partially paid" : status === "overdue" ? "Overdue" : status === "due" ? "Due now" : "Upcoming";
 }
 function rentStatusClass(status: string) {
-  return status === "paid" ? "ok" : status === "overdue" ? "danger" : status === "partial" ? "info" : "warn";
+  return status === "paid" ? "ok" : status === "overdue" || status === "partial_overdue" ? "danger" : status === "partial" ? "info" : "warn";
 }
 
 interface LeaseOption {
