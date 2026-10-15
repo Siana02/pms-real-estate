@@ -89,7 +89,7 @@ export default function GuestPaymentPage() {
                   {destination.method === "mpesa_paybill" && <p style={{ margin:0, fontSize:".9rem" }}>PayBill number: <strong>{destination.details.paybill || "Contact property manager"}</strong></p>}
                   {destination.method === "mpesa_till" && <p style={{ margin:0, fontSize:".9rem" }}>Till number: <strong>{destination.details.till || "Contact property manager"}</strong></p>}
                   {destination.method === "mpesa_paybill" && <p style={{ margin:0, fontSize:".9rem" }}>Account / reference: <strong>{destination.account_reference || destination.details.account || "Contact property manager"}</strong></p>}
-                  {destination.method === "mpesa_till" && <p style={{ margin:0, fontSize:".9rem" }}>Payment reference: <strong>{destination.account_reference || "Use your unit number and contact the property manager if unsure"}</strong></p>}
+                  {destination.method === "mpesa_till" && <small style={{ color:"#8b4b21", lineHeight:1.5 }}>This is a legacy Till destination. Safaricom callbacks do not reliably include a unit account reference for Till payments, so the property manager may need to verify your payment manually.</small>}
                   {(destination.details.account_name || destination.details.business_name) && <p style={{ margin:0, color:"#64748b", fontSize:".82rem" }}>Account name: {destination.details.account_name || destination.details.business_name}</p>}
                   {!destination.stk_push_available && <small style={{ color:"#64748b", lineHeight:1.5 }}>Phone prompts are not enabled for this destination. Manual payment is still available.</small>}
                 </article>)}
