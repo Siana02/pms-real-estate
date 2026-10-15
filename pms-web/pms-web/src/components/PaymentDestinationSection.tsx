@@ -4,7 +4,7 @@ import { ApiError, apiRequest } from "../services/api";
 
 type Props = { role: string };
 type Property = { id: number; name: string };
-type Method = "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank";
+type Method = "mpesa_number" | "mpesa_till" | "mpesa_paybill" | "bank"; // Till retained only to display legacy records; new setup is PayBill-only.
 type Destination = {
   id: number;
   property_id: number;
@@ -72,10 +72,6 @@ export default function PaymentDestinationSection({ role }: Props) {
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [branch, setBranch] = useState("");
-  const [darajaPasskey, setDarajaPasskey] = useState("");
-  const [darajaConsumerKey, setDarajaConsumerKey] = useState("");
-  const [darajaConsumerSecret, setDarajaConsumerSecret] = useState("");
-  const [darajaCredentialsConfigured, setDarajaCredentialsConfigured] = useState(false);
   const [accountReferenceFormat, setAccountReferenceFormat] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -110,16 +106,7 @@ export default function PaymentDestinationSection({ role }: Props) {
     }
   }
 
-  async function loadDarajaCredentials() {
-    try {
-      const result = await apiRequest("/organization/daraja-credentials") as { configured?: boolean };
-      setDarajaCredentialsConfigured(Boolean(result.configured));
-    } catch {
-      setDarajaCredentialsConfigured(false);
-    }
-  }
-
-  useEffect(() => { void loadProperties(); void loadDarajaCredentials(); }, []);
+  useEffect(() => { void loadProperties(); }, []);
   useEffect(() => { void loadDestinations(); }, [propertyId]);
 
   function resetForm() {
@@ -134,9 +121,6 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccountName("");
     setAccountNumber("");
     setBranch("");
-    setDarajaPasskey("");
-    setDarajaConsumerKey("");
-    setDarajaConsumerSecret("");
     setAccountReferenceFormat("");
     setError("");
   }
@@ -155,16 +139,13 @@ export default function PaymentDestinationSection({ role }: Props) {
     setAccountName(d.account_name ?? "");
     setAccountNumber("");
     setBranch(d.branch ?? "");
-    setDarajaPasskey("");
-    setDarajaConsumerKey("");
-    setDarajaConsumerSecret("");
     setAccountReferenceFormat(item.account_reference_format ?? "");
     setError("");
   }
 
   function details() {
     if (method === "mpesa_number") return { number };
-    if (method === "mpesa_till") return { till };
+    if (method === "mpesa_till") return { till }; // legacy records only
     if (method === "mpesa_paybill") return { paybill, account };
     return { bank_name: bankName, account_name: accountName, account_number: accountNumber, branch };
   }
@@ -184,31 +165,13 @@ export default function PaymentDestinationSection({ role }: Props) {
         is_active: true,
       };
 
-      if (method === "mpesa_paybill" || method === "mpesa_till") {
-        const hasConsumerKey = Boolean(darajaConsumerKey.trim());
-        const hasConsumerSecret = Boolean(darajaConsumerSecret.trim());
-        if (hasConsumerKey !== hasConsumerSecret) {
-          setError("Enter both the organization's Daraja consumer key and consumer secret.");
-          return;
-        }
-        if (!darajaCredentialsConfigured && !hasConsumerKey) {
-          setError("Configure this organization's Daraja consumer key and consumer secret before saving an M-PESA PayBill or Till.");
-          return;
-        }
-        if (hasConsumerKey && hasConsumerSecret) {
-          await apiRequest("/organization/daraja-credentials", {
-            method: "PUT",
-            body: JSON.stringify({
-              consumer_key: darajaConsumerKey.trim(),
-              consumer_secret: darajaConsumerSecret.trim(),
-            }),
-          });
-          setDarajaCredentialsConfigured(true);
-        }
-        payload.daraja_shortcode_type = method === "mpesa_till" ? "Till" : "PayBill";
+      if (method === "mpesa_paybill") {
+        payload.daraja_shortcode_type = "PayBill";
         payload.account_reference_format = accountReferenceFormat.trim() || null;
-        // Never send an empty passkey while editing: the API omits secrets from responses.
-        if (darajaPasskey.trim()) payload.daraja_passkey = darajaPasskey.trim();
+      }
+      if (method === "mpesa_till") {
+        setError("M-Pesa Till is no longer available for new setup because its C2B callback does not provide a reliable tenant account reference. Use PayBill with a unique unit/lease reference.");
+        return;
       }
 
       const body = JSON.stringify(payload);
@@ -277,9 +240,7 @@ export default function PaymentDestinationSection({ role }: Props) {
                       <span className="mg-hint" style={{ display: "block", marginTop: ".15rem", overflowWrap: "anywhere" }}>{destinationSummary(item)}</span>
                       {(item.method === "mpesa_paybill" || item.method === "mpesa_till") && (
                         <span className="mg-hint" style={{ display: "block", marginTop: ".3rem" }}>
-                          Daraja: {item.daraja?.authorization_status === "ready" ? "Ready for STK Push" : item.daraja?.authorization_status === "awaiting_merchant_authorization" ? "Awaiting merchant authorization" : "Not configured"}
-                          {item.daraja?.stk_push_available ? " · STK Push available" : " · STK Push disabled"}
-                          {" · C2B: "}{item.daraja?.c2b_authorization_status === "ready" ? "authorized" : item.daraja?.c2b_authorization_status === "awaiting_merchant_authorization" ? "awaiting verification" : "not configured"}
+                          C2B: {item.daraja?.c2b_authorization_status === "ready" ? "authorized" : item.daraja?.c2b_authorization_status === "awaiting_merchant_authorization" ? "awaiting verification" : "not configured"}
                           {item.daraja?.c2b_registration_status === "registered" ? " · C2B callback registered" : " · C2B callback not registered"}
                         </span>
                       )}
@@ -317,7 +278,6 @@ export default function PaymentDestinationSection({ role }: Props) {
                     <span className="mg-label">Payment type</span>
                     <select className="mg-select" value={method} onChange={(e) => setMethod(e.target.value as Method)}>
                       <option value="mpesa_paybill">M-PESA PayBill</option>
-                      <option value="mpesa_till">M-PESA Till</option>
                       <option value="mpesa_number">M-PESA number</option>
                       <option value="bank">Bank account</option>
                     </select>
@@ -332,42 +292,17 @@ export default function PaymentDestinationSection({ role }: Props) {
                 {method === "mpesa_till" && <label className="mg-field"><span className="mg-label">Till number</span><input className="mg-input" value={till} onChange={(e) => setTill(e.target.value)} placeholder="Enter Till number" /></label>}
                 {method === "mpesa_paybill" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">PayBill number</span><input className="mg-input" value={paybill} onChange={(e) => setPaybill(e.target.value)} placeholder="Enter PayBill number" /></label><label className="mg-field"><span className="mg-label">Account / reference</span><input className="mg-input" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="ABC Properties" /></label></div>}
 
-                {(method === "mpesa_paybill" || method === "mpesa_till") && (
+                {method === "mpesa_paybill" && (
                   <div style={{ marginTop: ".75rem", padding: ".85rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".65rem" }}>
-                    <strong style={{ display: "block", marginBottom: ".35rem" }}>Daraja STK Push setup</strong>
+                    <strong style={{ display: "block", marginBottom: ".35rem" }}>Automatic rent matching</strong>
                     <p className="mg-hint" style={{ marginTop: 0 }}>
-                      Enter this organization’s Daraja app credentials once for its properties. They are encrypted on the server and never returned to this page. The merchant STK passkey below belongs to this specific PayBill/Till.
+                      Use the PayBill account/reference to identify the property unit or lease. Daraja credentials, callback registration and STK configuration are managed by MARSWebz; you do not need to enter SDK credentials here.
                     </p>
                     <label className="mg-field">
-                      <span className="mg-label">Organization Daraja consumer key</span>
-                      <input className="mg-input" type="password" autoComplete="new-password" value={darajaConsumerKey} onChange={(e) => setDarajaConsumerKey(e.target.value)} placeholder={darajaCredentialsConfigured ? "Leave blank to keep saved organization credentials" : "Enter consumer key"} />
+                      <span className="mg-label">Account reference format (optional)</span>
+                      <input className="mg-input" value={accountReferenceFormat} onChange={(e) => setAccountReferenceFormat(e.target.value)} placeholder="{unit}" />
+                      <span className="mg-hint">Use {"{unit}"} or {"{lease}"} if your PayBill supports those references. The actual reference sent to Safaricom must match the format configured for this merchant.</span>
                     </label>
-                    <label className="mg-field">
-                      <span className="mg-label">Organization Daraja consumer secret</span>
-                      <input className="mg-input" type="password" autoComplete="new-password" value={darajaConsumerSecret} onChange={(e) => setDarajaConsumerSecret(e.target.value)} placeholder={darajaCredentialsConfigured ? "Leave blank to keep saved organization credentials" : "Enter consumer secret"} />
-                    </label>
-                    <p className="mg-hint">
-                      Organization app credentials: {darajaCredentialsConfigured ? "configured" : "not configured"}. Changing these credentials resets prior merchant authorization checks.
-                    </p>
-                    <label className="mg-field">
-                      <span className="mg-label">Merchant shortcode type</span>
-                      <input className="mg-input" value={method === "mpesa_till" ? "Till" : "PayBill"} readOnly />
-                    </label>
-                    <label className="mg-field">
-                      <span className="mg-label">Merchant STK passkey</span>
-                      <input className="mg-input" type="password" autoComplete="new-password" value={darajaPasskey} onChange={(e) => setDarajaPasskey(e.target.value)} placeholder={editingId ? "Leave blank to keep the saved passkey" : "Enter merchant passkey"} />
-                    </label>
-                    <label className="mg-field">
-                      <span className="mg-label">Account reference format (for C2B reconciliation)</span>
-                      <input className="mg-input" value={accountReferenceFormat} onChange={(e) => setAccountReferenceFormat(e.target.value)} placeholder="51683/{unit}" />
-                      <span className="mg-hint">Use {"{unit}"} or {"{lease}"} as a placeholder, e.g. 51683/{"{unit}"}. C2B automatic matching is a follow-up step; this template must match the reference format configured for the merchant PayBill.</span>
-                    </label>
-                    {editingId && destinations.find((item) => item.id === editingId)?.daraja && (
-                      <p className="mg-hint">
-                        Current status: {destinations.find((item) => item.id === editingId)?.daraja?.authorization_status ?? "not configured"}.
-                        Saving a new shortcode or passkey returns the destination to authorization review; entering credentials alone does not mark it ready.
-                      </p>
-                    )}
                   </div>
                 )}
                 {method === "bank" && <div className="mg-grid2"><label className="mg-field"><span className="mg-label">Bank</span><input className="mg-input" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="KCB" /></label><label className="mg-field"><span className="mg-label">Account name</span><input className="mg-input" value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="ABC Properties Ltd" /></label><label className="mg-field"><span className="mg-label">Account number</span><input className="mg-input" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder={editingId ? "Leave blank to keep current" : "Account number"} /></label><label className="mg-field"><span className="mg-label">Branch</span><input className="mg-input" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Branch" /></label></div>}
