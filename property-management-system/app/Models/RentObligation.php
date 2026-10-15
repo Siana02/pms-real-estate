@@ -59,6 +59,11 @@ class RentObligation extends Model
         return $this->hasMany(Payment::class, 'rent_obligation_id');
     }
 
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class, 'rent_obligation_id');
+    }
+
     public function getAmountPaidAttribute(): float
     {
         $allocated = (float) PaymentAllocation::query()
