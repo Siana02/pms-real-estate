@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\MonthlyRentLedgerReport;
 use App\Models\Organization;
+use App\Models\Leases;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\PaymentTransaction;
@@ -51,9 +52,32 @@ class SendMonthlyRentLedgers extends Command
             return self::SUCCESS;
         }
 
-        // Ensure the selected month has an obligation for every lease whose dates
-        // cover that month. Existing obligations are preserved with firstOrCreate.
+        // Ensure the selected month exists, then backfill missing prior rent months
+        // for active leases so unpaid historical months are included in the "full" ledger.
         $ledger->ensureForPeriod($period);
+        $backfillFailures = [];
+        $leasesToBackfill = Leases::query()
+            ->whereNotIn('status', ['ended', 'terminated'])
+            ->whereDate('start_date', '<=', $period->endOfMonth()->toDateString())
+            ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $period->startOfMonth()->toDateString()))
+            ->when($this->option('organization'), fn ($query, $id) => $query->where('organization_id', (int) $id))
+            ->orderBy('organization_id')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($leasesToBackfill as $lease) {
+            try {
+                $ledger->ensureForLeaseThrough($lease, $period);
+            } catch (Throwable $exception) {
+                $backfillFailures[$lease->organization_id][] = $lease->id;
+                Log::warning('Monthly rent ledger report could not backfill a lease; that organization report will be withheld.', [
+                    'organization_id' => $lease->organization_id,
+                    'lease_id' => $lease->id,
+                    'period' => $period->toDateString(),
+                    'exception' => $exception::class,
+                ]);
+            }
+        }
 
         $organizations = Organization::query()->with('owner:id,name,email')
             ->when($this->option('organization'), fn ($query, $id) => $query->whereKey((int) $id))
@@ -64,6 +88,13 @@ class SendMonthlyRentLedgers extends Command
         $sent = 0;
         $skipped = 0;
         foreach ($organizations as $organization) {
+            if (!empty($backfillFailures[$organization->id])) {
+                $leaseIds = implode(', ', array_unique($backfillFailures[$organization->id]));
+                $failed++;
+                $this->warn("Organization {$organization->id}: report withheld because lease ledger backfill needs review (lease IDs: {$leaseIds}).");
+                continue;
+            }
+
             $run = null;
             try {
                 $run = DB::transaction(function () use ($organization, $period) {
