@@ -93,11 +93,12 @@ class PaymentController extends Controller
             $dueDate = CarbonImmutable::parse($obligation->due_date);
             $graceDays = (int) ($obligation->lease?->rent_grace_period_days ?? 0);
             $today = CarbonImmutable::today();
+            $pastDue = $today->greaterThan($dueDate->addDays($graceDays));
             $status = $amountDue > 0 && $amountPaid >= $amountDue
                 ? 'paid'
                 : ($amountPaid > 0
-                    ? 'partial'
-                    : ($today->greaterThan($dueDate->addDays($graceDays))
+                    ? ($pastDue ? 'partial_overdue' : 'partial')
+                    : ($pastDue
                         ? 'overdue'
                         : ($today->greaterThanOrEqualTo($dueDate) ? 'due' : 'upcoming')));
 
