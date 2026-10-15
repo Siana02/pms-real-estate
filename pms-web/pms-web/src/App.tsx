@@ -122,7 +122,7 @@ function FirstLoginGuide({ portal, children }: { portal: Portal; children: React
   { title: "Properties", body: "Add and maintain the properties your organisation manages. Keep addresses and property details accurate.", targets: ["/manager/properties"] },
   { title: "Units", body: "Create and update individual units, their rent details, availability and occupancy status.", targets: ["/manager/units"] },
   { title: "Tenants", body: "Review tenant records, contact details and registration or tenancy status.", targets: ["/manager/tenants"] },
-  { title: "Leases", body: "Create and review tenancy agreements, dates, rent terms and deposits. Check the correct unit and tenant before saving.", targets: ["/manager/leases"] },
+  { title: "Leases", body: "Create and review tenancy agreements, dates, rent terms and deposits. Tenants may sign in the portal, or you can record the dates both printed copies were physically signed when the tenant does not use the portal. The system keeps physical confirmation separate from digital signatures.", targets: ["/manager/leases"] },
   { title: "Payments", body: "Review rent receipts and payment records. Confirm provider references and payment status before treating a payment as received.", targets: ["/manager/payments"] },
   { title: "Reconciliation", body: "Match incoming provider transactions to the right tenant or lease, investigate unmatched payments and resolve exceptions carefully.", targets: ["/manager/reconciliation"] },
   { title: "Tenant payment links", body: "Create and manage shareable payment links. Verify the organisation's configured PayBill or Till and amount before sharing a link.", targets: ["/manager/guest-payment-links"] },
