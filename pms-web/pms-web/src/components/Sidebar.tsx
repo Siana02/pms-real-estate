@@ -302,7 +302,6 @@ const NAV_GROUPS = [
     { label: "Reconciliation", to: "/manager/reconciliation", icon: WalletCards },
   ]},
   { label: "Operations", items: [
-    { label: "Billing & subscriptions", to: "/manager/expenses", icon: CreditCard },
     { label: "Maintenance", to: "/manager/maintenance", icon: Wrench },
     { label: "Requests", to: "/manager/requests", icon: ClipboardList },
   ]},
@@ -412,7 +411,7 @@ function Sidebar() {
         {NAV_GROUPS.map((group) => (
           <section className="sb-nav__group" key={group.label} aria-label={group.label}>
             <p className="sb-nav__label">{group.label}</p>
-            {group.items.map(({ label, to, icon: Icon }) => (
+            {[...group.items, ...(group.label === "Operations" && isOwner ? [{ label: "Billing & subscriptions", to: "/manager/expenses", icon: CreditCard }] : [])].map(({ label, to, icon: Icon }) => (
               <NavLink key={label} to={to} className={linkClass} data-tour={to}>
                 <Icon />
                 <span>{label}</span>
