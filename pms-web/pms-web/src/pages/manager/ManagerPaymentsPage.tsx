@@ -681,7 +681,7 @@ function ManagerPaymentsPage() {
                       <td><div className="pl-ledger__refs">{row.references.length ? row.references.map((reference, index) => <span key={`${row.id}-${index}`}>{reference.reference || "No receipt reference"} · {formatMoney(reference.amount_applied, currency)}{reference.source === "rent_credit" ? " (credit)" : ""}</span>) : <span>No receipt linked</span>}</div></td>
                     </tr>)}
                   </tbody></table>}
-                  {group.credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <div className="pl-ledger__credit" key={credit.id}><CheckCircle2 size={17}/><div><strong>{formatMoney(credit.remaining_amount, currency)} rent credit carried forward</strong><div>Original overpayment: {formatMoney(credit.original_amount, currency)}{credit.source_reference ? ` · Receipt ${credit.source_reference}` : ""}. This amount will be applied to the next outstanding rent month when that month’s obligation is generated.</div></div></div>)}
+                  {group.credits.filter((credit) => credit.remaining_amount > 0).map((credit) => <div className="pl-ledger__credit" key={credit.id}><CheckCircle2 size={17}/><div><strong>{formatMoney(credit.remaining_amount, currency)} rent credit carried forward</strong><div>Original overpayment: {formatMoney(credit.original_amount, currency)}{credit.source_reference ? ` · Receipt ${credit.source_reference}` : ""}. This money will automatically reduce the next month’s rent when that month is added to the ledger.</div></div></div>)}
                 </div>
               </details>
             ))}
