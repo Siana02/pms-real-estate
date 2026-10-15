@@ -39,6 +39,17 @@ class PaymentController extends Controller
         abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
         $organizationId = (int) $request->user()->organization_id;
 
+        // Backfill missing monthly obligations for active leases so the page can
+        // show unpaid months as well as months that already have payments.
+        $through = CarbonImmutable::now()->startOfMonth();
+        Leases::query()
+            ->where('organization_id', $organizationId)
+            ->whereNotIn('status', ['ended', 'terminated'])
+            ->whereDate('start_date', '<=', $through->endOfMonth()->toDateString())
+            ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $through->startOfMonth()->toDateString()))
+            ->get()
+            ->each(fn (Leases $lease) => app(RentLedgerService::class)->ensureForLeaseThrough($lease, $through));
+
         $obligations = RentObligation::query()
             ->where('organization_id', $organizationId)
             ->with([
