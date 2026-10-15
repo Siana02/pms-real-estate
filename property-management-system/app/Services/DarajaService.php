@@ -42,7 +42,7 @@ class DarajaService
         }
 
         $shortcode = $destination->darajaShortcode();
-        $passkey = $destination->daraja_passkey;
+        $passkey = $destination->daraja_passkey ?: config('daraja.passkey');
         $callbackToken = $destination->daraja_callback_token;
         $this->assertEnvironmentShortcode($destination, $shortcode);
 
