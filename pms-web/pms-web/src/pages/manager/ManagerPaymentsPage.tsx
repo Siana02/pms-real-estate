@@ -59,6 +59,50 @@ interface PaymentRecord {
   rent_payment_credits: RentCreditRecord[];
 }
 
+const paymentsPageStyles = `
+.payment-ledger-page{color:#172b3f}
+.payment-ledger-page .mg-shell{max-width:1440px}
+.payment-ledger-page .mg-header{align-items:flex-start;padding:0 0 1.2rem;border-bottom:1px solid #e1e8f0;margin-bottom:1.2rem;gap:1.5rem}
+.payment-ledger-page .mg-eyebrow{font-weight:850;letter-spacing:.12em;color:#486b8b}
+.payment-ledger-page .mg-title{font-size:clamp(1.9rem,3.4vw,2.65rem);line-height:1.1;letter-spacing:-.045em;color:#172d43}
+.payment-ledger-page .mg-subtitle{max-width:60rem;color:#5e7184;font-size:.9rem;line-height:1.75}
+.payment-ledger-page .mg-actions{gap:.65rem;flex-wrap:wrap}
+.payment-ledger-page .mg-btn{min-height:42px;border-radius:11px;font-weight:750;transition:transform .15s ease,box-shadow .15s ease}
+.payment-ledger-page .mg-btn--primary{background:#244f75;border-color:#244f75;box-shadow:0 4px 10px rgba(36,79,117,.12)}
+.payment-ledger-page .mg-btn--primary:hover{transform:translateY(-1px);box-shadow:0 8px 16px rgba(36,79,117,.16)}
+.payment-ledger-page .mg-btn--subtle,.payment-ledger-page .mg-btn--ghost{border-color:#d4dfe9;background:#fff;color:#304a61}
+.payment-ledger-page .mg-stats{gap:.8rem;margin:1.1rem 0 1.4rem}
+.payment-ledger-page .mg-stat{border:1px solid #dce5ee;border-radius:16px;background:linear-gradient(145deg,#fff,#f8fbfe);box-shadow:0 8px 24px rgba(25,48,75,.045);padding:1rem}
+.payment-ledger-page .mg-stat__label{font-size:.74rem;font-weight:800;color:#65798d}
+.payment-ledger-page .mg-stat__value{font-size:clamp(1.25rem,2.2vw,1.75rem);letter-spacing:-.035em;color:#1c3a55;font-variant-numeric:tabular-nums}
+.payment-ledger-page .mg-stat__hint{font-size:.72rem;color:#7b8b9a;line-height:1.5}
+.payment-ledger-page .mg-toolbar{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap;padding:.85rem;border:1px solid #e0e8f0;border-radius:16px;background:#f7fafd;margin:1.1rem 0}
+.payment-ledger-page .mg-search{flex:1 1 18rem;min-width:min(100%,15rem)}
+.payment-ledger-page .mg-input,.payment-ledger-page .mg-select,.payment-ledger-page .mg-textarea{border:1px solid #cbd7e2;border-radius:11px;background:#fff;color:#1c344b;min-height:42px}
+.payment-ledger-page .mg-input:focus,.payment-ledger-page .mg-select:focus,.payment-ledger-page .mg-textarea:focus{outline:3px solid #dcecff;border-color:#6592b7}
+.payment-ledger-page .mg-chip{border-radius:999px;padding:.55rem .8rem;border-color:#d4dee8;background:#fff;color:#415a70;font-weight:750}
+.payment-ledger-page .mg-chip--on{background:#234e73;border-color:#234e73;color:#fff}
+.payment-ledger-page .mg-panel{border:1px solid #dce5ee;border-radius:18px;box-shadow:0 10px 28px rgba(25,48,75,.05);overflow:hidden;background:#fff}
+.payment-ledger-page .mg-panel__head{background:#fbfdff;border-bottom:1px solid #e8eef4;padding:1rem 1.2rem}
+.payment-ledger-page .mg-panel__title{font-size:1rem;color:#1d3850}
+.payment-ledger-page .mg-table{border-collapse:separate;border-spacing:0}
+.payment-ledger-page .mg-table thead th{background:#f6f9fc;color:#667b8f;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:.85rem .75rem;border-bottom:1px solid #dce5ee;white-space:nowrap}
+.payment-ledger-page .mg-table tbody td{padding:.9rem .75rem;border-bottom:1px solid #edf1f5;vertical-align:top}
+.payment-ledger-page .mg-table tbody tr:hover{background:#f8fbfe}
+.payment-ledger-page .mg-strong{color:#213b52;line-height:1.45}
+.payment-ledger-page .mg-sub{font-size:.73rem;line-height:1.55;color:#718296;overflow-wrap:anywhere}
+.payment-ledger-page .mg-badge{font-size:.69rem;letter-spacing:.01em;padding:.32rem .55rem;border-radius:999px;white-space:normal}
+.payment-ledger-page .pl-ledger .mg-badge--danger{background:#fff0ed;color:#a43d2c}
+.payment-ledger-page .pl-ledger .mg-badge--warn{background:#fff7e6;color:#865b13}
+.payment-ledger-page .pl-ledger .mg-badge--info{background:#edf6ff;color:#2e5f8a}
+.payment-ledger-page .pl-ledger .mg-badge--ok{background:#e9f8ef;color:#216342}
+.payment-ledger-page .mg-drawer__panel{border-radius:20px;border:1px solid #dce5ee;box-shadow:0 28px 90px rgba(7,24,42,.28)}
+.payment-ledger-page .mg-drawer__head{background:#f8fbfe;border-bottom:1px solid #e6edf3}
+.payment-ledger-page .mg-drawer__title{font-size:1.45rem;letter-spacing:-.03em}
+.payment-ledger-page .pl-ledger__metric strong{font-variant-numeric:tabular-nums}
+@media(max-width:680px){.payment-ledger-page .mg-shell{padding-inline:.2rem}.payment-ledger-page .mg-toolbar{padding:.65rem}.payment-ledger-page .mg-panel{border-radius:14px}.payment-ledger-page .mg-panel__head{padding:.9rem}.payment-ledger-page .mg-tablewrap{overflow-x:auto}.payment-ledger-page .mg-table{min-width:720px}.payment-ledger-page .mg-actions{width:100%}.payment-ledger-page .mg-actions .mg-btn{flex:1 1 auto}}
+`;
+
 interface RentLedgerRow {
   id: number; lease_id: number; tenant_id: number; tenant_name: string; property_name: string;
   unit_number: string; period: string; due_date: string; amount_due: number; amount_paid: number;
