@@ -281,7 +281,7 @@ export default function PaymentDestinationSection({ role }: Props) {
                   <div style={{ marginTop: ".75rem", padding: ".85rem", border: "1px solid var(--pms-border-soft)", borderRadius: ".65rem" }}>
                     <strong style={{ display: "block", marginBottom: ".35rem" }}>Automatic rent matching</strong>
                     <p className="mg-hint" style={{ marginTop: 0 }}>
-                      Use the PayBill account/reference to identify the property unit or lease. Daraja credentials, callback registration and STK configuration are managed by MARSWebz; you do not need to enter SDK credentials here.
+                      Use the PayBill account/reference to identify the property unit or lease. MARSWebz handles automatic matching setup; no technical configuration is needed here.
                     </p>
                     <label className="mg-field">
                       <span className="mg-label">Account reference format (optional)</span>
