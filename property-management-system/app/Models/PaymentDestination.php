@@ -75,10 +75,12 @@ class PaymentDestination extends Model
 
     public function hasMerchantStkConfiguration(): bool
     {
-        return in_array($this->method, ['mpesa_paybill', 'mpesa_till'], true)
+        // New automatic Daraja rent payments are PayBill-only. Till remains a
+        // legacy record type, but it must not be presented as STK/C2B-ready.
+        return $this->method === 'mpesa_paybill'
             && filled($this->darajaShortcode())
-            && $this->daraja_shortcode_type === $this->darajaMethod()
-            && filled($this->daraja_passkey);
+            && $this->daraja_shortcode_type === 'PayBill'
+            && filled($this->daraja_passkey ?: config('daraja.passkey'));
     }
 
     public function stkPushReady(): bool
