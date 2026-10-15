@@ -1,12 +1,14 @@
 # Daraja platform and property onboarding
 
-## Environment and organization credentials
+## Environment and developer-managed credentials
 
 Set `DARAJA_ENVIRONMENT=sandbox` for sandbox or `production` for live payments in the backend environment. Production callbacks require a public HTTPS `APP_URL`.
 
-Each organization owner/admin enters their own Daraja consumer key and consumer secret in payment-destination setup. These credentials are stored once per organization, encrypted at rest, and never returned by the API. The same MARSWebz platform app credentials are used for STK initiation, STK status queries, and C2B URL registration. Merchant shortcode and STK passkey remain destination-specific.
+MARSWebz manages the Daraja app consumer key and secret on the server using `PLATFORM_DARAJA_CONSUMER_KEY` and `PLATFORM_DARAJA_CONSUMER_SECRET` (the legacy `DARAJA_CONSUMER_KEY` and `DARAJA_CONSUMER_SECRET` names remain fallback-only). Managers never enter app credentials or configure the Daraja SDK. They configure only property payment destinations and account-reference formats.
 
-Changing organization credentials resets prior STK and C2B authorization checks. Entering credentials does not prove Safaricom has authorized the app for the merchant; authorization must be independently verified.
+For sandbox STK tests, set `PLATFORM_DARAJA_PASSKEY` to the sandbox passkey and use shortcode `174379`. In production, each merchant PayBill must use its own STK passkey, encrypted in the destination record. The `daraja:mark-destination-ready` command prompts for a destination-specific passkey if one has not already been stored. Do not reuse a single production passkey across unrelated merchant shortcodes.
+
+Saving a destination does not prove Safaricom has authorized the app for that merchant. STK readiness and C2B authorization must be independently verified by a developer/operator.
 
 ## Sandbox STK configuration
 
@@ -20,7 +22,7 @@ If a checkout remains `pending` because its STK callback was not received, an au
 php artisan daraja:query-stk CHECKOUT_ID
 ```
 
-The command uses the checkout's own payment destination shortcode/passkey and the owning organization's encrypted Daraja app credentials. It does not accept a shortcode, checkout request ID, or credentials supplied by a tenant.
+The command uses the checkout's own payment destination shortcode/passkey and the MARSWebz platform app credentials from server configuration. It does not accept a shortcode, checkout request ID, or credentials supplied by a tenant.
 
 - A definitive non-zero Safaricom `ResultCode` changes the pending checkout to `failed`.
 - A successful result without receipt/amount metadata changes the checkout to `needs_review`; it does **not** create a paid payment or rent-ledger entry.
@@ -39,7 +41,7 @@ The STK configuration and shared C2B registration/routing are separate readiness
 
 ## C2B registration and reconciliation
 
-C2B callbacks are registered once per unique `environment + shortcode`, not once per property. Registration uses the Daraja app credentials belonging to the organization that owns the selected destination. The registration record stores an encrypted callback token and a hash used to authenticate incoming callback paths. Do not restore manager-facing per-organization C2B registration: a shared shortcode must have one canonical callback pair for this platform.
+C2B callbacks are registered once per unique `environment + shortcode`, not once per property. Registration uses the MARSWebz platform app credentials from server configuration. The registration record stores an encrypted callback token and a hash used to authenticate incoming callback paths. Do not restore manager-facing per-organization C2B registration: a shared shortcode must have one canonical callback pair for this platform. Automatic C2B rent matching is PayBill-only; legacy Till records are retained for historical review but are not auto-routed.
 
 C2B authorization is tracked separately from STK readiness. This allows a verified PayBill to receive C2B payments even if its STK passkey has not been configured.
 
