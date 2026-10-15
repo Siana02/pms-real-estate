@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\Leases;
+use App\Models\RentObligation;
+use App\Models\RentPaymentCredit;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\PermissionService;
@@ -29,6 +32,111 @@ class PaymentController extends Controller
             ->get();
 
         return response()->json($payments);
+    }
+
+    public function rentLedger(Request $request)
+    {
+        abort_unless(app(PermissionService::class)->has($request->user(), 'payments.view'), 403);
+        $organizationId = (int) $request->user()->organization_id;
+
+        $obligations = RentObligation::query()
+            ->where('organization_id', $organizationId)
+            ->with([
+                'lease.tenant',
+                'lease.property',
+                'lease.unit',
+                'property:id,name',
+                'unit:id,unit_number',
+                'tenant:id,first_name,last_name,email',
+                'allocations.payment:id,reference,payment_date,amount,status',
+                'allocations.rentPaymentCredit.sourcePayment:id,reference,payment_date,amount,status',
+                'payments.allocations:id,payment_id,rent_obligation_id',
+                'lease:id,organization_id,property_id,unit_id,tenant_id,rent_due_day,rent_grace_period_days',
+            ])
+            ->orderBy('lease_id')
+            ->orderBy('period')
+            ->get();
+
+        $ledger = $obligations->map(function (RentObligation $obligation) {
+            $allocations = $obligation->allocations;
+            $paidFromAllocations = round((float) $allocations->sum('amount'), 2);
+            $legacyPayments = $obligation->payments
+                ->where('status', 'paid')
+                ->filter(fn (Payment $payment) => $payment->allocations->isEmpty());
+            $legacyAmount = round((float) $legacyPayments->sum('amount'), 2);
+            $amountPaid = round($paidFromAllocations + $legacyAmount, 2);
+            $amountDue = round((float) $obligation->amount_due, 2);
+            $balance = max(round($amountDue - $amountPaid, 2), 0);
+            $dueDate = CarbonImmutable::parse($obligation->due_date);
+            $graceDays = (int) ($obligation->lease?->rent_grace_period_days ?? 0);
+            $today = CarbonImmutable::today();
+            $status = $amountDue > 0 && $amountPaid >= $amountDue
+                ? 'paid'
+                : ($amountPaid > 0
+                    ? 'partial'
+                    : ($today->greaterThan($dueDate->addDays($graceDays))
+                        ? 'overdue'
+                        : ($today->greaterThanOrEqualTo($dueDate) ? 'due' : 'upcoming')));
+
+            $references = $allocations->map(function ($allocation) {
+                $payment = $allocation->payment ?? $allocation->rentPaymentCredit?->sourcePayment;
+                if (!$payment) return null;
+                return [
+                    'reference' => $payment->reference,
+                    'payment_date' => $payment->payment_date?->toDateString() ?? (string) $payment->payment_date,
+                    'amount_applied' => round((float) $allocation->amount, 2),
+                    'source' => $allocation->payment_id ? 'payment' : 'rent_credit',
+                ];
+            })->merge($legacyPayments->map(fn (Payment $payment) => [
+                'reference' => $payment->reference,
+                'payment_date' => $payment->payment_date?->toDateString() ?? (string) $payment->payment_date,
+                'amount_applied' => round((float) $payment->amount, 2),
+                'source' => 'legacy_payment',
+            ]))->filter()->values();
+
+            $tenant = $obligation->tenant;
+            $tenantName = trim(implode(' ', array_filter([$tenant?->first_name, $tenant?->last_name])));
+            return [
+                'id' => $obligation->id,
+                'lease_id' => $obligation->lease_id,
+                'tenant_id' => $obligation->tenant_id,
+                'tenant_name' => $tenantName !== '' ? $tenantName : ($tenant?->email ?? 'Unknown tenant'),
+                'property_name' => $obligation->property?->name ?? 'Property',
+                'unit_number' => $obligation->unit?->unit_number ?? '—',
+                'period' => $obligation->period?->toDateString() ?? (string) $obligation->period,
+                'due_date' => $obligation->due_date?->toDateString() ?? (string) $obligation->due_date,
+                'amount_due' => $amountDue,
+                'amount_paid' => $amountPaid,
+                'balance' => $balance,
+                'status' => $status,
+                'references' => $references,
+            ];
+        });
+
+        $credits = RentPaymentCredit::query()
+            ->where('organization_id', $organizationId)
+            ->where('remaining_amount', '>', 0)
+            ->with(['lease.tenant', 'lease.property', 'lease.unit', 'sourcePayment:id,reference,payment_date,amount'])
+            ->orderBy('lease_id')
+            ->orderBy('id')
+            ->get()
+            ->map(function (RentPaymentCredit $credit) {
+                $tenant = $credit->lease?->tenant;
+                $name = trim(implode(' ', array_filter([$tenant?->first_name, $tenant?->last_name])));
+                return [
+                    'id' => $credit->id,
+                    'lease_id' => $credit->lease_id,
+                    'tenant_name' => $name !== '' ? $name : ($tenant?->email ?? 'Unknown tenant'),
+                    'property_name' => $credit->lease?->property?->name ?? 'Property',
+                    'unit_number' => $credit->lease?->unit?->unit_number ?? '—',
+                    'original_amount' => round((float) $credit->amount, 2),
+                    'remaining_amount' => round((float) $credit->remaining_amount, 2),
+                    'source_reference' => $credit->sourcePayment?->reference,
+                    'source_payment_date' => $credit->sourcePayment?->payment_date?->toDateString(),
+                ];
+            })->values();
+
+        return response()->json(['data' => $ledger, 'credits' => $credits]);
     }
 
     public function store(Request $request)
