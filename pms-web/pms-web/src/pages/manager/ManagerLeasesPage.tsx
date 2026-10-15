@@ -77,6 +77,13 @@ interface LeaseRecord {
   tenant_signature: string | null;
   manager_signed_at: string | null;
   tenant_signed_at: string | null;
+  manager_copy_physical_signed_on: string | null;
+  manager_copy_physical_confirmed_at: string | null;
+  manager_physical_confirmed_by: string | null;
+  tenant_copy_physical_signed_on: string | null;
+  tenant_copy_physical_confirmed_at: string | null;
+  tenant_physical_confirmed_by: string | null;
+  physical_signing_notes: string | null;
   agreement_finalized: boolean;
   deposit: DepositRecord | null;
 }
@@ -383,6 +390,8 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
   const tenantRecord = toRecord(record.tenant);
   const unit = toRecord(record.unit);
   const depositRecord = toRecord(record.deposit);
+  const managerPhysicalVerifier = toRecord(record.manager_physical_confirmed_by);
+  const tenantPhysicalVerifier = toRecord(record.tenant_physical_confirmed_by);
   const unitNumber = asString(unit.unit_number);
   const hasDeposit =
     Object.keys(depositRecord).length > 0 || asNumber(record.deposit_amount) > 0;
@@ -435,6 +444,13 @@ function parseLeaseRecord(record: Record<string, unknown>): LeaseRecord {
     tenant_signature: asString(record.tenant_signature) || null,
     manager_signed_at: asString(record.manager_signed_at) || null,
     tenant_signed_at: asString(record.tenant_signed_at) || null,
+    manager_copy_physical_signed_on: asString(record.manager_copy_physical_signed_on) || null,
+    manager_copy_physical_confirmed_at: asString(record.manager_copy_physical_confirmed_at) || null,
+    manager_physical_confirmed_by: asString(managerPhysicalVerifier.name) || asString(record.manager_physical_confirmed_by) || null,
+    tenant_copy_physical_signed_on: asString(record.tenant_copy_physical_signed_on) || null,
+    tenant_copy_physical_confirmed_at: asString(record.tenant_copy_physical_confirmed_at) || null,
+    tenant_physical_confirmed_by: asString(tenantPhysicalVerifier.name) || asString(record.tenant_physical_confirmed_by) || null,
+    physical_signing_notes: asString(record.physical_signing_notes) || null,
     agreement_finalized: asBoolean(record.agreement_finalized),
     deposit: hasDeposit
       ? {
@@ -583,6 +599,10 @@ function ManagerLeasesPage() {
   const [drawerNotice, setDrawerNotice] = useState("");
   const [savingTerms, setSavingTerms] = useState(false);
   const [signingManager, setSigningManager] = useState(false);
+  const [physicalManagerSignedOnDraft, setPhysicalManagerSignedOnDraft] = useState("");
+  const [physicalTenantSignedOnDraft, setPhysicalTenantSignedOnDraft] = useState("");
+  const [physicalSigningNotesDraft, setPhysicalSigningNotesDraft] = useState("");
+  const [savingPhysicalSignatures, setSavingPhysicalSignatures] = useState(false);
   const [savingDeposit, setSavingDeposit] = useState(false);
   const [confirmingLeaseId, setConfirmingLeaseId] = useState<number | null>(null);
 
@@ -648,6 +668,9 @@ function ManagerLeasesPage() {
     setManagerTermsDraft(selectedLease.manager_terms ?? "");
     setTenantTermsDraft(selectedLease.tenant_terms ?? "");
     setManagerInitials("");
+    setPhysicalManagerSignedOnDraft(selectedLease.manager_copy_physical_signed_on?.slice(0, 10) ?? "");
+    setPhysicalTenantSignedOnDraft(selectedLease.tenant_copy_physical_signed_on?.slice(0, 10) ?? "");
+    setPhysicalSigningNotesDraft(selectedLease.physical_signing_notes ?? "");
     setManagerStartDate(
       selectedLease.start_date?.slice(0, 10) ??
         selectedLease.requested_move_in_date?.slice(0, 10) ??
@@ -936,6 +959,47 @@ function ManagerLeasesPage() {
       );
     } finally {
       setSigningManager(false);
+    }
+  }
+
+  async function recordPhysicalSignatures() {
+    if (!selectedLease || savingPhysicalSignatures) return;
+    const managerDate = physicalManagerSignedOnDraft.trim();
+    const tenantDate = physicalTenantSignedOnDraft.trim();
+    const managerAlreadyConfirmed = Boolean(selectedLease.manager_copy_physical_confirmed_at);
+    const tenantAlreadyConfirmed = Boolean(selectedLease.tenant_copy_physical_confirmed_at);
+    if ((!managerDate || managerAlreadyConfirmed) && (!tenantDate || tenantAlreadyConfirmed) &&
+        physicalSigningNotesDraft.trim() === (selectedLease.physical_signing_notes ?? "")) {
+      setDrawerNotice("No new physical signature details to save.");
+      setDrawerError("");
+      return;
+    }
+
+    setSavingPhysicalSignatures(true);
+    setDrawerError("");
+    setDrawerNotice("");
+    try {
+      const payload = await apiRequest(`/leases/${selectedLease.id}/physical-signatures`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          manager_copy_signed_on: managerDate || null,
+          tenant_copy_signed_on: tenantDate || null,
+          physical_signing_notes: physicalSigningNotesDraft.trim() || null,
+        }),
+      });
+      const updated = parseLeaseUpdate(payload);
+      if (updated) {
+        syncLease(updated);
+        setPhysicalManagerSignedOnDraft(updated.manager_copy_physical_signed_on?.slice(0, 10) ?? "");
+        setPhysicalTenantSignedOnDraft(updated.tenant_copy_physical_signed_on?.slice(0, 10) ?? "");
+        setPhysicalSigningNotesDraft(updated.physical_signing_notes ?? "");
+      }
+      setDrawerNotice("Physical signature records saved. The system records who verified each copy and when; no digital signature was created.");
+      await load();
+    } catch (cause) {
+      setDrawerError(cause instanceof Error ? cause.message : "Could not record the physical signatures.");
+    } finally {
+      setSavingPhysicalSignatures(false);
     }
   }
 
