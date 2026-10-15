@@ -49,11 +49,25 @@ class RentLedgerService
 
         $period = CarbonImmutable::parse($lease->start_date)->startOfMonth();
         $lastPeriod = $through->startOfMonth();
+        $existingPeriods = RentObligation::query()
+            ->where('lease_id', $lease->id)
+            ->whereBetween('period', [$period->toDateString(), $lastPeriod->toDateString()])
+            ->pluck('period')
+            ->map(fn ($value) => CarbonImmutable::parse($value)->toDateString())
+            ->flip();
 
         while ($period->lessThanOrEqualTo($lastPeriod)) {
-            $this->ensureLeaseObligationForPeriod($lease, $period);
+            // Existing periods are already represented. Skip repeat firstOrCreate
+            // calls for every historical month on each payment/page load.
+            if (!$existingPeriods->has($period->toDateString())) {
+                $this->ensureLeaseObligationForPeriod($lease, $period);
+            }
             $period = $period->addMonth();
         }
+
+        // Also applies newly-created or previously unconsumed credits to existing
+        // obligations, including a next-month obligation already prepared by the scheduler.
+        $this->applyAvailableCredits($lease, $lastPeriod);
 
         if ($this->obligationScopeMismatchExists($lease, $lastPeriod)) {
             // Callers that reconcile a provider transaction must persist needs_review
