@@ -111,6 +111,14 @@ class PaymentDestinationController extends Controller
         ]);
 
         $method = $validated['method'] ?? $paymentDestination->method;
+        if ($method === 'bank'
+            && $paymentDestination->method === 'bank'
+            && array_key_exists('details', $validated)
+            && trim((string) ($validated['details']['account_number'] ?? '')) === '') {
+            // The manager UI deliberately does not prefill account numbers into
+            // edit forms. Preserve the stored value when the field is left blank.
+            $validated['details']['account_number'] = $paymentDestination->details['account_number'] ?? '';
+        }
         $details = array_key_exists('details', $validated)
             ? $this->validateDetails($method, $validated['details'])
             : $paymentDestination->details;
