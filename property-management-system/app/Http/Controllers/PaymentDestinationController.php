@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\FlutterwaveIntegration;
 use App\Models\PaymentDestination;
 use App\Models\Property;
-use App\Models\OrganizationDarajaCredential;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -261,8 +260,7 @@ class PaymentDestinationController extends Controller
 
     private function payload(PaymentDestination $destination): array
     {
-        $organizationCredentialsConfigured = OrganizationDarajaCredential::where('organization_id', $destination->organization_id)
-            ->first()?->isConfigured() ?? false;
+        $platformCredentialsConfigured = filled(config('daraja.consumer_key')) && filled(config('daraja.consumer_secret'));
 
         return [
             'id' => $destination->id,
@@ -282,7 +280,7 @@ class PaymentDestinationController extends Controller
                 'c2b_authorization_status' => $destination->c2b_authorization_status,
                 'c2b_authorization_checked_at' => $destination->c2b_authorization_checked_at?->toIso8601String(),
                 'c2b_registered_at' => $destination->c2b_registered_at?->toIso8601String(),
-                'organization_credentials_configured' => $organizationCredentialsConfigured,
+                'platform_credentials_configured' => $platformCredentialsConfigured,
                 'stk_push_available' => $destination->stkPushReady(),
             ],
         ];
