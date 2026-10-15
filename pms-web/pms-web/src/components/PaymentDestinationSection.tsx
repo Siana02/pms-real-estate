@@ -210,7 +210,7 @@ export default function PaymentDestinationSection({ role }: Props) {
     <section className="mg-panel">
       <div className="mg-panel__head">
         <h2 className="mg-panel__title"><Wallet /> Payment destinations</h2>
-        <span className="mg-panel__meta">What tenants can pay to</span>
+        <span className="mg-panel__meta">Payment methods tenants can use</span>
       </div>
 
       <div className="mg-panel__body">
@@ -247,7 +247,7 @@ export default function PaymentDestinationSection({ role }: Props) {
                     </div>
                   </div>
                   <div className="mg-actions">
-                    <button type="button" className="mg-btn mg-btn--ghost" onClick={() => startEdit(item)}>Edit</button>
+                    {item.method !== "mpesa_till" && <button type="button" className="mg-btn mg-btn--ghost" onClick={() => startEdit(item)}>Edit</button>}{item.method === "mpesa_till" && <span className="mg-hint">Legacy Till · automatic matching unavailable</span>}
                     <button type="button" className="mg-btn mg-btn--ghost" onClick={() => void disable(item)}><Trash2 />Disable</button>
                   </div>
                 </article>
