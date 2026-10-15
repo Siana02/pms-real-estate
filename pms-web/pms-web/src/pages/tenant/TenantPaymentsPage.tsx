@@ -467,10 +467,10 @@ function destinationDetail(destination: PaymentDestination): string {
   const details = destination.details;
   let detail = "";
   if (destination.method === "mpesa_number") detail = `Send to ${details.number ?? "—"}`;
-  else if (destination.method === "mpesa_till") detail = `Till ${details.till ?? "—"}`;
+  else if (destination.method === "mpesa_till") detail = `Legacy Till ${details.till ?? "—"} · manual verification may be required`;
   else if (destination.method === "mpesa_paybill") detail = `PayBill ${details.paybill ?? "—"}`;
   else detail = [details.bank_name, details.account_name, details.account_number ? `Account ••••${details.account_number.slice(-4)}` : null, details.branch].filter(Boolean).join(" · ");
-  if (destination.method.startsWith("mpesa") && destination.account_reference) {
+  if (destination.method === "mpesa_paybill" && destination.account_reference) {
     detail = [detail, `Account/reference ${destination.account_reference}`].filter(Boolean).join(" · ");
   } else if (destination.method === "mpesa_paybill" && details.account) {
     detail = [detail, `Account/reference ${details.account}`].filter(Boolean).join(" · ");
