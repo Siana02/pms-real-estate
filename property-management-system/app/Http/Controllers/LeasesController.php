@@ -356,6 +356,14 @@ class LeasesController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($lease->id);
 
+            abort_if(
+                $lockedLease->start_date === null ||
+                blank($lockedLease->manager_terms) ||
+                blank($lockedLease->tenant_terms),
+                422,
+                'Confirm the official lease start date and finalize both agreement copies before recording physical signatures.'
+            );
+
             $changes = [];
             foreach ([
                 'manager_copy' => 'manager_copy_signed_on',
