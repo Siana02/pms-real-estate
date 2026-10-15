@@ -27,9 +27,9 @@ class MarkDarajaC2bDestinationReady extends Command
         }
 
         if (!$destination->is_active
-            || !in_array($destination->method, ['mpesa_paybill', 'mpesa_till'], true)
+            || $destination->method !== 'mpesa_paybill'
             || !filled($destination->darajaShortcode())) {
-            $this->error('Destination must be active and contain a valid PayBill or Till shortcode.');
+            $this->error('Destination must be active and contain a valid PayBill shortcode for automatic account-reference matching.');
             return self::FAILURE;
         }
 
