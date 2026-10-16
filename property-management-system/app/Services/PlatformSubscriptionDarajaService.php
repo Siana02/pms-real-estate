@@ -14,6 +14,7 @@ class PlatformSubscriptionDarajaService
     {
         return config('daraja.environment') === 'production'
             && filled(config('services.platform_billing.till_number'))
+            && filled(config('services.platform_billing.stk_shortcode'))
             && filled(config('daraja.consumer_key'))
             && filled(config('daraja.consumer_secret'))
             && filled(config('services.platform_billing.passkey'))
@@ -28,7 +29,8 @@ class PlatformSubscriptionDarajaService
             throw new RuntimeException('Platform STK Push is not ready. Production Daraja credentials, the Till passkey, callback token and public HTTPS APP_URL must be configured.');
         }
 
-        $shortcode = (string) config('services.platform_billing.till_number');
+        $till = (string) config('services.platform_billing.till_number');
+        $shortcode = (string) config('services.platform_billing.stk_shortcode');
         $passkey = (string) config('services.platform_billing.passkey');
         $phone = $this->normalizePhone($phone);
         $timestamp = now()->format('YmdHis');
@@ -41,7 +43,7 @@ class PlatformSubscriptionDarajaService
             'TransactionType' => 'CustomerBuyGoodsOnline',
             'Amount' => (int) ceil((float) $payment->amount),
             'PartyA' => $phone,
-            'PartyB' => $shortcode,
+            'PartyB' => $till,
             'PhoneNumber' => $phone,
             'CallBackURL' => rtrim((string) config('app.url'), '/') . '/api/webhooks/daraja/platform-subscriptions/' . rawurlencode((string) config('services.platform_billing.callback_token')) . '/stk',
             'AccountReference' => Str::limit('SUB' . $payment->id, 12, ''),
