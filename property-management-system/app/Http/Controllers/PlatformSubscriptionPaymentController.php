@@ -126,7 +126,7 @@ class PlatformSubscriptionPaymentController extends Controller
             if ($duplicate || !$matchesAmount) {
                 $locked->update([
                     'status' => 'needs_review',
-                    'mpesa_receipt' => $receipt,
+                    'mpesa_receipt' => $duplicate ? null : $receipt,
                     'reference' => $receipt,
                     'phone' => $phone,
                     'callback_payload' => $payload,
@@ -219,6 +219,18 @@ class PlatformSubscriptionPaymentController extends Controller
             return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Processing failed; retry callback'], 500);
         }
 
+        return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
+    }
+
+    public function c2bValidation(Request $request, string $token): JsonResponse
+    {
+        $expected = (string) config('services.platform_billing.callback_token');
+        abort_unless($expected !== '' && hash_equals($expected, $token), 403, 'Invalid platform subscription callback token.');
+        $shortcode = (string) config('services.platform_billing.till_number');
+        $incoming = (string) ($request->input('BusinessShortCode') ?? $request->input('ShortCode') ?? '');
+        if ($shortcode === '' || $incoming !== $shortcode) {
+            return response()->json(['ResultCode' => 1, 'ResultDesc' => 'Business shortcode mismatch']);
+        }
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
     }
 
