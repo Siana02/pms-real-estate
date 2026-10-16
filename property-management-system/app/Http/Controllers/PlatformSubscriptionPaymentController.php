@@ -31,7 +31,7 @@ class PlatformSubscriptionPaymentController extends Controller
             'Your subscription is already active. Contact platform support for renewal or plan changes.');
 
         abort_unless($daraja->ready(), 409,
-            'STK Push is not configured yet. The platform Till is available for manual payment, but STK requires approved production Daraja credentials, the Till passkey and a public HTTPS callback URL.');
+            'STK Push is not configured yet. The platform Till is available for manual payment, but STK requires approved production Daraja credentials, the Safaricom-provided STK business shortcode and matching passkey, callback token and a public HTTPS callback URL.');
 
         $payment = PlatformSubscriptionPayment::create([
             'platform_subscription_id' => $subscription->id,
@@ -93,11 +93,18 @@ class PlatformSubscriptionPaymentController extends Controller
         }
 
         if ((string) ($callback['ResultCode'] ?? '') !== '0') {
-            $payment->update([
-                'status' => 'rejected',
-                'result_description' => mb_substr((string) ($callback['ResultDesc'] ?? 'Payment not completed.'), 0, 1000),
-                'callback_payload' => $payload,
-            ]);
+            DB::transaction(function () use ($payment, $callback, $payload) {
+                $locked = PlatformSubscriptionPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+                // A late failure callback must never downgrade an already confirmed payment.
+                if (in_array($locked->status, ['confirmed', 'needs_review'], true)) {
+                    return;
+                }
+                $locked->update([
+                    'status' => 'rejected',
+                    'result_description' => mb_substr((string) ($callback['ResultDesc'] ?? 'Payment not completed.'), 0, 1000),
+                    'callback_payload' => $payload,
+                ]);
+            }, 3);
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Accepted']);
         }
 
