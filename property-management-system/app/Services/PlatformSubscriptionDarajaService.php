@@ -26,7 +26,7 @@ class PlatformSubscriptionDarajaService
     public function initiate(PlatformSubscriptionPayment $payment, string $phone): array
     {
         if (! $this->ready()) {
-            throw new RuntimeException('Platform STK Push is not ready. Production Daraja credentials, the Till passkey, callback token and public HTTPS APP_URL must be configured.');
+            throw new RuntimeException('Platform STK Push is not ready. Production Daraja credentials, the STK business shortcode and its matching passkey, callback token and public HTTPS APP_URL must be configured.');
         }
 
         $till = (string) config('services.platform_billing.till_number');
