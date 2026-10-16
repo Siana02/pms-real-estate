@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, Link } from "react-router-dom";
+import { AlertTriangle, ArrowRight, CircleHelp, RefreshCw, ShieldCheck } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
 import LegalHelpPage from "./pages/LegalHelpPage";
 import LoginPage from "./pages/LoginPage";
@@ -55,14 +56,20 @@ function homePath(): string { return getRole() === "platform_admin" ? "/platform
 function RequireAuth({ children }: { children: ReactNode }) { return getToken() ? <>{children}</> : <Navigate to="/login" replace />; }
 function RequirePortal({ portal, children, allowUnsubscribed = false }: { portal: Portal; children: ReactNode; allowUnsubscribed?: boolean }) {
  const [subscriptionAccess, setSubscriptionAccess] = useState<"checking" | "active" | "required" | "feature_blocked" | "error">(allowUnsubscribed ? "active" : "checking");
+ const [subscriptionRetry, setSubscriptionRetry] = useState(0);
+ const [subscriptionErrorCode, setSubscriptionErrorCode] = useState<number | null>(null);
  const currentPath = window.location.pathname;
  useEffect(() => {
   if (allowUnsubscribed || !getToken()) return;
+  setSubscriptionErrorCode(null);
   let cancelled = false;
   const token = getToken();
   fetch(API_BASE + "/platform-subscription/status", { headers: { Accept: "application/json", Authorization: "Bearer " + token } })
    .then(async response => {
-    if (!response.ok) throw new Error("Unable to verify the organization subscription.");
+    if (!response.ok) {
+     if (!cancelled) setSubscriptionErrorCode(response.status);
+     throw new Error("Unable to verify the organization subscription.");
+    }
     return response.json() as Promise<{ subscription?: { status?: string; current_period_ends_at?: string | null } | null; features?: string[]; access_override?: boolean }>;
    })
    .then(payload => {
@@ -77,14 +84,36 @@ function RequirePortal({ portal, children, allowUnsubscribed = false }: { portal
    })
    .catch(() => { if (!cancelled) setSubscriptionAccess("error"); });
   return () => { cancelled = true; };
- }, [portal, allowUnsubscribed, currentPath]);
+ }, [portal, allowUnsubscribed, currentPath, subscriptionRetry]);
  if (!getToken()) return <Navigate to="/login" replace />;
  if (portalForRole(getRole()) !== portal) return <Navigate to={homePath()} replace />;
  if (mustChangePassword()) return <Navigate to="/password-setup" replace />;
  if (portal === "manager" && allowUnsubscribed) return <>{children}</>;
  if (subscriptionAccess === "checking") return <div style={{minHeight:"50vh",display:"grid",placeItems:"center",padding:24,color:"var(--pms-text,#fff)"}}>Checking organization subscription…</div>;
  if (subscriptionAccess === "feature_blocked") return <div style={{maxWidth:640,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h1>This feature is not included</h1><p>{portal === "tenant" ? "Your property manager’s current plan does not include tenant portal access. You do not need to pay anything. Please contact your property manager." : "Your organization can keep using the features included in its active subscription. Contact the organization owner to discuss a plan change."}</p>{portal === "manager" && ["admin", "owner"].includes(getRole()) && <a href="/manager/subscription" style={{display:"inline-block",marginTop:10,padding:"10px 14px",borderRadius:10,background:"var(--pms-accent,#3b82f6)",color:"#fff",textDecoration:"none",fontWeight:800}}>View subscription</a>}</div>;
- if (subscriptionAccess === "error") return <div style={{maxWidth:620,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h2>Subscription status unavailable</h2><p>We could not verify the organization’s subscription, so this page is temporarily locked. Check your connection and try again.</p><button type="button" onClick={()=>window.location.reload()}>Try again</button></div>;
+ if (subscriptionAccess === "error") return <main role="alert" aria-live="polite" style={{minHeight:"min(78vh,760px)",display:"grid",placeItems:"center",padding:"clamp(18px,4vw,40px)",color:"var(--pms-text,#eaf1f8)"}}>
+  <section style={{width:"min(100%,620px)",overflow:"hidden",borderRadius:24,border:"1px solid var(--pms-border,rgba(148,163,184,.22))",background:"var(--pms-surface,#101f31)",boxShadow:"0 24px 70px rgba(0,0,0,.22)"}}>
+   <div style={{height:5,background:"linear-gradient(90deg,#eab308,#f97316)"}}/>
+   <div style={{padding:"clamp(22px,5vw,38px)"}}>
+    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
+     <div style={{width:48,height:48,flex:"0 0 48px",display:"grid",placeItems:"center",borderRadius:15,background:"rgba(234,179,8,.13)",color:"#fbbf24"}}><AlertTriangle size={24}/></div>
+     <div><p style={{margin:"0 0 4px",fontSize:11,fontWeight:850,letterSpacing:".12em",textTransform:"uppercase",color:"var(--pms-muted,#9db0c4)"}}>Temporary verification issue</p><h1 style={{margin:0,fontSize:"clamp(23px,4vw,31px)",lineHeight:1.2,letterSpacing:"-.03em",color:"var(--pms-heading,#fff)"}}>We couldn’t verify your subscription</h1></div>
+    </div>
+    <p style={{margin:"0 0 20px",fontSize:15,lineHeight:1.75,color:"var(--pms-muted,#c2cfdd)"}}>Your workspace data hasn’t been changed. We couldn’t reach the subscription check just now, so we’ve paused this page rather than guess at your access.</p>
+    <div style={{display:"flex",gap:11,alignItems:"flex-start",padding:14,marginBottom:22,borderRadius:13,border:"1px solid var(--pms-border,rgba(148,163,184,.18))",background:"var(--pms-glass,rgba(148,163,184,.06))"}}>
+     <ShieldCheck size={19} style={{flex:"0 0 auto",marginTop:2,color:"var(--pms-accent,#8ab4ff)"}}/>
+     <p style={{margin:0,fontSize:13,lineHeight:1.65,color:"var(--pms-muted,#c2cfdd)"}}>This is a connection or verification problem, not a payment request. You do not need to pay again or create another organization to resolve it.</p>
+    </div>
+    {subscriptionErrorCode !== null && <p style={{margin:"-8px 0 18px",fontSize:12,color:"var(--pms-muted,#9db0c4)"}}>Verification response: HTTP {subscriptionErrorCode}. If this keeps happening, share this code with support.</p>}
+    <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+     <button type="button" onClick={()=>{setSubscriptionAccess("checking");setSubscriptionRetry(value=>value+1);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:9,minHeight:44,padding:"11px 16px",border:0,borderRadius:11,background:"var(--pms-accent,#3b82f6)",color:"#fff",fontWeight:800,cursor:"pointer"}}><RefreshCw size={16}/>Try again</button>
+     {portal === "manager" && ["admin","owner"].includes(getRole()) && <Link to="/manager/subscription" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,minHeight:44,padding:"10px 14px",border:"1px solid var(--pms-border,rgba(148,163,184,.3))",borderRadius:11,color:"var(--pms-text,#eaf1f8)",textDecoration:"none",fontWeight:750}}>Billing & subscriptions <ArrowRight size={15}/></Link>}
+     <Link to="/support" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,minHeight:44,padding:"10px 14px",border:"1px solid transparent",borderRadius:11,color:"var(--pms-muted,#b8c6d6)",textDecoration:"none",fontWeight:700}}><CircleHelp size={16}/>Contact support</Link>
+    </div>
+    <p style={{margin:"20px 0 0",fontSize:12,lineHeight:1.6,color:"var(--pms-muted,#91a4b9)"}}>If you are still blocked after retrying, contact support and include the response code above. Your account and property records remain in place.</p>
+   </div>
+  </section>
+ </main>;
  if (subscriptionAccess === "required") {
   if (portal === "manager" && ["admin", "owner"].includes(getRole())) return <Navigate to="/manager/subscription" replace />;
   if (portal === "manager") return <div style={{maxWidth:640,margin:"12vh auto",padding:24,color:"var(--pms-text,#fff)"}}><h1>Subscription needs owner attention</h1><p>Your organization’s subscription is not active. Please ask the organization owner to review billing and restore access. You do not need to make a subscription payment yourself.</p><a href="/support" style={{display:"inline-block",marginTop:10,padding:"10px 14px",borderRadius:10,background:"var(--pms-accent,#3b82f6)",color:"#fff",textDecoration:"none",fontWeight:800}}>Contact support</a></div>;
