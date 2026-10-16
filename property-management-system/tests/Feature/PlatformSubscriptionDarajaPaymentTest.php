@@ -47,6 +47,12 @@ class PlatformSubscriptionDarajaPaymentTest extends TestCase
         ]);
         $started->assertAccepted()->assertJsonPath('payment.status', 'pending_verification');
         $this->assertDatabaseHas('platform_subscription_payments', ['checkout_request_id' => 'ws_CO_platform_123']);
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/mpesa/stkpush/v1/processrequest')
+                && $request['BusinessShortCode'] === '123456'
+                && $request['PartyB'] === '1820937'
+                && $request['TransactionType'] === 'CustomerBuyGoodsOnline';
+        });
 
         $this->postJson('/api/webhooks/daraja/platform-subscriptions/test-callback-token/stk', [
             'Body' => [
