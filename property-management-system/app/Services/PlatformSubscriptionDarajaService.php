@@ -18,6 +18,7 @@ class PlatformSubscriptionDarajaService
             && filled(config('daraja.consumer_secret'))
             && filled(config('services.platform_billing.passkey'))
             && filled(config('services.platform_billing.callback_token'))
+            && str_starts_with((string) config('app.url'), 'https://')
             && filter_var(config('app.url'), FILTER_VALIDATE_URL);
     }
 
