@@ -25,6 +25,7 @@ class PlatformSubscriptionDarajaPaymentTest extends TestCase
             'daraja.consumer_key' => 'consumer-key',
             'daraja.consumer_secret' => 'consumer-secret',
             'services.platform_billing.till_number' => '1820937',
+            'services.platform_billing.stk_shortcode' => '123456',
             'services.platform_billing.passkey' => 'platform-passkey',
             'services.platform_billing.callback_token' => 'test-callback-token',
             'app.url' => 'https://pms.example.test',
