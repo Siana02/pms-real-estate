@@ -140,7 +140,9 @@ class PlatformSubscriptionController extends Controller
                 && filled(config('services.platform_billing.callback_token'))
                 && str_starts_with((string) config('app.url'), 'https://'),
             'stk_environment' => config('daraja.environment', 'sandbox'),
-            'payments' => $subscription ? $subscription->payments()->latest()->limit(10)->get() : [],
+            'payments' => $subscription ? $subscription->payments()
+                ->latest()->limit(10)
+                ->get(['id', 'platform_subscription_id', 'organization_id', 'amount', 'method', 'reference', 'status', 'paid_at', 'result_description', 'created_at']) : [],
             'features' => $features,
         ]);
     }
