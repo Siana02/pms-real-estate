@@ -134,6 +134,7 @@ class PlatformSubscriptionController extends Controller
             'till_number' => config('services.platform_billing.till_number'),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
             'stk_ready' => config('daraja.environment') === 'production'
+                && filled(config('services.platform_billing.stk_shortcode'))
                 && filled(config('daraja.consumer_key'))
                 && filled(config('daraja.consumer_secret'))
                 && filled(config('services.platform_billing.passkey'))
