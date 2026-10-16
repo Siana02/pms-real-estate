@@ -39,6 +39,8 @@ type Payload = {
   quote: { billable_units: number; monthly_amount: number } | null;
   till_number: string | null;
   payment_setup_ready: boolean;
+  stk_ready?: boolean;
+  stk_environment?: string;
   payments: Payment[];
   features?: string[];
 };
@@ -66,6 +68,8 @@ export default function PlatformSubscriptionPage() {
   const [unitCount, setUnitCount] = useState(1);
   const [reference, setReference] = useState("");
   const [amount, setAmount] = useState("");
+  const [phone, setPhone] = useState("");
+  const [initiatingStk, setInitiatingStk] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -110,6 +114,19 @@ export default function PlatformSubscriptionPage() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "We could not select this plan. Please try again.");
     } finally { setBusyPlan(""); }
+  }
+
+  async function initiateStk(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (initiatingStk) return;
+    setInitiatingStk(true); setError(""); setNotice("");
+    try {
+      const result = await apiRequest("/platform-subscription/stk-push", { method: "POST", body: JSON.stringify({ phone: phone.trim() }) }) as { message?: string };
+      setNotice(result.message ?? "STK prompt requested. Complete payment on your phone.");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "We could not start the M-PESA prompt.");
+    } finally { setInitiatingStk(false); }
   }
 
   async function submitReference(event: FormEvent<HTMLFormElement>) {
@@ -180,6 +197,11 @@ export default function PlatformSubscriptionPage() {
           <div className="sub-step"><span className="sub-step-num">2</span><div><h3>Pay via M-Pesa Till</h3><p>Use the official platform Till shown here. Enter the subscription amount and keep your M-Pesa receipt code.</p></div></div>
           <div className="sub-step"><span className="sub-step-num">3</span><div><h3>Submit your receipt reference</h3><p>Enter the receipt code and amount paid. A platform administrator verifies the payment before activating access.</p></div></div>
           {data?.payment_setup_ready ? <div className="sub-till"><div><small>Official platform M-Pesa Till</small><strong>{data.till_number}</strong></div><ShieldCheck size={23} color="#245c83"/></div> : <div className="sub-alert"><Clock3 size={17}/><div><strong>Official payment details are being configured.</strong><br/>The platform Till number has not been added yet, so payment submission is not available. Compare plans now, but please wait for the official Till details before sending money.</div></div>}
+          {data?.stk_ready ? <form className="sub-form" onSubmit={(event) => void initiateStk(event)}>
+            <label className="sub-field">Phone number to receive the M-PESA prompt<input className="sub-input" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="07XXXXXXXX or 2547XXXXXXXX" required maxLength={30}/></label>
+            <button className="sub-button sub-primary" type="submit" disabled={!canManage || initiatingStk || !data?.subscription || active || Number(data?.subscription?.monthly_amount ?? 0) <= 0}>{initiatingStk ? "Sending M-PESA prompt…" : "Pay subscription with STK Push"}<ArrowRight size={15}/></button>
+            <p className="sub-note"><ShieldCheck size={15}/>The prompt uses the selected plan’s saved monthly quote. Access changes only after Safaricom confirms the payment callback.</p>
+          </form> : <div className="sub-alert" style={{marginTop:15}}><Clock3 size={17}/><div><strong>STK Push is not ready yet.</strong><br/>{data?.stk_environment === "sandbox" ? "The live Till cannot be used for sandbox STK tests. Live STK requires production Daraja credentials, the passkey issued for Till 1820937, callback token and public HTTPS APP_URL." : "Configure production Daraja credentials and the passkey for Till 1820937 on the server, then verify Safaricom has enabled Lipa Na M-PESA Online for this Till."}</div></div>}
           <p className="sub-note"><LockKeyhole size={15}/>Never send this subscription payment to a landlord’s rent Till or an individual account. We will never ask for your M-Pesa PIN or one-time password.</p>
         </article>
 
