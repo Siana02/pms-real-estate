@@ -133,6 +133,13 @@ class PlatformSubscriptionController extends Controller
             'quote' => $quote,
             'till_number' => config('services.platform_billing.till_number'),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
+            'stk_ready' => config('daraja.environment') === 'production'
+                && filled(config('daraja.consumer_key'))
+                && filled(config('daraja.consumer_secret'))
+                && filled(config('services.platform_billing.passkey'))
+                && filled(config('services.platform_billing.callback_token'))
+                && str_starts_with((string) config('app.url'), 'https://'),
+            'stk_environment' => config('daraja.environment', 'sandbox'),
             'payments' => $subscription ? $subscription->payments()->latest()->limit(10)->get() : [],
             'features' => $features,
         ]);
