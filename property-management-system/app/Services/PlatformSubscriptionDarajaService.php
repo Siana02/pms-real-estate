@@ -60,6 +60,33 @@ class PlatformSubscriptionDarajaService
         return $data;
     }
 
+    public function registerC2bUrls(): array
+    {
+        if (config('daraja.environment') !== 'production') {
+            throw new RuntimeException('Platform Till C2B callback registration requires production Daraja configuration.');
+        }
+        $shortcode = (string) config('services.platform_billing.till_number');
+        $token = (string) config('services.platform_billing.callback_token');
+        $base = rtrim((string) config('app.url'), '/');
+        if ($shortcode === '' || $token === '' || !str_starts_with($base, 'https://')) {
+            throw new RuntimeException('Configure the platform Till, callback token and public HTTPS APP_URL before registering C2B callbacks.');
+        }
+        $callbackBase = $base . '/api/webhooks/daraja/platform-subscriptions/' . rawurlencode($token);
+        $response = Http::withToken($this->accessToken())->acceptJson()->asJson()->timeout(20)
+            ->post($this->baseUrl() . '/mpesa/c2b/v1/registerurl', [
+                'ShortCode' => $shortcode,
+                'ResponseType' => 'Completed',
+                'ConfirmationURL' => $callbackBase . '/c2b',
+                'ValidationURL' => $callbackBase . '/c2b-validation',
+            ]);
+        $response->throw();
+        $data = $response->json();
+        if ((string) ($data['ResponseCode'] ?? '') !== '0') {
+            throw new RuntimeException((string) ($data['ResponseDescription'] ?? 'Safaricom rejected platform Till C2B callback registration.'));
+        }
+        return $data;
+    }
+
     public function accessToken(): string
     {
         $key = trim((string) config('daraja.consumer_key'));
