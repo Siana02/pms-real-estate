@@ -195,6 +195,16 @@ class PlatformSubscriptionPaymentController extends Controller
                 if (!$payment || abs((float) $payment->amount - $amount) >= 0.001) {
                     return;
                 }
+                $receiptAlreadyUsed = PlatformSubscriptionPayment::where('mpesa_receipt', $receipt)
+                    ->where('id', '!=', $payment->id)->exists();
+                if ($receiptAlreadyUsed) {
+                    $payment->update([
+                        'status' => 'needs_review',
+                        'result_description' => 'This receipt is already attached to another subscription payment; manual review required.',
+                    ]);
+                    $lockedEvent->update(['status' => 'needs_review']);
+                    return;
+                }
                 $payment->update([
                     'status' => 'confirmed',
                     'mpesa_receipt' => $receipt,
