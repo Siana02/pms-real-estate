@@ -133,7 +133,17 @@ class PlatformSubscriptionController extends Controller
             'quote' => $quote,
             'till_number' => config('services.platform_billing.till_number'),
             'payment_setup_ready' => filled(config('services.platform_billing.till_number')),
-            'payments' => $subscription ? $subscription->payments()->latest()->limit(10)->get() : [],
+            'stk_ready' => config('daraja.environment') === 'production'
+                && filled(config('services.platform_billing.stk_shortcode'))
+                && filled(config('daraja.consumer_key'))
+                && filled(config('daraja.consumer_secret'))
+                && filled(config('services.platform_billing.passkey'))
+                && filled(config('services.platform_billing.callback_token'))
+                && str_starts_with((string) config('app.url'), 'https://'),
+            'stk_environment' => config('daraja.environment', 'sandbox'),
+            'payments' => $subscription ? $subscription->payments()
+                ->latest()->limit(10)
+                ->get(['id', 'platform_subscription_id', 'organization_id', 'amount', 'method', 'reference', 'status', 'paid_at', 'result_description', 'created_at']) : [],
             'features' => $features,
         ]);
     }
@@ -221,7 +231,7 @@ class PlatformSubscriptionController extends Controller
             'data' => PlatformSubscriptionPayment::with([
                 'organization:id,name,email',
                 'subscription:id,organization_id,plan_code,status,billable_units,monthly_amount',
-            ])->where('status', 'pending_verification')->latest()->limit(200)->get(),
+            ])->whereIn('status', ['pending_verification', 'needs_review'])->latest()->limit(200)->get(),
         ]);
     }
 
@@ -231,7 +241,7 @@ class PlatformSubscriptionController extends Controller
         $validated = $request->validate(['approved' => ['required', 'boolean'], 'notes' => ['nullable', 'string', 'max:2000']]);
         DB::transaction(function () use ($payment, $request, $validated) {
             $payment->refresh();
-            if ($payment->status !== 'pending_verification') abort(409, 'This payment has already been reviewed.');
+            if (!in_array($payment->status, ['pending_verification', 'needs_review'], true)) abort(409, 'This payment has already been reviewed.');
             $payment->update([
                 'status' => $validated['approved'] ? 'confirmed' : 'rejected',
                 'verified_by' => $request->user()->id,
