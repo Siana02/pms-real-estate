@@ -121,6 +121,7 @@ Route::post('webhooks/flutterwave', [FlutterwaveController::class, 'webhook']);
 Route::post('webhooks/daraja/{callbackToken}/stk', [DarajaController::class, 'stkCallback'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/platform-subscriptions/{token}/stk', [PlatformSubscriptionPaymentController::class, 'stkCallback'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/platform-subscriptions/{token}/c2b', [PlatformSubscriptionPaymentController::class, 'c2bCallback'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/platform-subscriptions/{token}/c2b-validation', [PlatformSubscriptionPaymentController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/{callbackToken}/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/{callbackToken}/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
