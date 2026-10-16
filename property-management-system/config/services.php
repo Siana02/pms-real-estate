@@ -2,7 +2,9 @@
 
 return [
     'platform_billing' => [
-        'till_number' => env('PLATFORM_MPESA_TILL'),
+        'till_number' => env('PLATFORM_MPESA_TILL', '1820937'),
+        'passkey' => env('PLATFORM_DARAJA_PASSKEY', env('DARAJA_PASSKEY')),
+        'callback_token' => env('PLATFORM_DARAJA_CALLBACK_TOKEN'),
     ],
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
