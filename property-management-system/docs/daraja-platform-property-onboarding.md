@@ -95,7 +95,8 @@ Set the deployment environment as follows before enabling live STK:
 
 - `DARAJA_ENVIRONMENT=production`
 - `PLATFORM_DARAJA_CONSUMER_KEY` and `PLATFORM_DARAJA_CONSUMER_SECRET` from the MARSWebz Daraja app
-- `PLATFORM_DARAJA_PASSKEY` for Till 1820937 (only if Safaricom has enabled Lipa Na M-PESA Online for this Till)
+- `PLATFORM_DARAJA_SHORTCODE` with the head-office/store shortcode Safaricom provides for Till STK requests; the STK API uses this as `BusinessShortCode` and uses Till 1820937 as `PartyB`
+- `PLATFORM_DARAJA_PASSKEY` issued for the shortcode/passkey pair used for STK (only if Safaricom has enabled Lipa Na M-PESA Online for this Till)
 - `PLATFORM_DARAJA_CALLBACK_TOKEN` to a long random secret, generated for example with `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"`
 - `APP_URL` set to the public HTTPS backend URL
 
