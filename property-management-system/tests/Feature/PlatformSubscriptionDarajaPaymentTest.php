@@ -44,7 +44,8 @@ class PlatformSubscriptionDarajaPaymentTest extends TestCase
         $started = $this->withToken($token)->postJson('/api/platform-subscription/stk-push', [
             'phone' => '0712345678',
         ]);
-        $started->assertAccepted()->assertJsonPath('payment.checkout_request_id', 'ws_CO_platform_123');
+        $started->assertAccepted()->assertJsonPath('payment.status', 'pending_verification');
+        $this->assertDatabaseHas('platform_subscription_payments', ['checkout_request_id' => 'ws_CO_platform_123']);
 
         $this->postJson('/api/webhooks/daraja/platform-subscriptions/test-callback-token/stk', [
             'Body' => [
