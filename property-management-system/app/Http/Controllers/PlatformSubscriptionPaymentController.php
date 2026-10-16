@@ -199,7 +199,15 @@ class PlatformSubscriptionPaymentController extends Controller
                 $payment = PlatformSubscriptionPayment::whereRaw('UPPER(reference) = ?', [$receipt])
                     ->where('status', 'pending_verification')
                     ->lockForUpdate()->first();
-                if (!$payment || abs((float) $payment->amount - $amount) >= 0.001) {
+                if (!$payment) {
+                    return;
+                }
+                if (abs((float) $payment->amount - $amount) >= 0.001) {
+                    $payment->update([
+                        'status' => 'needs_review',
+                        'result_description' => 'The receipt reference was received, but its amount does not match the submitted subscription amount.',
+                    ]);
+                    $lockedEvent->update(['status' => 'needs_review']);
                     return;
                 }
                 $receiptAlreadyUsed = PlatformSubscriptionPayment::where('mpesa_receipt', $receipt)
