@@ -25,6 +25,7 @@ use App\Http\Controllers\RentLedgerReviewController;
 use App\Http\Controllers\DarajaController;
 use App\Http\Controllers\GuestTenantPaymentLinkController;
 use App\Http\Controllers\PlatformSubscriptionController;
+use App\Http\Controllers\PlatformSubscriptionPaymentController;
 use App\Http\Middleware\EnsureActivePlatformSubscription;
 
 use App\Http\Controllers\DeveloperSupportController;
@@ -52,7 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('platform-subscription/admin/payments', [PlatformSubscriptionController::class, 'pendingPayments']);
     Route::get('platform-subscription/admin/organizations', [PlatformSubscriptionController::class, 'adminOrganizations']);
     Route::post('platform-subscription/select', [PlatformSubscriptionController::class, 'select'])->middleware('role:admin,owner');
-    Route::post('platform-subscription/payment-reference', [PlatformSubscriptionController::class, 'submitPayment'])->middleware('role:admin,owner');
+    Route::post('platform-subscription/payment-reference', [PlatformSubscriptionPaymentController::class, 'submitReference'])->middleware('role:admin,owner');
+    Route::post('platform-subscription/stk-push', [PlatformSubscriptionPaymentController::class, 'initiateStk'])->middleware(['role:admin,owner', 'throttle:6,1']);
     Route::post('platform-subscription/payments/{payment}/verify', [PlatformSubscriptionController::class, 'verifyPayment']);
     Route::put('platform-subscription/organizations/{organization}/custom-pricing', [PlatformSubscriptionController::class, 'setCustomPricing']);
     Route::post('change-password', [AuthController::class, 'changePassword']);
@@ -117,6 +119,8 @@ Route::middleware(['auth:sanctum', EnsureActivePlatformSubscription::class, 'rol
 Route::get('webhooks/flutterwave', fn () => response()->json(['message' => 'Use POST.'], 405));
 Route::post('webhooks/flutterwave', [FlutterwaveController::class, 'webhook']);
 Route::post('webhooks/daraja/{callbackToken}/stk', [DarajaController::class, 'stkCallback'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/platform-subscriptions/{token}/stk', [PlatformSubscriptionPaymentController::class, 'stkCallback'])->middleware('throttle:120,1');
+Route::post('webhooks/daraja/platform-subscriptions/{token}/c2b', [PlatformSubscriptionPaymentController::class, 'c2bCallback'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/{callbackToken}/confirm', [DarajaController::class, 'c2bConfirmation'])->middleware('throttle:120,1');
 Route::post('webhooks/daraja/{callbackToken}/validate', [DarajaController::class, 'c2bValidation'])->middleware('throttle:120,1');
 Route::get('webhooks/flutterwave/callback', [FlutterwaveController::class, 'callback']);
