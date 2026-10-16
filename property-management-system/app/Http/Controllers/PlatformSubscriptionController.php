@@ -228,7 +228,7 @@ class PlatformSubscriptionController extends Controller
             'data' => PlatformSubscriptionPayment::with([
                 'organization:id,name,email',
                 'subscription:id,organization_id,plan_code,status,billable_units,monthly_amount',
-            ])->where('status', 'pending_verification')->latest()->limit(200)->get(),
+            ])->whereIn('status', ['pending_verification', 'needs_review'])->latest()->limit(200)->get(),
         ]);
     }
 
@@ -238,7 +238,7 @@ class PlatformSubscriptionController extends Controller
         $validated = $request->validate(['approved' => ['required', 'boolean'], 'notes' => ['nullable', 'string', 'max:2000']]);
         DB::transaction(function () use ($payment, $request, $validated) {
             $payment->refresh();
-            if ($payment->status !== 'pending_verification') abort(409, 'This payment has already been reviewed.');
+            if (!in_array($payment->status, ['pending_verification', 'needs_review'], true)) abort(409, 'This payment has already been reviewed.');
             $payment->update([
                 'status' => $validated['approved'] ? 'confirmed' : 'rejected',
                 'verified_by' => $request->user()->id,
