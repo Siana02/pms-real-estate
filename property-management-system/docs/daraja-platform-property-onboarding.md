@@ -86,3 +86,29 @@ The review command checks the destination, shortcode, organization, property, le
 C2B events are deduplicated by environment and M-PESA receipt number across shortcodes. A repeated callback cannot create another event. Receipt reuse under a different shortcode, or a C2B callback that conflicts with an existing STK/C2B ledger allocation, is sent to platform review. A manual resolution cannot cross organization or property boundaries.
 
 C2B reference matching accepts either the unique lease payment reference or the destination's configured account-reference template (for example `51683/{unit}`). Templates are evaluated per destination and lease. If two organizations share a shortcode and both templates produce the same reference, the payment remains ambiguous; phone number is never used to choose one of those leases.
+
+## MARSWebz platform subscription collection
+
+Platform subscription payments are separate from tenant rent. The platform subscription Till is configured with `PLATFORM_MPESA_TILL=1820937`; property managers must never enter this Till as their own property rent destination. Subscription STK uses the platform Daraja app and a passkey issued specifically for this platform Till.
+
+Set the deployment environment as follows before enabling live STK:
+
+- `DARAJA_ENVIRONMENT=production`
+- `PLATFORM_DARAJA_CONSUMER_KEY` and `PLATFORM_DARAJA_CONSUMER_SECRET` from the MARSWebz Daraja app
+- `PLATFORM_DARAJA_PASSKEY` for Till 1820937 (only if Safaricom has enabled Lipa Na M-PESA Online for this Till)
+- `PLATFORM_DARAJA_CALLBACK_TOKEN` to a long random secret, generated for example with `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"`
+- `APP_URL` set to the public HTTPS backend URL
+
+Clear Laravel's cached configuration after updating environment variables. Do not commit real credentials or callback tokens. STK will stay disabled when the app is in sandbox mode or required production settings are missing; a real Till cannot be used with Safaricom's sandbox shortcode.
+
+### Automatic receipt matching for manual Till payments
+
+The platform also stores incoming C2B events and matches them to the exact M-PESA receipt reference and amount submitted by a manager. To register the C2B callback URLs, run:
+
+```sh
+php artisan daraja:register-platform-subscription-c2b
+```
+
+This registration requires production Daraja credentials, the public HTTPS `APP_URL`, the Till number, and callback token. Safaricom must support C2B callback registration for the merchant Till; if registration is rejected, ask Safaricom to enable the relevant integration or use the manual platform-admin verification queue. A submitted receipt alone is never treated as proof of payment.
+
+A confirmed STK callback or an exact match against a persisted C2B event activates the selected subscription for one monthly billing period. Duplicate receipts and amount mismatches are sent to review. These platform subscription callbacks do not create tenant rent ledger entries and do not route or hold tenant rent.
