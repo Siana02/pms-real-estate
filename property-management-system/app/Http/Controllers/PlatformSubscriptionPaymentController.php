@@ -121,7 +121,7 @@ class PlatformSubscriptionPaymentController extends Controller
                 return;
             }
             $duplicate = PlatformSubscriptionPayment::where('mpesa_receipt', $receipt)
-                ->whereKeyNot($locked->id)->exists();
+                ->where('id', '!=', $locked->id)->exists();
             $matchesAmount = abs((float) $locked->amount - $amount) < 0.001;
             if ($duplicate || !$matchesAmount) {
                 $locked->update([
