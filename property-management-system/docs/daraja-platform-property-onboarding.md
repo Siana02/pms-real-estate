@@ -89,7 +89,7 @@ C2B reference matching accepts either the unique lease payment reference or the 
 
 ## MARSWebz platform subscription collection
 
-Platform subscription payments are separate from tenant rent. The platform subscription Till is configured with `PLATFORM_MPESA_TILL=1820937`; property managers must never enter this Till as their own property rent destination. Subscription STK uses the platform Daraja app and a passkey issued specifically for this platform Till.
+Platform subscription payments are separate from tenant rent. The platform subscription Till is configured with `PLATFORM_MPESA_TILL=1820937`; property managers must never enter this Till as their own property rent destination. Subscription STK uses the platform Daraja app, the Safaricom-provided head-office/store shortcode, and the passkey associated with that STK shortcode. The Till remains the actual collection destination.
 
 Set the deployment environment as follows before enabling live STK:
 
