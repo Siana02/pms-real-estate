@@ -327,7 +327,7 @@ function ManagerPropertiesPage() {
  
   return (
     <DashboardLayout>
-      <div className="mg-root">
+      <div className="mg-root mg-root--properties">
         <style>{managerStyles}</style>
         <style>{pageStyles}</style>
  
@@ -540,7 +540,34 @@ function ManagerPropertiesPage() {
                     >
                       <div
                         className="mg-progress__bar"
-                        style={{ width: `${property.occupancy}%` }}
+                        style={{ width: `${property.occupancy}%
+/* Portfolio redesign: strong page header, clear metrics, and card-led hierarchy. */
+.mg-root--properties .mg-shell { max-width: 88rem; gap: 1.75rem; }
+.mg-root--properties .mg-header { position:relative; overflow:hidden; padding:clamp(1.25rem,2.8vw,2.25rem); border:1px solid var(--pms-border-soft); border-left:5px solid var(--pms-accent); border-radius:1.5rem; background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--pms-accent) 18%,transparent),transparent 48%),linear-gradient(125deg,var(--pms-surface),var(--pms-glass)); box-shadow:0 18px 48px rgba(0,0,0,.08); }
+.mg-root--properties .mg-eyebrow { display:inline-flex; padding:.4rem .7rem; border:1px solid var(--pms-border); border-radius:999px; background:var(--pms-glass); color:var(--pms-accent); letter-spacing:.13em; }
+.mg-root--properties .mg-title { margin-top:.8rem; font-size:clamp(2rem,4vw,3rem); line-height:1.02; letter-spacing:-.055em; }
+.mg-root--properties .mg-subtitle { max-width:44rem; font-size:.98rem; line-height:1.65; }
+.mg-root--properties .mg-actions { gap:.65rem; }
+.mg-root--properties .mg-stats { grid-template-columns:repeat(4,minmax(0,1fr)); gap:.85rem; }
+.mg-root--properties .mg-stat { position:relative; overflow:hidden; min-height:7.75rem; padding:1.2rem 1.25rem 1.1rem; border:1px solid var(--pms-border-soft); border-radius:1.15rem; background:var(--pms-surface); box-shadow:0 8px 28px rgba(0,0,0,.055); }
+.mg-root--properties .mg-stat::after { content:""; position:absolute; inset:auto 0 0; height:3px; background:linear-gradient(90deg,var(--pms-accent),color-mix(in srgb,var(--pms-accent-2) 65%,transparent)); }
+.mg-root--properties .mg-stat__label { font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; }
+.mg-root--properties .mg-stat__value { margin-top:.65rem; font-size:clamp(1.7rem,2.6vw,2.35rem); font-weight:750; letter-spacing:-.06em; }
+.mg-root--properties .mg-stat__hint { margin-top:.4rem; line-height:1.4; }
+.mg-root--properties .mg-toolbar { padding:.85rem; border:1px solid var(--pms-border-soft); border-radius:1.1rem; background:var(--pms-glass); }
+.mg-root--properties .pr-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,21rem),1fr)); gap:1.15rem; }
+.mg-root--properties .pr-card { position:relative; overflow:hidden; min-width:0; padding:1.4rem; gap:1.1rem; border:1px solid var(--pms-border-soft); border-radius:1.35rem; background:var(--pms-surface); box-shadow:0 12px 32px rgba(0,0,0,.065); transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+.mg-root--properties .pr-card::before { content:""; position:absolute; inset:0 0 auto; height:4px; background:linear-gradient(90deg,var(--pms-accent),color-mix(in srgb,var(--pms-accent-2) 75%,var(--pms-accent))); }
+.mg-root--properties button.pr-card:hover { transform:translateY(-4px); border-color:var(--pms-accent); box-shadow:0 20px 42px rgba(0,0,0,.12); }
+.mg-root--properties .pr-card__name { font-size:1.2rem; letter-spacing:-.035em; }
+.mg-root--properties .pr-metrics { gap:.5rem; padding:.9rem 0; }
+.mg-root--properties .pr-metric { padding:.7rem .55rem; border-radius:.8rem; background:var(--pms-glass); }
+.mg-root--properties .pr-metric__value { font-size:1.1rem; }
+.mg-root--properties .pr-occ { gap:.6rem; }
+.mg-root--properties .pr-occ__bar { height:.6rem; border-radius:999px; overflow:hidden; }
+@media(max-width:54rem){.mg-root--properties .mg-stats{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:36rem){.mg-root--properties .mg-header{padding:1.1rem;border-radius:1.1rem}.mg-root--properties .mg-stats{gap:.6rem}.mg-root--properties .mg-stat{min-height:6.5rem;padding:.85rem}.mg-root--properties .mg-stat__value{font-size:1.55rem}.mg-root--properties .pr-card{padding:1.05rem}}
+` }}
                       />
                     </div>
                     <div className="pr-occ__row">

@@ -135,7 +135,7 @@ const pageStyles = `
 }
  
 .st-logo:hover { border-color: var(--pms-accent); }
-.st-logo img { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
+.st-logo img { display: block; width: auto !important; height: auto !important; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; flex: 0 0 auto; }
 .st-logo:disabled { cursor: default; opacity: 0.7; }
  
 .st-crop {
@@ -523,16 +523,10 @@ function ManagerSettingsPage() {
     setCropDragging(false);
   }
 
-  function openCropper(source: string) {
-    setError("");
-    if (cropSource?.startsWith("blob:") && cropSource !== source) {
-      URL.revokeObjectURL(cropSource);
-    }
-    setCropZoom(1);
-    setCropOffset({ x: 0, y: 0 });
-    setCropNaturalSize({ width: 0, height: 0 });
-    setCropStageSize(cropStageRef.current?.clientWidth || 360);
-    setCropSource(source);
+  function chooseReplacementLogo() {
+    // Keep the uploaded file intact. The preview is not an image editor and
+    // clicking it must never open the old square crop workflow.
+    fileInput.current?.click();
   }
 
   async function handleFile(file: File | undefined) {
@@ -808,7 +802,7 @@ function ManagerSettingsPage() {
             </div>
             <div className="mg-panel__body">
               <div className="st-brand">
-                <button type="button" className="st-logo" onClick={() => logo && openCropper(logo)} title={logo ? "Click to adjust the logo" : undefined} disabled={!logo || savingLogo}>
+                <button type="button" className="st-logo" onClick={chooseReplacementLogo} title="Choose a different logo" aria-label="Choose a different organization logo" disabled={savingLogo}>
                   {logo ? <img src={logo} alt="Your brand logo" /> : <span className="st-logo__fallback">{initials(brandName)}</span>}
                 </button>
                 <div className="st-brandinfo">

@@ -391,17 +391,20 @@ const styles = `
  
 .tp-side__mark {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--tp-r-sm);
-  background: var(--tp-blue);
-  color: #fff;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: .2rem;
+  border: 1px solid var(--tp-border);
+  border-radius: .75rem;
+  background: #fff;
+  color: var(--tp-blue);
 }
  
 .tp-side__mark svg { width: 1.0625rem; height: 1.0625rem; }
-.tp-side__logo { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; background: #fff; }
+.tp-side__logo { display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; border-radius: .3rem; background: #fff; }
  
 .tp-side__word {
   font-size: 1.0625rem;
