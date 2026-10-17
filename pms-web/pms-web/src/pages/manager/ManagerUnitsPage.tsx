@@ -26,6 +26,45 @@ import {
   titleCase,
 } from "../../services/format";
  
+const unitPageStyles = `
+.mg-root .mg-stats {
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.875rem;
+}
+.mg-root .mg-stat {
+  min-width: 0;
+  padding: 1rem 1.125rem;
+  border-radius: 1rem;
+  border: 1px solid var(--pms-border-soft);
+  background: linear-gradient(145deg, var(--pms-surface), var(--pms-glass));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+.mg-root .mg-stat__value { font-size: clamp(1.1rem, 1.8vw, 1.45rem); letter-spacing: -0.035em; }
+.mg-root .mg-toolbar { align-items: center; gap: 0.875rem; }
+.mg-root .mg-search { flex-basis: 20rem; }
+.mg-root .mg-panel {
+  overflow: hidden;
+  border-radius: 1.125rem;
+  border-color: var(--pms-border-soft);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.045);
+}
+.mg-root .mg-panel__head {
+  padding: 1rem 1.25rem;
+  background: linear-gradient(90deg, var(--pms-glass), transparent);
+}
+.mg-root .mg-panel__body { padding: 1rem 1.25rem; }
+.mg-root .mg-tablewrap { border-radius: 0 0 1.125rem 1.125rem; }
+.mg-root .mg-table th { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.mg-root .mg-table td { vertical-align: middle; }
+.mg-root .mg-table tbody tr { transition: background-color 0.16s ease; }
+@media (max-width: 38rem) {
+  .mg-root .mg-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mg-root .mg-stat { padding: 0.875rem; }
+  .mg-root .mg-panel__head { padding: 0.875rem 1rem; }
+  .mg-root .mg-panel__body { padding: 0.875rem; }
+}
+`;
+
 /* ------------------------------------------------------------------ */
 /*  TYPES & PARSING                                                     */
 /* ------------------------------------------------------------------ */
@@ -570,6 +609,7 @@ function ManagerUnitsPage() {
     <DashboardLayout>
       <div className="mg-root">
         <style>{managerStyles}</style>
+        <style>{unitPageStyles}</style>
  
         <div className="mg-shell">
           <header className="mg-header">
