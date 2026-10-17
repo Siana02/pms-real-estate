@@ -194,12 +194,12 @@ const pageStyles = `
 .st-crop__body { padding: 1rem 1.125rem 1.125rem; }
  
 .st-crop__stage {
-  width: min(100%, 22rem);
-  aspect-ratio: 1;
+  width: min(100%, 28rem);
+  aspect-ratio: 16 / 9;
   margin: 0 auto;
   position: relative;
   overflow: hidden;
-  border-radius: 50%;
+  border-radius: 0.75rem;
   background:
     linear-gradient(45deg, #eef1f3 25%, transparent 25%),
     linear-gradient(-45deg, #eef1f3 25%, transparent 25%),
@@ -225,7 +225,7 @@ const pageStyles = `
   position: absolute;
   inset: 0;
   border: 1px solid rgba(255,255,255,0.9);
-  border-radius: 50%;
+  border-radius: 0.75rem;
   box-shadow: inset 0 0 0 999px rgba(15, 23, 42, 0.04);
   pointer-events: none;
 }
@@ -282,9 +282,9 @@ const pageStyles = `
  
 .st-crop__preview-circle {
   position: relative;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
+  width: 5.5rem;
+  height: 3.1rem;
+  border-radius: 0.5rem;
   overflow: hidden;
   border: 1px solid var(--pms-border);
   background: #fff;
@@ -293,7 +293,7 @@ const pageStyles = `
 .st-crop__preview-circle img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
  
 .st-crop__actions {
@@ -432,7 +432,8 @@ function ManagerSettingsPage() {
   const [cropZoom, setCropZoom] = useState(1);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const [cropNaturalSize, setCropNaturalSize] = useState({ width: 0, height: 0 });
-  const [cropStageSize, setCropStageSize] = useState(360);
+  const [cropStageSize, setCropStageSize] = useState(448);
+  const [cropStageHeight, setCropStageHeight] = useState(252);
   const [cropDragging, setCropDragging] = useState(false);
   const cropStageRef = useRef<HTMLDivElement>(null);
   const cropDragRef = useRef({ x: 0, y: 0 });
@@ -523,10 +524,18 @@ function ManagerSettingsPage() {
     setCropDragging(false);
   }
 
-  function chooseReplacementLogo() {
-    // Keep the uploaded file intact. The preview is not an image editor and
-    // clicking it must never open the old square crop workflow.
-    fileInput.current?.click();
+  function openCropper(source: string | null = logo) {
+    if (!source) {
+      fileInput.current?.click();
+      return;
+    }
+    setError("");
+    setNotice("");
+    setCropSource(source);
+    setCropNaturalSize({ width: 0, height: 0 });
+    setCropZoom(1);
+    setCropOffset({ x: 0, y: 0 });
+    setCropDragging(false);
   }
 
   async function handleFile(file: File | undefined) {
@@ -606,7 +615,7 @@ function ManagerSettingsPage() {
   }
 
   function adjustZoom(delta: number) {
-    setCropZoom((value) => Math.min(4, Math.max(1, Number((value + delta).toFixed(2)))));
+    setCropZoom((value) => Math.min(4, Math.max(0.5, Number((value + delta).toFixed(2)))));
   }
 
   async function saveCroppedLogo() {
@@ -637,31 +646,33 @@ function ManagerSettingsPage() {
         image.onerror = () => reject(new Error("Could not read that image."));
       });
 
-      const stageSize = cropStageRef.current.clientWidth;
-      const outputSize = 512;
+      const stageWidth = cropStageRef.current.clientWidth;
+      const stageHeight = cropStageRef.current.clientHeight;
+      const outputWidth = 1024;
+      const outputHeight = 576;
       const baseScale = Math.min(
-        stageSize / cropNaturalSize.width,
-        stageSize / cropNaturalSize.height
+        stageWidth / cropNaturalSize.width,
+        stageHeight / cropNaturalSize.height
       );
       const renderedWidth = cropNaturalSize.width * baseScale * cropZoom;
       const renderedHeight = cropNaturalSize.height * baseScale * cropZoom;
-      const imageX = (stageSize - renderedWidth) / 2 + cropOffset.x;
-      const imageY = (stageSize - renderedHeight) / 2 + cropOffset.y;
+      const imageX = (stageWidth - renderedWidth) / 2 + cropOffset.x;
+      const imageY = (stageHeight - renderedHeight) / 2 + cropOffset.y;
 
       const canvas = document.createElement("canvas");
-      canvas.width = outputSize;
-      canvas.height = outputSize;
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
 
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Could not prepare the logo image.");
 
-      context.clearRect(0, 0, outputSize, outputSize);
+      context.clearRect(0, 0, outputWidth, outputHeight);
       context.drawImage(
         image,
-        (imageX / stageSize) * outputSize,
-        (imageY / stageSize) * outputSize,
-        (renderedWidth / stageSize) * outputSize,
-        (renderedHeight / stageSize) * outputSize
+        (imageX / stageWidth) * outputWidth,
+        (imageY / stageHeight) * outputHeight,
+        (renderedWidth / stageWidth) * outputWidth,
+        (renderedHeight / stageHeight) * outputHeight
       );
 
       const blob = await new Promise<Blob | null>((resolve) =>
@@ -802,7 +813,7 @@ function ManagerSettingsPage() {
             </div>
             <div className="mg-panel__body">
               <div className="st-brand">
-                <button type="button" className="st-logo" onClick={chooseReplacementLogo} title="Choose a different logo" aria-label="Choose a different organization logo" disabled={savingLogo}>
+                <button type="button" className="st-logo" onClick={() => openCropper()} title={logo ? "Edit logo crop and zoom" : "Upload organization logo"} aria-label={logo ? "Edit the existing organization logo" : "Upload organization logo"} disabled={savingLogo}>
                   {logo ? <img src={logo} alt="Your brand logo" /> : <span className="st-logo__fallback">{initials(brandName)}</span>}
                 </button>
                 <div className="st-brandinfo">
@@ -874,7 +885,8 @@ function ManagerSettingsPage() {
                           width: event.currentTarget.naturalWidth,
                           height: event.currentTarget.naturalHeight,
                         });
-                        setCropStageSize(cropStageRef.current?.clientWidth || 360);
+                        setCropStageSize(cropStageRef.current?.clientWidth || 448);
+                        setCropStageHeight(cropStageRef.current?.clientHeight || 252);
                       }}
                       style={
                         cropNaturalSize.width
@@ -883,7 +895,7 @@ function ManagerSettingsPage() {
                               height: cropNaturalSize.height,
                               transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${Math.min(
                                 cropStageSize / cropNaturalSize.width,
-                                cropStageSize / cropNaturalSize.height
+                                cropStageHeight / cropNaturalSize.height
                               ) * cropZoom})`,
                               transformOrigin: "center",
                             }
@@ -902,14 +914,14 @@ function ManagerSettingsPage() {
                       <button
                         type="button"
                         onClick={() => adjustZoom(-0.1)}
-                        disabled={savingLogo || cropZoom <= 1}
+                        disabled={savingLogo || cropZoom <= 0.5}
                         aria-label="Zoom out"
                       >
                         <Minus />
                       </button>
                       <input
                         type="range"
-                        min="1"
+                        min="0.5"
                         max="4"
                         step="0.05"
                         value={cropZoom}
@@ -944,9 +956,9 @@ function ManagerSettingsPage() {
                               position: "absolute",
                               top: "50%",
                               left: "50%",
-                              transform: `translate(-50%, -50%) translate(${cropOffset.x * (56 / cropStageSize)}px, ${cropOffset.y * (56 / cropStageSize)}px) scale(${Math.min(
-                                56 / cropNaturalSize.width,
-                                56 / cropNaturalSize.height
+                              transform: `translate(-50%, -50%) translate(${cropOffset.x * (88 / cropStageSize)}px, ${cropOffset.y * (50 / cropStageHeight)}px) scale(${Math.min(
+                                88 / cropNaturalSize.width,
+                                50 / cropNaturalSize.height
                               ) * cropZoom})`,
                               transformOrigin: "center",
                             }}
