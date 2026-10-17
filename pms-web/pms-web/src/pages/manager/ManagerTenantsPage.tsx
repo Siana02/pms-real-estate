@@ -874,6 +874,49 @@ const styles = `
   .tn-row { padding: 0.875rem; }
 }
 
+ 
+/* The root button reset has higher specificity than bare utility classes; restore intentional variants. */
+.tn-root .tn-btn {
+  border: 1px solid var(--tn-border);
+  color: var(--tn-text);
+  background: transparent;
+}
+.tn-root .tn-btn--ghost {
+  border-color: var(--tn-border);
+  color: var(--pms-text);
+  background: var(--tn-glass);
+}
+.tn-root .tn-btn--primary {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--pms-accent), var(--pms-accent-2));
+}
+.tn-root .tn-btn--subtle {
+  border-color: transparent;
+  color: var(--tn-muted);
+  background: transparent;
+}
+.tn-root .tn-chip {
+  border: 1px solid var(--tn-border-soft);
+  color: var(--tn-muted);
+  background: var(--tn-glass);
+}
+.tn-root .tn-chip--on {
+  border-color: var(--pms-accent);
+  color: var(--pms-heading);
+  background: var(--pms-glass-strong, var(--pms-glass));
+}
+.tn-root .tn-link {
+  border: 0;
+  color: var(--pms-accent);
+  background: transparent;
+}
+.tn-root .tn-close {
+  border: 1px solid var(--tn-border-soft);
+  color: var(--tn-muted);
+  background: transparent;
+}
+
 `;
  
 /* ------------------------------------------------------------------ */

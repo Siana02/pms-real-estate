@@ -63,6 +63,17 @@ const unitPageStyles = `
   .mg-root .mg-panel__head { padding: 0.875rem 1rem; }
   .mg-root .mg-panel__body { padding: 0.875rem; }
 }
+.mg-root button.mg-btn--primary {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--pms-accent), var(--pms-accent-2));
+}
+.mg-root button.mg-btn--ghost {
+  border: 1px solid var(--pms-border);
+  color: var(--pms-text);
+  background: var(--pms-glass);
+}
+
 `;
 
 /* ------------------------------------------------------------------ */

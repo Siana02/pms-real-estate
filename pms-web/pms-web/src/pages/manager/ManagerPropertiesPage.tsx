@@ -174,6 +174,33 @@ const pageStyles = `
   .pr-card .mg-badge { max-width: 100%; }
 }
 
+ 
+/* Explicit button selectors win over the shared reset while preserving theme colors. */
+.mg-root button.pr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  color: var(--pms-text);
+  text-align: left;
+  border: 1px solid var(--pms-border-soft);
+  background: linear-gradient(165deg, var(--pms-surface), var(--pms-glass));
+  cursor: pointer;
+}
+.mg-root button.pr-card:hover {
+  border-color: var(--pms-accent);
+  background: linear-gradient(165deg, var(--pms-surface), var(--pms-glass));
+}
+.mg-root button.mg-btn--primary {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--pms-accent), var(--pms-accent-2));
+}
+.mg-root button.mg-btn--ghost {
+  border: 1px solid var(--pms-border);
+  color: var(--pms-text);
+  background: var(--pms-glass);
+}
+
 `;
  
 /* ------------------------------------------------------------------ */
