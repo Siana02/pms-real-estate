@@ -618,7 +618,7 @@ function ManagerUnitsPage() {
  
   return (
     <DashboardLayout>
-      <div className="mg-root">
+      <div className="mg-root mg-root--units">
         <style>{managerStyles}</style>
         <style>{unitPageStyles}</style>
  
@@ -852,7 +852,34 @@ function ManagerUnitsPage() {
                               <span className="mg-strong">{unit.unit_number}</span>
                               <span className="mg-sub">
                                 {unit.unit_type || "Type not set"}
-                                {unit.size_sqm > 0 ? ` · ${unit.size_sqm} m²` : ""}
+                                {unit.size_sqm > 0 ? ` · ${unit.size_sqm} m²
+/* Inventory redesign: make availability and rent the first things the eye finds. */
+.mg-root--units .mg-shell{max-width:88rem;gap:1.65rem}
+.mg-root--units .mg-header{padding:clamp(1.15rem,2.5vw,2rem);border:1px solid var(--pms-border-soft);border-left:5px solid var(--pms-accent);border-radius:1.4rem;background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--pms-accent) 16%,transparent),transparent 48%),var(--pms-surface)}
+.mg-root--units .mg-eyebrow{padding:.35rem .7rem;border:1px solid var(--pms-border);border-radius:999px;background:var(--pms-glass);color:var(--pms-accent);letter-spacing:.12em}
+.mg-root--units .mg-title{margin-top:.75rem;font-size:clamp(2rem,3.8vw,2.8rem);letter-spacing:-.05em}
+.mg-root--units .mg-subtitle{max-width:45rem;line-height:1.65}
+.mg-root--units .mg-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem}
+.mg-root--units .mg-stat{position:relative;overflow:hidden;min-height:7.25rem;padding:1.15rem;border:1px solid var(--pms-border-soft);border-radius:1.1rem;background:var(--pms-surface);box-shadow:0 9px 26px rgba(0,0,0,.06)}
+.mg-root--units .mg-stat::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--pms-accent)}
+.mg-root--units .mg-stat__label{font-size:.7rem;letter-spacing:.11em;text-transform:uppercase}
+.mg-root--units .mg-stat__value{margin-top:.6rem;font-size:clamp(1.65rem,2.5vw,2.2rem);letter-spacing:-.055em;font-weight:750}
+.mg-root--units .mg-toolbar{align-items:end;padding:.9rem;border:1px solid var(--pms-border-soft);border-radius:1.1rem;background:var(--pms-glass)}
+.mg-root--units .mg-search{flex-basis:22rem}
+.mg-root--units .mg-panel{overflow:hidden;border:1px solid var(--pms-border-soft);border-radius:1.3rem;background:var(--pms-surface);box-shadow:0 14px 36px rgba(0,0,0,.065)}
+.mg-root--units .mg-panel__head{padding:1.15rem 1.3rem;border-bottom:1px solid var(--pms-border-soft);background:linear-gradient(105deg,color-mix(in srgb,var(--pms-accent) 11%,var(--pms-surface)),var(--pms-surface) 72%)}
+.mg-root--units .mg-panel__title{font-size:1.1rem;letter-spacing:-.025em}
+.mg-root--units .mg-panel__meta{padding:.35rem .65rem;border:1px solid var(--pms-border);border-radius:999px;background:var(--pms-glass)}
+.mg-root--units .mg-tablewrap{padding:.15rem .7rem .7rem}
+.mg-root--units .mg-table{border-collapse:separate;border-spacing:0 .35rem}
+.mg-root--units .mg-table th{padding:.85rem .8rem;font-size:.68rem;letter-spacing:.11em;text-transform:uppercase}
+.mg-root--units .mg-table td{padding:.9rem .8rem;border-top:1px solid var(--pms-border-soft);border-bottom:1px solid var(--pms-border-soft);background:var(--pms-glass)}
+.mg-root--units .mg-table td:first-child{border-left:1px solid var(--pms-border-soft);border-radius:.75rem 0 0 .75rem}
+.mg-root--units .mg-table td:last-child{border-right:1px solid var(--pms-border-soft);border-radius:0 .75rem .75rem 0}
+.mg-root--units .mg-table tbody tr:hover td{background:color-mix(in srgb,var(--pms-accent) 8%,var(--pms-surface))}
+@media(max-width:54rem){.mg-root--units .mg-stats{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:36rem){.mg-root--units .mg-header{padding:1rem;border-radius:1.05rem}.mg-root--units .mg-stat{min-height:6.25rem;padding:.85rem}.mg-root--units .mg-stat__value{font-size:1.5rem}.mg-root--units .mg-panel__head{padding:.9rem}.mg-root--units .mg-tablewrap{padding:.1rem .35rem .4rem}}
+` : ""}
                               </span>
                             </td>
                             <td data-label="Tenant">
