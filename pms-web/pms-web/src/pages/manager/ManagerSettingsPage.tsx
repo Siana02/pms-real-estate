@@ -122,19 +122,20 @@ const pageStyles = `
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 6rem;
-  height: 6rem;
-  padding: 0;
-  border-radius: 50%;
+  flex: 0 0 auto;
+  width: min(100%, 12rem);
+  height: 7rem;
+  padding: 0.75rem;
+  border-radius: 1rem;
   border: 1px dashed var(--pms-border);
-  background: var(--pms-glass);
+  background: var(--pms-surface, #fff);
   overflow: hidden;
   cursor: pointer;
   position: relative;
 }
  
 .st-logo:hover { border-color: var(--pms-accent); }
-.st-logo img { width: 100%; height: 100%; object-fit: contain; }
+.st-logo img { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
 .st-logo:disabled { cursor: default; opacity: 0.7; }
  
 .st-crop {
@@ -538,9 +539,10 @@ function ManagerSettingsPage() {
     if (!file) return;
 
     setError("");
+    setNotice("");
 
     if (!file.type.startsWith("image/")) {
-      setError("That file is not an image. Use a PNG, JPG or SVG logo.");
+      setError("That file is not an image. Use a PNG, JPG, WebP or SVG logo.");
       return;
     }
 
@@ -549,8 +551,39 @@ function ManagerSettingsPage() {
       return;
     }
 
-    const source = URL.createObjectURL(file);
-    openCropper(source);
+    // Upload the original image bytes. Do not force the logo through a square
+    // crop canvas: wide wordmarks and portrait marks must keep their proportions.
+    setSavingLogo(true);
+    try {
+      const form = new FormData();
+      form.append("logo", file, file.name || "organization-logo");
+
+      const response = await apiRequest("/organization/logo", {
+        method: "POST",
+        body: form,
+      });
+
+      const organization =
+        response &&
+        typeof response === "object" &&
+        "organization" in response
+          ? (response as { organization?: { logo_url?: string | null } }).organization
+          : undefined;
+
+      const nextLogo = organization?.logo_url ?? null;
+      if (!nextLogo) {
+        throw new Error("The logo was uploaded, but the server did not return its image URL. Refresh the page and check the organization profile.");
+      }
+
+      saveBrandLogo(nextLogo);
+      setLogo(nextLogo);
+      window.dispatchEvent(new CustomEvent("pms:organization"));
+      setNotice("Brand logo updated without changing its original proportions.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not upload the logo.");
+    } finally {
+      setSavingLogo(false);
+    }
   }
 
   function handleCropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
